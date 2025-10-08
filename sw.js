@@ -16,7 +16,7 @@ workbox.routing.registerRoute(
 // ***** NOVO E IMPORTANTE: Cache para o modelo de voz *****
 // Usamos CacheFirst porque o modelo não muda.
 workbox.routing.registerRoute(
-  ({url}) => url.pathname.includes('/model/'), // Captura qualquer arquivo dentro da pasta /model/
+  ({url}) => url.pathname.includes('/model/') || url.pathname.includes('/models/'), 
   new workbox.strategies.CacheFirst({
     cacheName: 'vosk-model-cache',
     plugins: [
