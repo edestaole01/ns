@@ -268,6 +268,31 @@
             .item-actions { width: 100%; }
             .item-actions button { flex: 1; justify-content: center; }
         }
+
+        .network-status {
+            position: fixed;
+            top: 80px;
+            right: 2rem;
+            padding: 0.5rem 1rem;
+            border-radius: 0.5rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            box-shadow: var(--shadow-md);
+            z-index: 999;
+            transition: all 0.3s ease;
+        }
+
+        .network-status.online {
+            background: var(--secondary);
+            color: white;
+            opacity: 0;
+        }
+
+        .network-status.offline {
+            background: var(--warning);
+            color: white;
+            opacity: 1;
+}
     </style>
 </head>
 <body>

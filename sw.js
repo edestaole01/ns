@@ -1,7 +1,6 @@
-// Service Worker para funcionamento OFFLINE - VERSÃO CORRIGIDA
-const CACHE_NAME = 'inspecao-riscos-v3';
+// Service Worker Otimizado - Versão sem Loop
+const CACHE_NAME = 'inspecao-riscos-v4';
 
-// Arquivos ESSENCIAIS (apenas os que existem com certeza)
 const ESSENTIAL_FILES = [
   '/ns/',
   '/ns/index.html',
@@ -9,7 +8,6 @@ const ESSENTIAL_FILES = [
   '/ns/manifest.json'
 ];
 
-// Arquivos OPCIONAIS (não travam se não existirem)
 const OPTIONAL_FILES = [
   '/ns/icon-192.png',
   '/ns/icon-512.png',
@@ -18,127 +16,95 @@ const OPTIONAL_FILES = [
   'https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js'
 ];
 
-// ==========================================
-// INSTALAR SERVICE WORKER
-// ==========================================
+// INSTALAÇÃO
 self.addEventListener('install', (event) => {
   console.log('📦 Service Worker: Instalando...');
   
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then(async (cache) => {
-        console.log('📂 Service Worker: Cacheando arquivos essenciais');
-        
-        // Cachear arquivos essenciais (pode falhar se não existirem)
+        // Cachear essenciais
         try {
           await cache.addAll(ESSENTIAL_FILES);
           console.log('✅ Arquivos essenciais cacheados');
         } catch (err) {
-          console.warn('⚠️ Alguns arquivos essenciais não foram encontrados:', err);
+          console.warn('⚠️ Erro ao cachear essenciais:', err);
         }
         
-        // Tentar cachear arquivos opcionais (não trava se falhar)
+        // Cachear opcionais
         for (const url of OPTIONAL_FILES) {
           try {
-            const response = await fetch(url);
-            if (response.ok) {
-              await cache.put(url, response);
-              console.log('✅ Cacheado:', url);
-            }
+            const response = await fetch(url, { mode: 'no-cors' });
+            await cache.put(url, response);
           } catch (err) {
-            console.log('⭕ Ignorado (não existe):', url);
+            console.log('⏭️ Ignorado:', url);
           }
         }
-        
-        console.log('✅ Service Worker: Cache inicial concluído');
       })
       .then(() => self.skipWaiting())
   );
 });
 
-// ==========================================
-// ATIVAR SERVICE WORKER
-// ==========================================
+// ATIVAÇÃO
 self.addEventListener('activate', (event) => {
   console.log('🔄 Service Worker: Ativando...');
   
   event.waitUntil(
-    caches.keys().then((cacheNames) => {
-      return Promise.all(
-        cacheNames.map((cache) => {
-          // Limpar caches antigos (exceto o atual)
-          if (cache !== CACHE_NAME) {
-            console.log('🗑️ Service Worker: Limpando cache antigo:', cache);
-            return caches.delete(cache);
-          }
-        })
-      );
-    }).then(() => {
-      console.log('✅ Service Worker: Ativado com sucesso!');
-      return self.clients.claim();
-    })
+    caches.keys()
+      .then((cacheNames) => {
+        return Promise.all(
+          cacheNames.map((cache) => {
+            if (cache !== CACHE_NAME) {
+              console.log('🗑️ Limpando cache antigo:', cache);
+              return caches.delete(cache);
+            }
+          })
+        );
+      })
+      .then(() => self.clients.claim())
   );
 });
 
-// ==========================================
-// INTERCEPTAR REQUISIÇÕES
-// ==========================================
+// FETCH - ESTRATÉGIA: Cache First para arquivos locais, Network Only para dados
 self.addEventListener('fetch', (event) => {
-  // Estratégia: Network First, fallback para Cache
-  event.respondWith(
-    fetch(event.request)
-      .then((response) => {
-        // Se online, atualizar cache com a resposta
-        if (response && response.status === 200) {
-          const responseClone = response.clone();
-          caches.open(CACHE_NAME).then((cache) => {
-            cache.put(event.request, responseClone);
-          });
-        }
-        return response;
-      })
-      .catch(() => {
-        // Se offline, buscar no cache
-        return caches.match(event.request).then((response) => {
+  const url = new URL(event.request.url);
+  
+  // Se for IndexedDB ou dados locais, não interceptar
+  if (url.protocol === 'chrome-extension:' || url.protocol === 'devtools:') {
+    return;
+  }
+  
+  // Para arquivos estáticos: Cache First
+  if (ESSENTIAL_FILES.includes(url.pathname) || OPTIONAL_FILES.includes(event.request.url)) {
+    event.respondWith(
+      caches.match(event.request)
+        .then((response) => {
           if (response) {
-            console.log('📦 Service Worker: Servindo do cache (offline):', event.request.url);
+            console.log('📦 Servindo do cache:', event.request.url);
             return response;
           }
-          
-          // Se não tem no cache e é uma página HTML, retornar index.html
+          return fetch(event.request)
+            .then((response) => {
+              if (response && response.status === 200) {
+                const responseClone = response.clone();
+                caches.open(CACHE_NAME).then((cache) => {
+                  cache.put(event.request, responseClone);
+                });
+              }
+              return response;
+            });
+        })
+        .catch(() => {
           if (event.request.mode === 'navigate') {
-            console.log('🏠 Service Worker: Retornando index.html (offline)');
             return caches.match('/ns/index.html');
           }
-          
-          // Se for um ícone que não existe, retornar resposta vazia (sem erro)
-          if (event.request.url.includes('icon-')) {
-            console.log('⭕ Service Worker: Ícone não encontrado, ignorando');
-            return new Response('', { status: 404, statusText: 'Icon not found' });
-          }
-          
-          // Para outros recursos, retornar erro 404
-          console.warn('❌ Service Worker: Recurso não encontrado:', event.request.url);
-          return new Response('Not found', { status: 404 });
-        });
-      })
-  );
-});
-
-// ==========================================
-// MENSAGENS DO CLIENTE
-// ==========================================
-self.addEventListener('message', (event) => {
-  if (event.data && event.data.type === 'SKIP_WAITING') {
-    console.log('⏭️ Service Worker: Pulando espera (force update)');
-    self.skipWaiting();
+          return new Response('Offline', { status: 503 });
+        })
+    );
+  } else {
+    // Para outros recursos: Network Only (não interferir)
+    event.respondWith(fetch(event.request));
   }
 });
 
-// ==========================================
-// LOG FINAL
-// ==========================================
-console.log('✅ Service Worker carregado com sucesso!');
-console.log('📌 Cache Name:', CACHE_NAME);
-console.log('📂 Arquivos essenciais:', ESSENTIAL_FILES.length);
-console.log('📂 Arquivos opcionais:', OPTIONAL_FILES.length);
+console.log('✅ Service Worker carregado!');

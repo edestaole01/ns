@@ -81,6 +81,22 @@ let activeFuncionarioIndex = -1;
 let autosaveTimer = null;
 let isAutosaving = false;
 
+// Detectar status de conexão
+let isOnline = navigator.onLine;
+
+window.addEventListener('online', () => {
+    isOnline = true;
+    showToast('✅ Conexão restaurada! Salvando dados...', 'success');
+    if (currentInspection && currentInspection.id) {
+        performAutosave();
+    }
+});
+
+window.addEventListener('offline', () => {
+    isOnline = false;
+    showToast('⚠️ Modo offline ativo. Dados serão salvos localmente.', 'warning');
+});
+
 const request = indexedDB.open("fluentInspecoesDB", 1);
 request.onerror = (e) => console.error("Erro no DB:", e);
 request.onsuccess = (e) => { db = e.target.result; showDashboard(); };
@@ -1289,37 +1305,100 @@ function performAutosave() {
     if (!db || !currentInspection || !currentInspection.id || isAutosaving) {
         return;
     }
+    
+    // ⚠️ CORREÇÃO: Se estiver offline, salvar sem mostrar "salvando..."
+    if (!isOnline) {
+        console.log('📴 Modo offline: salvando localmente sem feedback visual');
+        currentInspection.updatedAt = new Date().toISOString();
+        
+        const transaction = db.transaction(["inspections"], "readwrite");
+        const store = transaction.objectStore("inspections");
+        const request = store.put(currentInspection);
+        
+        request.onsuccess = () => {
+            console.log('✅ Dados salvos localmente (offline)');
+        };
+        
+        request.onerror = (event) => {
+            console.error('❌ Erro ao salvar offline:', event.target.error);
+        };
+        
+        return; // Não executar o resto da função quando offline
+    }
+    
+    // Se estiver online, continuar normalmente
     isAutosaving = true;
     showAutosaveStatus('saving');
+    
     const empresaForm = document.getElementById('empresa-form');
     const riscoForm = document.getElementById('risco-form');
     const actionForm = document.getElementById('action-item-form');
     let dataUpdated = false;
+    
     if (empresaForm && !wizardView.classList.contains('hidden')) {
-        currentInspection.empresa = { nome: document.getElementById("nome").value, cnpj: document.getElementById("cnpj").value, data: document.getElementById("data").value, elaborado: document.getElementById("elaborado").value, aprovado: document.getElementById("aprovado").value };
+        currentInspection.empresa = { 
+            nome: document.getElementById("nome").value, 
+            cnpj: document.getElementById("cnpj").value, 
+            data: document.getElementById("data").value, 
+            elaborado: document.getElementById("elaborado").value, 
+            aprovado: document.getElementById("aprovado").value 
+        };
         dataUpdated = true;
     }
+    
     if (riscoForm && !wizardView.classList.contains('hidden') && editingIndex > -1) {
         const riscoData = {
-            riscoPresente: document.getElementById("risco-presente").value, tipo: document.getElementById("risco-tipo").value, codigoEsocial: document.getElementById("risco-esocial").value, perigo: document.getElementById("risco-perigo").value, descricaoDetalhada: document.getElementById("risco-descricao-detalhada").value, fonteGeradora: document.getElementById("risco-fonte").value, perfilExposicao: document.getElementById("risco-perfil-exposicao").value, medicao: document.getElementById("risco-medicao").value, tempoExposicao: document.getElementById("risco-tempo-exposicao").value, tipoExposicao: document.getElementById("risco-tipo-exposicao").value, obsAmbientais: document.getElementById("risco-obs-ambientais").value, probabilidade: document.getElementById("risco-probabilidade").value, severidade: document.getElementById("risco-severidade").value, aceitabilidade: document.getElementById("risco-aceitabilidade").value, danos: document.getElementById("risco-danos").value, epiUtilizado: document.getElementById("risco-epi-utilizado").value, ca: document.getElementById("risco-ca").value, epc: document.getElementById("risco-epc").value, epiSugerido: document.getElementById("risco-epi-sugerido").value, acoesNecessarias: document.getElementById("risco-acoes").value, observacoesGerais: document.getElementById("risco-observacoes-gerais").value
+            riscoPresente: document.getElementById("risco-presente").value, 
+            tipo: document.getElementById("risco-tipo").value, 
+            codigoEsocial: document.getElementById("risco-esocial").value, 
+            perigo: document.getElementById("risco-perigo").value, 
+            descricaoDetalhada: document.getElementById("risco-descricao-detalhada").value, 
+            fonteGeradora: document.getElementById("risco-fonte").value, 
+            perfilExposicao: document.getElementById("risco-perfil-exposicao").value, 
+            medicao: document.getElementById("risco-medicao").value, 
+            tempoExposicao: document.getElementById("risco-tempo-exposicao").value, 
+            tipoExposicao: document.getElementById("risco-tipo-exposicao").value, 
+            obsAmbientais: document.getElementById("risco-obs-ambientais").value, 
+            probabilidade: document.getElementById("risco-probabilidade").value, 
+            severidade: document.getElementById("risco-severidade").value, 
+            aceitabilidade: document.getElementById("risco-aceitabilidade").value, 
+            danos: document.getElementById("risco-danos").value, 
+            epiUtilizado: document.getElementById("risco-epi-utilizado").value, 
+            ca: document.getElementById("risco-ca").value, 
+            epc: document.getElementById("risco-epc").value, 
+            epiSugerido: document.getElementById("risco-epi-sugerido").value, 
+            acoesNecessarias: document.getElementById("risco-acoes").value, 
+            observacoesGerais: document.getElementById("risco-observacoes-gerais").value
         };
+        
         const depto = currentInspection.departamentos[activeDepartamentoIndex];
         let targetArray;
+        
         if (currentGroupId) targetArray = depto.grupos.find(g => g.id === currentGroupId)?.riscos;
         else if (activeCargoIndex > -1) targetArray = depto.cargos[activeCargoIndex]?.riscos;
         else if (activeFuncionarioIndex > -1) targetArray = depto.funcionarios[activeFuncionarioIndex]?.riscos;
+        
         if (targetArray && targetArray[editingIndex]) {
             targetArray[editingIndex] = riscoData;
             dataUpdated = true;
         }
     }
+    
     if (actionForm && !actionPlanView.classList.contains('hidden') && editingIndex > -1) {
-        const itemData = { atividade: document.getElementById("action-atividade").value, descricao: document.getElementById("action-descricao").value, prazoInicio: document.getElementById("action-prazo-inicio").value, prazoFim: document.getElementById("action-prazo-fim").value, status: document.getElementById("action-status").value };
+        const itemData = { 
+            atividade: document.getElementById("action-atividade").value, 
+            descricao: document.getElementById("action-descricao").value, 
+            prazoInicio: document.getElementById("action-prazo-inicio").value, 
+            prazoFim: document.getElementById("action-prazo-fim").value, 
+            status: document.getElementById("action-status").value 
+        };
+        
         if (currentInspection.planoDeAcao && currentInspection.planoDeAcao[editingIndex]) {
             currentInspection.planoDeAcao[editingIndex] = itemData;
             dataUpdated = true;
         }
     }
+    
     if (dataUpdated) {
         persistCurrentInspection((success) => {
             if (success) showAutosaveStatus('saved');
@@ -1630,3 +1709,24 @@ if (!document.getElementById('voice-styles')) {
 }
 
 console.log("✅ Sistema de reconhecimento de voz (Web Speech API) carregado!");
+
+// Atualizar indicador visual de rede
+function updateNetworkStatus() {
+    const indicator = document.getElementById('network-status');
+    if (!indicator) return;
+    
+    if (isOnline) {
+        indicator.className = 'network-status online';
+        indicator.textContent = '🌐 Online';
+    } else {
+        indicator.className = 'network-status offline';
+        indicator.textContent = '📴 Offline';
+    }
+}
+
+// Atualizar status ao carregar
+updateNetworkStatus();
+
+// Atualizar quando mudar conexão
+window.addEventListener('online', updateNetworkStatus);
+window.addEventListener('offline', updateNetworkStatus);
