@@ -1519,14 +1519,6 @@ const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/
 const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
 
 function toggleRecognition(button) {
-    // DEBUG: Mostrar informações do sistema
-    console.log('=== DEBUG VOZ ===');
-    console.log('Navigator:', navigator);
-    console.log('UserAgent:', navigator.userAgent);
-    console.log('Microfone disponível?:', 'mediaDevices' in navigator);
-    console.log('SpeechRecognition disponível?:', 'webkitSpeechRecognition' in window || 'SpeechRecognition' in window);
-    alert(`Debug:\nMobile: ${isMobile}\niOS: ${isIOS}\nCampo: ${input ? 'OK' : 'ERRO'}`);
-    
     const targetId = button.dataset.target;
     const input = document.getElementById(targetId);
     
@@ -1553,6 +1545,7 @@ function toggleRecognition(button) {
     console.log('🎤 Iniciando reconhecimento de voz...');
     console.log('📱 Dispositivo:', isMobile ? 'Mobile' : 'Desktop');
     console.log('🍎 iOS:', isIOS ? 'Sim' : 'Não');
+    console.log('Campo alvo:', input.id);
 
     // Criar reconhecedor com configurações específicas para mobile
     const recognition = new SpeechRecognition();
@@ -1588,7 +1581,7 @@ function toggleRecognition(button) {
             navigator.vibrate(200);
         }
         
-        showToast("🎤 FALANDO... Pode falar agora!", "success");
+        showToast("🎤 GRAVANDO... Fale agora!", "success");
         
         // Timeout de segurança (30 segundos)
         recognitionTimeout = setTimeout(() => {
@@ -1651,7 +1644,7 @@ function toggleRecognition(button) {
                 navigator.vibrate(100);
             }
             
-            showToast(`✅ Capturado: "${finalTranscript.substring(0, 30)}..."`, "success");
+            showToast(`✅ Texto capturado!`, "success");
             
             // No mobile, REINICIAR para capturar mais texto
             if (isMobile && isRecording) {
@@ -1662,10 +1655,10 @@ function toggleRecognition(button) {
                             currentRecognition.start();
                             console.log('🔄 Reconhecimento reiniciado');
                         } catch (e) {
-                            console.log('⏳ Aguardando...');
+                            console.log('⏳ Aguardando...', e.message);
                         }
                     }
-                }, 500); // Aguardar meio segundo antes de reiniciar
+                }, 500);
             }
         }
     };
@@ -1726,7 +1719,6 @@ function toggleRecognition(button) {
         }
         
         // Se ainda está gravando e é mobile, foi término natural
-        // (o recognition.onresult já deve ter reiniciado se necessário)
         if (!isRecording) {
             stopRecognition(button);
         }
