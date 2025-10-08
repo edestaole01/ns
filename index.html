@@ -2,7 +2,10 @@
 <html lang="pt-br">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes, viewport-fit=cover">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <title>Assistente de Inspeção de Riscos</title>
 
     <!-- PWA Manifest -->
@@ -223,50 +226,344 @@
         .report-checklist { font-family: 'Courier New', Courier, monospace; font-size: 0.85em; line-height: 1.5; background-color: var(--gray-50); padding: 10px; border-radius: 4px; border: 1px solid var(--gray-200); }
         .report-checklist-item { margin-right: 1.5rem; white-space: nowrap; }        
         @media (max-width: 768px) {
-            .container { padding: 0 1rem; }
-            .card { padding: 1.5rem; }
-            h1 { font-size: 1.5rem; }
-            h2 { font-size: 1.25rem; }
-            .main-nav { padding: 0 1rem; }
-            .nav-links button { padding: 0.5rem 0.75rem; font-size: 0.85rem; }
-            .form-grid { grid-template-columns: 1fr; }
-            .progress-bar {
-                flex-direction: column;
-                align-items: flex-start;
-                gap: 1.5rem;
-                padding-left: 1rem;
+    body {
+        padding-top: 60px;
+        padding-bottom: 20px;
+    }
+    
+    .container { 
+        padding: 0 0.75rem; 
+        margin: 1rem auto;
+    }
+    
+    .card { 
+        padding: 1rem; 
+        margin-bottom: 1rem;
+        border-radius: 0.75rem;
+    }
+    
+    h1 { 
+        font-size: 1.5rem; 
+        line-height: 1.3;
+    }
+    
+    h2 { 
+        font-size: 1.25rem; 
+        margin-bottom: 1rem;
+    }
+    
+    h3 {
+        font-size: 1.1rem;
+        margin: 1rem 0 0.75rem;
+    }
+    
+    /* Navegação principal */
+    .main-nav { 
+        padding: 0 0.75rem; 
+        height: 60px;
+    }
+    
+    .main-nav .logo {
+        font-size: 1.2rem;
+    }
+    
+    .nav-links {
+        gap: 0.25rem;
+    }
+    
+    .nav-links button { 
+        padding: 0.5rem 0.75rem; 
+        font-size: 0.85rem; 
+    }
+    
+    /* Botões */
+    button {
+        padding: 0.6rem 1rem;
+        font-size: 0.9rem;
+        min-height: 44px; /* Tamanho mínimo recomendado para touch */
+        touch-action: manipulation; /* Prevenir double-tap zoom */
+    }
+    
+    button i {
+        font-size: 1rem;
+    }
+    
+    /* Formulários */
+    .form-grid { 
+        grid-template-columns: 1fr; 
+        gap: 1rem;
+    }
+    
+    .form-group {
+        margin-bottom: 1rem;
+    }
+    
+    .form-group input, 
+    .form-group select, 
+    .form-group textarea { 
+        font-size: 16px; /* Prevenir zoom automático no iOS */
+        padding: 0.75rem;
+        min-height: 44px;
+    }
+    
+    .form-actions {
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+    
+    .form-actions button {
+        width: 100%;
+    }
+    
+    /* Progress Bar Vertical */
+    .progress-bar {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 1.5rem;
+        padding-left: 1rem;
+        margin: 1.5rem 0;
+    }
+    
+    .progress-bar::before, .progress-bar::after {
+        left: 1rem;
+        top: 0;
+        bottom: 0;
+        width: 3px;
+        height: 100%;
+        transform: none;
+    }
+    
+    .progress-bar::after {
+        height: var(--after-height, 0%);
+        width: 3px;
+    }
+    
+    .progress-bar li {
+        flex-direction: row;
+        gap: 1rem;
+        padding-left: 1.5rem;
+        text-align: left;
+    }
+    
+    .progress-bar li::before {
+        position: absolute;
+        left: -16px;
+        top: 50%;
+        transform: translateY(-50%);
+    }
+    
+    /* Header e Actions */
+    .header { 
+        flex-direction: column; 
+        align-items: flex-start;
+        gap: 0.75rem;
+    }
+    
+    .actions { 
+        width: 100%; 
+        flex-direction: column;
+    }
+    
+    .actions button { 
+        width: 100%;
+        justify-content: center; 
+    }
+    
+    /* Lista de Itens */
+    .item-list li {
+        flex-direction: column;
+        align-items: stretch;
+        padding: 1rem;
+        gap: 0.75rem;
+    }
+    
+    .item-info {
+        width: 100%;
+    }
+    
+    .item-actions { 
+        width: 100%; 
+        justify-content: stretch;
+        gap: 0.5rem;
+    }
+    
+    .item-actions button { 
+        flex: 1; 
+        min-width: 0;
+        padding: 0.6rem 0.5rem;
+        font-size: 0.85rem;
+    }
+    
+    /* Grid de Stats */
+    .stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 0.75rem;
+    }
+    
+    .stat-card {
+        padding: 1rem;
+    }
+    
+    .stat-card .stat-value {
+        font-size: 1.75rem;
+    }
+    
+    .stat-card .stat-label {
+        font-size: 0.8rem;
+    }
+    
+    /* Wizard */
+    .wizard-header {
+        flex-direction: column;
+        align-items: stretch;
+        padding: 1rem;
+        gap: 0.75rem;
+    }
+    
+    .wizard-nav {
+        flex-direction: column-reverse;
+        gap: 0.5rem;
+    }
+    
+    .wizard-nav button {
+        width: 100%;
+    }
+    
+    /* Breadcrumb */
+    .breadcrumb {
+        font-size: 0.85rem;
+        padding: 0.75rem;
+        word-break: break-word;
+    }
+    
+    /* Fieldset */
+    fieldset {
+        padding: 1rem;
+        margin: 1rem 0;
+    }
+    
+    fieldset > div {
+        grid-template-columns: 1fr !important;
+    }
+    
+    legend {
+        font-size: 0.9rem;
+    }
+    
+    /* Radio buttons */
+    .radio-group-container {
+        grid-template-columns: 1fr;
+        gap: 0.75rem;
+    }
+    
+    .radio-group-item {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.5rem;
+    }
+    
+    /* Accordion */
+    .accordion-section summary {
+        padding: 0.75rem;
+        font-size: 0.95rem;
+    }
+    
+    .accordion-section > div {
+        padding: 0 0.75rem 0.75rem 0.75rem;
+    }
+    
+    /* Toast */
+    .toast {
+        bottom: 1rem;
+        right: 1rem;
+        left: 1rem;
+        padding: 0.75rem 1rem;
+        font-size: 0.9rem;
+    }
+    
+    /* Network Status */
+    .network-status {
+        top: 65px;
+        right: 0.75rem;
+        padding: 0.4rem 0.75rem;
+        font-size: 0.8rem;
+    }
+    
+    /* Melhorar touch em botões de microfone */
+    button.outline {
+        min-width: 44px;
+        min-height: 44px;
+        padding: 0.5rem;
+    }
+    
+    /* Tabelas responsivas */
+    table {
+        font-size: 0.85rem;
+        display: block;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+    
+    th, td {
+        padding: 0.5rem;
+        font-size: 0.85rem;
+    }
+    
+    /* Prevenir zoom em inputs */
+    select, textarea, input {
+        font-size: 16px !important;
+    }
+}
+
+/* Estilos extras para telas muito pequenas */
+@media (max-width: 375px) {
+    .stats-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .item-actions {
+        flex-direction: column;
+    }
+    
+    .item-actions button {
+        width: 100%;
+    }
+}
+
+        /* Orientação paisagem no mobile */
+        @media (max-width: 768px) and (orientation: landscape) {
+            body {
+                padding-top: 50px;
             }
+            
+            .main-nav {
+                height: 50px;
+            }
+            
+            .progress-bar {
+                flex-direction: row;
+                padding-left: 0;
+            }
+            
             .progress-bar::before, .progress-bar::after {
-                left: 1rem;
+                top: 50%;
+                left: 0;
+                right: 0;
+                width: 100%;
+                height: 3px;
+            }
+            
+            .progress-bar::after {
+                width: var(--after-width, 0%);
+                height: 4px;
+            }
+            
+            .progress-bar li::before {
+                position: relative;
+                left: 0;
                 top: 0;
-                bottom: 0;
-                width: 3px;
-                height: 100%;
                 transform: none;
             }
-            .progress-bar::after {
-                height: var(--after-height, 0%);
-                width: 3px;
-            }
-            .progress-bar li {
-                flex-direction: row;
-                gap: 1rem;
-                padding-left: 1.5rem;
-                border: none;
-            }
-            .progress-bar li::before {
-                position: absolute;
-                left: -16px;
-                top: 50%;
-                transform: translateY(-50%);
-                display: flex;
-            }
-            .progress-bar li.active { border: none; }
-            .header { flex-direction: column; align-items: flex-start; }
-            .actions { width: 100%; }
-            .actions button { flex: 1; justify-content: center; }
-            .item-actions { width: 100%; }
-            .item-actions button { flex: 1; justify-content: center; }
         }
 
         .network-status {

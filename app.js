@@ -81,6 +81,11 @@ let activeFuncionarioIndex = -1;
 let autosaveTimer = null;
 let isAutosaving = false;
 
+// Garantir que nenhum reconhecimento de voz inicie automaticamente
+window.addEventListener('DOMContentLoaded', () => {
+    console.log('✅ Aplicação carregada. Reconhecimento de voz desativado por padrão.');
+});
+
 // Detectar status de conexão
 let isOnline = navigator.onLine;
 
@@ -1503,11 +1508,14 @@ function generateInspectionReport(id) {
 // RECONHECIMENTO DE VOZ - WEB SPEECH API
 // Funciona OFFLINE após primeira permissão!
 // ==========================================
-// SUBSTITUA toda a seção de voz no app.js
+// ==========================================
+// RECONHECIMENTO DE VOZ - WEB SPEECH API
+// ==========================================
 
 let currentRecognition = null;
 let currentTargetInput = null;
 let isRecording = false;
+let recognitionInitialized = false; // NOVO: prevenir inicialização automática
 
 function toggleRecognition(button) {
     const targetId = button.dataset.target;
@@ -1528,17 +1536,20 @@ function toggleRecognition(button) {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     
     if (!SpeechRecognition) {
-        showToast("❌ Seu navegador não suporta reconhecimento de voz. Use Chrome ou Edge.", "error");
+        showToast("❌ Reconhecimento de voz não disponível neste navegador.", "error");
         return;
     }
+
+    // Detectar se é mobile
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 
     // Criar reconhecedor
     const recognition = new SpeechRecognition();
 
-    // Configurações otimizadas
+    // Configurações adaptadas para mobile
     recognition.lang = 'pt-BR';
-    recognition.continuous = true;  // Continua gravando até parar manualmente
-    recognition.interimResults = true;  // Mostra resultados parciais
+    recognition.continuous = !isMobile; // No mobile, usar continuous=false para melhor compatibilidade
+    recognition.interimResults = true;
     recognition.maxAlternatives = 1;
 
     currentRecognition = recognition;
@@ -1551,14 +1562,19 @@ function toggleRecognition(button) {
         button.innerHTML = '<i class="bi bi-mic-fill" style="color: red;"></i>';
         button.style.animation = 'pulse 1.5s infinite';
         button.title = 'Clique para parar';
-        showToast("🎤 Gravando... Fale agora! Clique novamente para parar.", "success");
+        
+        // Vibrar no mobile (se suportado)
+        if ('vibrate' in navigator) {
+            navigator.vibrate(100);
+        }
+        
+        showToast("🎤 Gravando... Fale agora!", "success");
     };
 
     recognition.onresult = (event) => {
         let interimTranscript = '';
         let finalTranscript = '';
 
-        // Processar todos os resultados
         for (let i = event.resultIndex; i < event.results.length; i++) {
             const transcript = event.results[i][0].transcript;
             
@@ -1569,46 +1585,50 @@ function toggleRecognition(button) {
             }
         }
 
-        // Atualizar o campo com texto final
         if (finalTranscript) {
             addTextToInput(finalTranscript.trim());
+            
+            // No mobile, reiniciar automaticamente após capturar texto
+            if (isMobile && isRecording) {
+                setTimeout(() => {
+                    if (isRecording && currentRecognition) {
+                        try {
+                            currentRecognition.start();
+                        } catch (e) {
+                            console.log("Aguardando para reiniciar...");
+                        }
+                    }
+                }, 300);
+            }
         }
 
-        // Mostrar preview do texto interim
         if (interimTranscript) {
-            button.title = `Reconhecendo: "${interimTranscript.substring(0, 30)}..."`;
+            button.title = `Ouvindo: "${interimTranscript.substring(0, 20)}..."`;
         }
     };
 
     recognition.onerror = (event) => {
+        console.error('Erro no reconhecimento:', event.error);
+        
+        // Ignorar erros comuns no mobile
+        if (event.error === 'no-speech' || event.error === 'aborted') {
+            return;
+        }
+        
         let errorMessage = "Erro no reconhecimento de voz";
         
         switch(event.error) {
-            case 'no-speech':
-                errorMessage = "⚠️ Nenhuma fala detectada. Continue falando ou clique no microfone novamente.";
-                // Não parar, apenas avisar
-                showToast(errorMessage, "warning");
-                return; // Não para o reconhecimento
-                
             case 'audio-capture':
-                errorMessage = "❌ Microfone não encontrado ou sem permissão.";
+                errorMessage = "❌ Microfone não disponível.";
                 break;
-                
             case 'not-allowed':
-                errorMessage = "❌ Permissão de microfone negada. Permita o acesso nas configurações do navegador.";
+                errorMessage = "❌ Permissão negada. Habilite o microfone nas configurações.";
                 break;
-                
             case 'network':
-                errorMessage = "⚠️ Erro de rede. O reconhecimento pode estar funcionando em modo offline.";
-                showToast(errorMessage, "warning");
-                return; // Não para
-                
-            case 'aborted':
-                errorMessage = "⏸️ Reconhecimento interrompido.";
+                errorMessage = "⚠️ Sem conexão. O reconhecimento pode não funcionar.";
                 break;
-                
             default:
-                errorMessage = `❌ Erro: ${event.error}`;
+                errorMessage = `⚠️ Erro: ${event.error}`;
         }
         
         showToast(errorMessage, "error");
@@ -1616,38 +1636,60 @@ function toggleRecognition(button) {
     };
 
     recognition.onend = () => {
-        // Se ainda deveria estar gravando, reiniciar automaticamente
-        if (isRecording && currentRecognition === recognition) {
-            console.log("Reiniciando reconhecimento automaticamente...");
+        // No mobile, não reiniciar automaticamente quando terminar naturalmente
+        if (!isMobile && isRecording && currentRecognition === recognition) {
+            console.log("Reiniciando reconhecimento...");
             try {
                 recognition.start();
             } catch (e) {
                 console.error("Erro ao reiniciar:", e);
                 stopRecognition(button);
             }
+        } else if (isRecording && isMobile) {
+            // No mobile, manter o botão ativo mas não reiniciar automaticamente
+            button.title = 'Clique no microfone novamente para continuar';
         } else {
             stopRecognition(button);
         }
     };
 
-    // Iniciar reconhecimento
-    try {
-        recognition.start();
-        console.log("Reconhecimento de voz iniciado");
-    } catch (error) {
-        console.error("Erro ao iniciar reconhecimento:", error);
-        showToast("❌ Erro ao iniciar reconhecimento: " + error.message, "error");
-        stopRecognition(button);
+    // Solicitar permissão de microfone antes de iniciar (importante no mobile)
+    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+        navigator.mediaDevices.getUserMedia({ audio: true })
+            .then(() => {
+                // Permissão concedida, iniciar reconhecimento
+                try {
+                    recognition.start();
+                    console.log("✅ Reconhecimento iniciado");
+                } catch (error) {
+                    console.error("❌ Erro ao iniciar:", error);
+                    showToast("❌ Erro ao iniciar gravação", "error");
+                    stopRecognition(button);
+                }
+            })
+            .catch((error) => {
+                console.error("❌ Permissão negada:", error);
+                showToast("❌ Permissão de microfone negada", "error");
+            });
+    } else {
+        // Navegadores mais antigos
+        try {
+            recognition.start();
+        } catch (error) {
+            showToast("❌ Erro ao acessar microfone", "error");
+        }
     }
 }
 
 function stopRecognition(button) {
     isRecording = false;
+    recognitionInitialized = false; // RESET da flag
     
     if (currentRecognition) {
         try {
             currentRecognition.stop();
-            console.log("Reconhecimento de voz parado");
+            currentRecognition.abort(); // GARANTIR que pare
+            console.log("✅ Reconhecimento de voz parado");
         } catch (e) {
             console.error("Erro ao parar reconhecimento:", e);
         }
@@ -1669,11 +1711,9 @@ function stopRecognition(button) {
 function addTextToInput(text) {
     if (!currentTargetInput || !text) return;
     
-    // Adicionar texto ao campo
     const currentValue = currentTargetInput.value.trim();
     
     if (currentValue) {
-        // Se já tem texto, adicionar um espaço
         currentTargetInput.value = currentValue + ' ' + text;
     } else {
         currentTargetInput.value = text;
@@ -1682,10 +1722,33 @@ function addTextToInput(text) {
     // Disparar evento de input para ativar autosave
     currentTargetInput.dispatchEvent(new Event('input', { bubbles: true }));
     
-    console.log("Texto adicionado:", text);
+    console.log("✅ Texto adicionado:", text);
 }
 
-// Adicionar estilos CSS (se ainda não existir)
+// IMPORTANTE: Parar reconhecimento ao sair da página ou trocar de view
+window.addEventListener('beforeunload', () => {
+    if (currentRecognition) {
+        stopRecognition(null);
+    }
+});
+
+// Parar reconhecimento ao mudar de tela
+function showView(viewName) {
+    // Parar reconhecimento de voz ao trocar de view
+    if (currentRecognition && isRecording) {
+        stopRecognition(null);
+    }
+    
+    dashboardView.classList.add('hidden');
+    wizardView.classList.add('hidden');
+    actionPlanView.classList.add('hidden');
+    
+    if (viewName === 'dashboard') dashboardView.classList.remove('hidden');
+    else if (viewName === 'wizard') wizardView.classList.remove('hidden');
+    else if (viewName === 'actionPlan') actionPlanView.classList.remove('hidden');
+}
+
+// Estilos CSS (adicionar se ainda não existir)
 if (!document.getElementById('voice-styles')) {
     const styleSheet = document.createElement("style");
     styleSheet.id = 'voice-styles';
@@ -1708,7 +1771,7 @@ if (!document.getElementById('voice-styles')) {
     document.head.appendChild(styleSheet);
 }
 
-console.log("✅ Sistema de reconhecimento de voz (Web Speech API) carregado!");
+console.log("✅ Sistema de reconhecimento de voz carregado!");
 
 // Atualizar indicador visual de rede
 function updateNetworkStatus() {
@@ -1730,3 +1793,62 @@ updateNetworkStatus();
 // Atualizar quando mudar conexão
 window.addEventListener('online', updateNetworkStatus);
 window.addEventListener('offline', updateNetworkStatus);
+function initializeSortableLists() {
+    const sortableConfig = {
+        animation: 150,
+        ghostClass: 'sortable-ghost',
+        forceFallback: true, // Melhor suporte touch
+        touchStartThreshold: 3, // Sensibilidade touch
+        delay: 100, // Delay para distinguir tap de drag
+        delayOnTouchOnly: true, // Delay apenas no touch
+        onEnd: (evt) => {
+            const { from, oldIndex, newIndex } = evt;
+            const listId = from.id;
+            let targetArray;
+            
+            if (listId === 'departamento-list') {
+                targetArray = currentInspection.departamentos;
+            } else if (listId === 'cargo-list') {
+                targetArray = currentInspection.departamentos[activeDepartamentoIndex].cargos;
+            } else if (listId === 'funcionario-list') {
+                targetArray = currentInspection.departamentos[activeDepartamentoIndex].funcionarios;
+            } else if (listId === 'grupo-list') {
+                targetArray = currentInspection.departamentos[activeDepartamentoIndex].grupos;
+            }
+            
+            if (targetArray) {
+                targetArray.splice(newIndex, 0, targetArray.splice(oldIndex, 1)[0]);
+                persistCurrentInspection(() => {
+                    showToast("✅ Ordem salva!", "success");
+                    // Vibrar no mobile
+                    if ('vibrate' in navigator) {
+                        navigator.vibrate(50);
+                    }
+                });
+            }
+        }
+    };
+    
+    ['departamento-list', 'cargo-list', 'funcionario-list', 'grupo-list'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) Sortable.create(el, sortableConfig);
+    });
+}
+// PWA Install Prompt para Mobile
+let deferredPrompt;
+
+window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    deferredPrompt = e;
+    
+    // Mostrar botão de instalação apenas no mobile
+    const isMobile = /Android|webOS|iPhone|iPad|iPod/i.test(navigator.userAgent);
+    if (isMobile) {
+        showToast("💡 Instale este app na tela inicial!", "success");
+    }
+});
+
+window.addEventListener('appinstalled', () => {
+    console.log('✅ PWA instalado com sucesso!');
+    deferredPrompt = null;
+});
