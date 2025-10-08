@@ -1,0 +1,21 @@
+{
+    "name": "Assistente de Inspeção de Riscos",
+    "short_name": "Inspec. Riscos",
+    "description": "Aplicativo para gerenciar inspeções de segurança e riscos ocupacionais.",
+    "start_url": ".",
+    "display": "standalone",
+    "background_color": "#f1f5f9",
+    "theme_color": "#3b82f6",
+    "icons": [
+      {
+        "src": "icon-192.png",
+        "type": "image/png",
+        "sizes": "192x192"
+      },
+      {
+        "src": "icon-512.png",
+        "type": "image/png",
+        "sizes": "512x512"
+      }
+    ]
+  }

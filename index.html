@@ -1,18 +1,26 @@
 <!DOCTYPE html>
 <html lang="pt-br">
 <head>
-    <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Assistente de Inspeção de Riscos</title>
-    
-    <!-- Fontes e Ícones Profissionais -->
+
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="manifest.json">
+
+    <!-- Fontes e Ícones -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
 
+    <!-- Bibliotecas JS -->
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
+    <!-- *** ADICIONADO: Biblioteca de Voz Vosk *** -->
+    <script src="js/vosk.js"></script>
+
     <style>
+        /* [SEU CÓDIGO CSS COMPLETO VAI AQUI - sem alterações] */
         :root {
             /* Paleta de cores */
             --primary: #3b82f6;
@@ -346,8 +354,10 @@
         
         <div id="action-plan-view" class="hidden"></div>
     </div>
-    <script>
 
+    <!-- *** SEU SCRIPT PRINCIPAL FOI MOVIDO PARA CÁ, PARA DENTRO DO BODY *** -->
+    <script>
+        /* [SEU CÓDIGO JAVASCRIPT PRINCIPAL VAI AQUI - sem alterações] */
         const predefinedRisks = [
             { tipo: "FÍSICO", codigoEsocial: "02.01.001", perigo: "Exposição a ruído contínuo e intermitente", danos: "Diminuição gradual da audição, cansaço, irritação, zumbido, fadiga, surdez" },
             { tipo: "FÍSICO", codigoEsocial: "02.01.002", perigo: "Vibrações localizadas (mão-braço)", danos: "lesões musculares, problemas nas articulações, fadiga muscular." },
@@ -607,6 +617,7 @@
             }
         }
         
+        // *** FUNÇÃO ATUALIZADA com o botão de microfone ***
         function renderEmpresaStep() {
             const e = currentInspection.empresa || {};
             document.getElementById('wizard-content').innerHTML = `
@@ -614,19 +625,51 @@
                     <h2>Passo 1: Detalhes da Empresa</h2>
                     <form id="empresa-form" oninput="triggerAutosave()">
                         <div class="form-grid">
-                            <div class="form-group"><label for="nome">Nome da Empresa *</label><input type="text" id="nome" required value="${e.nome || ''}" placeholder="Ex: Acme Corporation"></div>
-                            <div class="form-group"><label for="cnpj">CNPJ</label><input type="text" id="cnpj" value="${e.cnpj || ''}" placeholder="00.000.000/0000-00"></div>
+                            <div class="form-group">
+                                <label for="nome">Nome da Empresa *</label>
+                                <div style="display: flex; gap: 0.5rem;">
+                                    <input type="text" id="nome" required value="${e.nome || ''}" placeholder="Ex: Acme Corporation" style="flex-grow: 1;">
+                                    <button type="button" class="outline" onclick="toggleRecognition(this)" data-target="nome" title="Ativar ditado por voz">
+                                        <i class="bi bi-mic-fill"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label for="cnpj">CNPJ</label>
+                                <div style="display: flex; gap: 0.5rem;">
+                                    <input type="text" id="cnpj" value="${e.cnpj || ''}" placeholder="00.000.000/0000-00" style="flex-grow: 1;">
+                                    <button type="button" class="outline" onclick="toggleRecognition(this)" data-target="cnpj" title="Ativar ditado por voz">
+                                        <i class="bi bi-mic-fill"></i>
+                                    </button>
+                                </div>
+                            </div>
                         </div>
                         <div class="form-grid">
                             <div class="form-group"><label for="data">Data da Inspeção</label><input type="date" id="data" value="${e.data || new Date().toISOString().slice(0,10)}"></div>
-                            <div class="form-group"><label for="elaborado">Elaborado por</label><input type="text" id="elaborado" value="${e.elaborado || ''}" placeholder="Nome do responsável"></div>
+                            <div class="form-group">
+                                <label for="elaborado">Elaborado por</label>
+                                <div style="display: flex; gap: 0.5rem;">
+                                    <input type="text" id="elaborado" value="${e.elaborado || ''}" placeholder="Nome do responsável" style="flex-grow: 1;">
+                                    <button type="button" class="outline" onclick="toggleRecognition(this)" data-target="elaborado" title="Ativar ditado por voz">
+                                        <i class="bi bi-mic-fill"></i>
+                                    </button>
+                                </div>
+                            </div>
                         </div>
-                        <div class="form-group"><label for="aprovado">Aprovado por</label><input type="text" id="aprovado" value="${e.aprovado || ''}" placeholder="Nome do aprovador"></div>
+                        <div class="form-group">
+                            <label for="aprovado">Aprovado por</label>
+                            <div style="display: flex; gap: 0.5rem;">
+                                <input type="text" id="aprovado" value="${e.aprovado || ''}" placeholder="Nome do aprovador" style="flex-grow: 1;">
+                                <button type="button" class="outline" onclick="toggleRecognition(this)" data-target="aprovado" title="Ativar ditado por voz">
+                                    <i class="bi bi-mic-fill"></i>
+                                </button>
+                            </div>
+                        </div>
                     </form>
                     <div class="wizard-nav"><button class="nav" onclick="showDashboard()">Voltar ao Painel</button><button class="primary" onclick="saveEmpresaAndNext()">Salvar e Próximo</button></div>
                 </div>`;
         }
-        
+
         function saveEmpresaAndNext() {
             currentInspection.empresa = { nome: document.getElementById("nome").value, cnpj: document.getElementById("cnpj").value, data: document.getElementById("data").value, elaborado: document.getElementById("elaborado").value, aprovado: document.getElementById("aprovado").value };
             if (!currentInspection.empresa.nome) return showToast("O nome da empresa é obrigatório.", "error");
@@ -1836,7 +1879,100 @@
 
             request.onerror = (e) => console.error("Erro ao gerar relatório:", e);
         }
-        </script>
-        
-        </body>
-        </html>
+    </script>
+    
+    <!-- *** ADICIONADO: Script de registro do Service Worker *** -->
+    <script>
+        // Verifica se o navegador suporta Service Workers
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                // Caminho corrigido para o GitHub Pages
+                navigator.serviceWorker.register('/ns/sw.js')
+                    .then(registration => {
+                        console.log('Service Worker registrado com sucesso:', registration);
+                    })
+                    .catch(error => {
+                        console.log('Falha ao registrar o Service Worker:', error);
+                    });
+            });
+        }
+    </script>
+    
+    <!-- *** ADICIONADO: Script de controle da Voz (Vosk) *** -->
+    <script>
+        let voskModel;
+        let recognizer;
+        let currentListeningButton = null;
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            const modelUrl = 'model/'; // O Vosk busca os arquivos na pasta
+            try {
+                showToast('Carregando modelo de voz...', 'warning');
+                voskModel = await Vosk.createModel(modelUrl);
+                showToast('Modelo de voz pronto!', 'success');
+
+                // Tenta pré-solicitar a permissão do microfone
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                stream.getTracks().forEach(track => track.stop()); // Libera o microfone logo em seguida
+            } catch (e) {
+                console.error("Erro ao carregar modelo ou pedir permissão:", e);
+                if (e.name === "NotAllowedError") {
+                    showToast('Permissão do microfone negada.', 'error');
+                } else {
+                    showToast('Erro ao carregar modelo de voz.', 'error');
+                }
+            }
+        });
+
+        async function toggleRecognition(button) {
+            if (!voskModel) {
+                showToast('Modelo de voz ainda não está pronto.', 'error');
+                return;
+            }
+
+            if (recognizer) {
+                recognizer.stop();
+                recognizer = null;
+                if (currentListeningButton) {
+                    currentListeningButton.classList.remove('primary');
+                    currentListeningButton.classList.add('outline');
+                    currentListeningButton.querySelector('i').classList.remove('bi-stop-circle-fill');
+                    currentListeningButton.querySelector('i').classList.add('bi-mic-fill');
+                }
+                currentListeningButton = null;
+            } else {
+                currentListeningButton = button;
+                const targetId = button.dataset.target;
+                const targetInput = document.getElementById(targetId);
+
+                if (!targetInput) {
+                    showToast('Erro: Campo de texto alvo não encontrado.', 'error');
+                    return;
+                }
+                
+                button.classList.remove('outline');
+                button.classList.add('primary');
+                button.querySelector('i').classList.remove('bi-mic-fill');
+                button.querySelector('i').classList.add('bi-stop-circle-fill');
+
+                recognizer = new voskModel.KaldiRecognizer();
+                recognizer.on("result", (message) => {
+                    const text = message.result.text;
+                    if (text) {
+                        targetInput.value += (targetInput.value ? ' ' : '') + text;
+                        targetInput.dispatchEvent(new Event('input')); // Dispara o evento de input para o autosave
+                    }
+                });
+
+                try {
+                    await recognizer.start();
+                } catch (error) {
+                    console.error("Erro ao iniciar o reconhecimento:", error);
+                    showToast('Não foi possível acessar o microfone.', 'error');
+                    toggleRecognition(button); // Chama de novo para resetar o estado
+                }
+            }
+        }
+    </script>
+</body>
+</html>
