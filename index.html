@@ -329,10 +329,8 @@
     <!-- SCRIPT DE CONTROLE DA VOZ (VOSK) -->
     <script>
         let voskModel, recognizer, activeRecognitionButton, audioContext;
-      
-        const modelUrl = /model/vosk-model-small-pt-0.3.zip; 
-        voskModel = await Vosk.createModel(modelUrl);
-
+        const modelUrl = "/model/vosk-model-small-pt-0.3.zip";
+        
         async function loadVoskModel() {
           showToast("Carregando modelo de voz...", "warning");
           try {
@@ -347,39 +345,31 @@
             return null;
           }
         }
-      
+        
         async function startRecognition(button) {
           activeRecognitionButton = button;
-          // Garante modelo pronto
           if (!voskModel) {
             const m = await loadVoskModel();
             if (!m) return;
           }
-      
-          // Áudio
+        
           audioContext = new (window.AudioContext || window.webkitAudioContext)();
           const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
           const source = audioContext.createMediaStreamSource(stream);
-      
-          // Cria recognizer com a taxa do dispositivo
           recognizer = await voskModel.createRecognizer(audioContext.sampleRate);
-      
+        
           const processor = audioContext.createScriptProcessor(4096, 1, 1);
           source.connect(processor);
           processor.connect(audioContext.destination);
-      
+        
           processor.onaudioprocess = (e) => {
-            const input = e.inputBuffer.getChannelData(0);
-            recognizer.acceptWaveform(input);
-            // opcional: pegar resultado parcial/final:
-            // const res = recognizer.result();
-            // console.log(res);
+            recognizer.acceptWaveform(e.inputBuffer.getChannelData(0));
           };
-      
+        
           button.textContent = "Parar reconhecimento";
           showToast("Reconhecimento iniciado.", "success");
         }
-      
+        
         function stopRecognition() {
           if (audioContext) {
             audioContext.close();
@@ -395,9 +385,8 @@
           }
           showToast("Reconhecimento parado.", "warning");
         }
-      
+        
         async function toggleRecognition(button) {
-          // Mantém sua lógica original, mas garante caminho e criação do recognizer
           if (!voskModel) {
             const model = await loadVoskModel();
             if (!model) return;
@@ -405,63 +394,7 @@
           if (recognizer) stopRecognition();
           else startRecognition(button);
         }
-      </script>
-
-        async function startRecognition(button) {
-            activeRecognitionButton = button;
-            const targetInputId = button.getAttribute('data-target');
-            const targetInput = document.getElementById(targetInputId);
-
-            if (!targetInput) {
-                console.error("Campo de destino não encontrado:", targetInputId);
-                return;
-            }
-
-            button.classList.add('primary');
-            button.innerHTML = '<i class="bi bi-record-circle"></i>';
-
-            try {
-                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                audioContext = new (window.AudioContext || window.webkitAudioContext)();
-                const source = audioContext.createMediaStreamSource(stream);
-                recognizer = new voskModel.Recognizer({ sampleRate: audioContext.sampleRate });
-                const processor = audioContext.createScriptProcessor(1024, 1, 1);
-                processor.onaudioprocess = (event) => {
-                    recognizer.acceptWaveform(event.inputBuffer);
-                };
-                source.connect(processor);
-                processor.connect(audioContext.destination);
-
-                recognizer.onresult = (message) => {
-                    const text = message.result.text;
-                    if (text) {
-                        targetInput.value += (targetInput.value ? " " : "") + text;
-                        targetInput.dispatchEvent(new Event('input', { bubbles: true }));
-                    }
-                };
-            } catch (error) {
-                console.error("Erro ao iniciar o reconhecimento:", error);
-                showToast("Não foi possível acessar o microfone.", "error");
-                stopRecognition();
-            }
-        }
-
-        function stopRecognition() {
-            if (recognizer) {
-                recognizer.free();
-                recognizer = null;
-            }
-            if (audioContext) {
-                audioContext.close();
-                audioContext = null;
-            }
-            if (activeRecognitionButton) {
-                activeRecognitionButton.classList.remove('primary');
-                activeRecognitionButton.innerHTML = '<i class="bi bi-mic-fill"></i>';
-                activeRecognitionButton = null;
-            }
-        }
-    </script>
+        </script>
 
     <!-- SCRIPT DO SERVICE WORKER (PWA) -->
     <script>
