@@ -1420,9 +1420,10 @@ function generateInspectionReport(id) {
     request.onerror = (e) => console.error("Erro ao gerar relatório:", e);
 }
 
+/// ==========================================
+// RECONHECIMENTO DE VOZ OFFLINE - VOSK CORRIGIDO
 // ==========================================
-// RECONHECIMENTO DE VOZ OFFLINE - VOSK
-// ==========================================
+// SUBSTITUA a seção de voz no app.js por este código
 
 let voskModel = null;
 let voskRecognizer = null;
@@ -1433,31 +1434,8 @@ let isRecording = false;
 let currentButton = null;
 let currentInput = null;
 
-const MODEL_URL = 'models/vosk-model-small-pt-0.3.zip';
-
-async function loadVoskModel() {
-    if (voskModel) {
-        return voskModel;
-    }
-
-    try {
-        showToast("📥 Baixando modelo de voz (primeira vez)...", "warning");
-        
-        if (typeof Vosk === 'undefined') {
-            throw new Error('Biblioteca Vosk não carregada. Verifique o CDN.');
-        }
-
-        voskModel = await Vosk.createModel(MODEL_URL);
-        
-        showToast("✅ Modelo carregado! Pode usar o microfone.", "success");
-        return voskModel;
-        
-    } catch (error) {
-        console.error('Erro ao carregar modelo Vosk:', error);
-        showToast("❌ Erro ao carregar modelo. Verifique se a pasta /models/ existe com o arquivo do modelo.", "error");
-        return null;
-    }
-}
+// Usar modelo hospedado online (primeira vez baixa, depois fica em cache)
+const MODEL_URL = 'https://alphacephei.com/vosk/models/vosk-model-small-pt-0.3.zip';
 
 async function toggleRecognition(button) {
     const targetId = button.dataset.target;
@@ -1468,6 +1446,7 @@ async function toggleRecognition(button) {
         return;
     }
 
+    // Se já está gravando, parar
     if (isRecording) {
         stopRecognition();
         return;
@@ -1477,11 +1456,7 @@ async function toggleRecognition(button) {
     currentInput = input;
 
     try {
-        const model = await loadVoskModel();
-        if (!model) {
-            return;
-        }
-
+        // 1. PRIMEIRO: Pedir permissão do microfone
         showToast("🎤 Solicitando acesso ao microfone...", "warning");
         
         mediaStream = await navigator.mediaDevices.getUserMedia({ 
@@ -1492,13 +1467,26 @@ async function toggleRecognition(button) {
             } 
         });
 
+        showToast("✅ Microfone autorizado! Carregando modelo...", "success");
+
+        // 2. DEPOIS: Carregar modelo (se necessário)
+        const model = await loadVoskModel();
+        if (!model) {
+            // Se falhar, parar stream do microfone
+            mediaStream.getTracks().forEach(track => track.stop());
+            return;
+        }
+
+        // 3. Criar contexto de áudio
         audioContext = new (window.AudioContext || window.webkitAudioContext)({
             sampleRate: 16000
         });
 
+        // 4. Criar reconhecedor
         voskRecognizer = new model.KaldiRecognizer(audioContext.sampleRate);
         voskRecognizer.setWords(true);
         
+        // 5. Conectar microfone
         const source = audioContext.createMediaStreamSource(mediaStream);
         const bufferSize = 4096;
         scriptProcessor = audioContext.createScriptProcessor(bufferSize, 1, 1);
@@ -1537,21 +1525,26 @@ async function toggleRecognition(button) {
         
         isRecording = true;
         
+        // Atualizar interface
         button.classList.add('active');
         button.innerHTML = '<i class="bi bi-mic-fill" style="color: red;"></i>';
         button.style.animation = 'pulse 1.5s infinite';
         button.title = 'Clique para parar de gravar';
         
-        showToast("🎤 Gravando... Fale agora! Clique novamente para parar.", "success");
+        showToast("🎤 Gravando... Fale agora!", "success");
         
     } catch (error) {
         console.error('Erro ao iniciar reconhecimento:', error);
         
         let errorMsg = "Erro ao acessar microfone";
         if (error.name === 'NotAllowedError') {
-            errorMsg = "Permissão de microfone negada. Permita nas configurações do navegador.";
+            errorMsg = "❌ Permissão de microfone negada. Clique em 'Permitir' no navegador.";
         } else if (error.name === 'NotFoundError') {
-            errorMsg = "Nenhum microfone encontrado.";
+            errorMsg = "❌ Nenhum microfone encontrado no dispositivo.";
+        } else if (error.message && error.message.includes('404')) {
+            errorMsg = "❌ Erro ao baixar modelo de voz. Verifique sua conexão.";
+        } else {
+            errorMsg = "❌ Erro: " + error.message;
         }
         
         showToast(errorMsg, "error");
@@ -1559,9 +1552,44 @@ async function toggleRecognition(button) {
     }
 }
 
+async function loadVoskModel() {
+    if (voskModel) {
+        return voskModel; // Já carregado
+    }
+
+    try {
+        showToast("📥 Baixando modelo de voz (~43MB, primeira vez)...", "warning");
+        
+        // Verificar se Vosk está disponível
+        if (typeof Vosk === 'undefined') {
+            throw new Error('Biblioteca Vosk não carregada. Recarregue a página.');
+        }
+
+        // Criar modelo (download com cache automático)
+        voskModel = await Vosk.createModel(MODEL_URL);
+        
+        showToast("✅ Modelo carregado com sucesso!", "success");
+        return voskModel;
+        
+    } catch (error) {
+        console.error('Erro ao carregar modelo Vosk:', error);
+        
+        let errorMsg = "❌ Erro ao carregar modelo de voz. ";
+        if (error.message.includes('404') || error.message.includes('HTTP')) {
+            errorMsg += "Verifique sua conexão com a internet.";
+        } else {
+            errorMsg += error.message;
+        }
+        
+        showToast(errorMsg, "error");
+        return null;
+    }
+}
+
 function stopRecognition() {
     isRecording = false;
     
+    // Obter resultado final
     if (voskRecognizer) {
         try {
             const finalResult = voskRecognizer.finalResult();
@@ -1573,6 +1601,7 @@ function stopRecognition() {
         }
     }
     
+    // Limpar recursos de áudio
     if (scriptProcessor) {
         scriptProcessor.disconnect();
         scriptProcessor = null;
@@ -1588,6 +1617,7 @@ function stopRecognition() {
         audioContext = null;
     }
     
+    // Restaurar interface
     if (currentButton) {
         currentButton.classList.remove('active');
         currentButton.innerHTML = '<i class="bi bi-mic-fill"></i>';
@@ -1604,15 +1634,17 @@ function stopRecognition() {
 function addTextToInput(text) {
     if (!currentInput || !text) return;
     
+    // Adicionar texto ao campo
     if (currentInput.value && currentInput.value.trim() !== '') {
         currentInput.value += ' ' + text;
     } else {
         currentInput.value = text;
     }
     
+    // Disparar evento de input para ativar autosave
     currentInput.dispatchEvent(new Event('input', { bubbles: true }));
     
-    showToast(`✅ "${text}"`, "success");
+    showToast(`✅ Reconhecido: "${text}"`, "success");
 }
 
 function updateButtonWithPartialText(text) {
@@ -1621,22 +1653,25 @@ function updateButtonWithPartialText(text) {
     currentButton.title = `Reconhecendo: "${preview}"`;
 }
 
-// Adicionar estilos CSS
-const styleSheet = document.createElement("style");
-styleSheet.textContent = `
-    @keyframes pulse {
-        0%, 100% { transform: scale(1); }
-        50% { transform: scale(1.1); }
-    }
-    
-    button.active {
-        background-color: #fee2e2 !important;
-        border-color: #ef4444 !important;
-    }
-    
-    .sortable-ghost {
-        opacity: 0.4;
-        background: var(--primary-light);
-    }
-`;
-document.head.appendChild(styleSheet);
+// Adicionar estilos CSS (se ainda não existir)
+if (!document.getElementById('vosk-styles')) {
+    const styleSheet = document.createElement("style");
+    styleSheet.id = 'vosk-styles';
+    styleSheet.textContent = `
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+        }
+        
+        button.active {
+            background-color: #fee2e2 !important;
+            border-color: #ef4444 !important;
+        }
+        
+        .sortable-ghost {
+            opacity: 0.4;
+            background: var(--primary-light);
+        }
+    `;
+    document.head.appendChild(styleSheet);
+}
