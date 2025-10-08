@@ -2039,3 +2039,15 @@ showDashboard = function() {
     originalShowDashboard();
     setTimeout(addVoiceTestButton, 100);
 };
+// ==========================================
+// EXIBIR VERSÃO DO APP NA TELA
+// ==========================================
+document.addEventListener('DOMContentLoaded', () => {
+    // A variável APP_VERSION vem do arquivo version.js, que foi carregado antes
+    if (typeof APP_VERSION !== 'undefined') {
+        const versionDisplay = document.getElementById('app-version-display');
+        if (versionDisplay) {
+            versionDisplay.textContent = `v${APP_VERSION}`;
+        }
+    }
+});

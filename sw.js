@@ -1,11 +1,15 @@
 // Service Worker Otimizado - Versão sem Loop
-const CACHE_NAME = 'inspecao-riscos-v7-mobile';
+
+importScripts('version.js');
+
+const CACHE_NAME = `inspecao-riscos-v${APP_VERSION}`;
 
 const ESSENTIAL_FILES = [
   '/ns/',
   '/ns/index.html',
   '/ns/app.js',
-  '/ns/manifest.json'
+  '/ns/manifest.json',
+  '/ns/version.js' // <-- IMPORTANTE: Adicione o version.js à lista de arquivos essenciais!
 ];
 
 const OPTIONAL_FILES = [

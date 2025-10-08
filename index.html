@@ -595,6 +595,8 @@
 <body>
     <nav class="main-nav">
         <div class="logo"><i class="bi bi-shield-check"></i> Inspeção de Riscos</div>
+        <span id="app-version-display" style="font-size: 0.8rem; color: var(--gray-400); margin-left: auto; margin-right: 1rem;"></span>
+
         <div class="nav-links">
             <button id="nav-dashboard">Painel</button>
         </div>
@@ -644,6 +646,7 @@
     </div>
 
     <!-- SCRIPT PRINCIPAL DA APLICAÇÃO -->
+    <script src="version.js"></script>
     <script src="app.js" defer></script>
 
     <!-- SCRIPT DO SERVICE WORKER (PWA) -->
