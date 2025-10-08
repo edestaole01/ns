@@ -330,8 +330,9 @@
     <script>
         let voskModel, recognizer, activeRecognitionButton, audioContext;
       
-        const modelUrl = "/model/vosk-model-small-pt-0.3/"; // <- absoluto + barra final
-      
+        const modelUrl = /model/vosk-model-small-pt-0.3.zip; 
+        voskModel = await Vosk.createModel(modelUrl);
+
         async function loadVoskModel() {
           showToast("Carregando modelo de voz...", "warning");
           try {
