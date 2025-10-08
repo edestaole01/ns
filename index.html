@@ -14,13 +14,10 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
 
-    <!-- Bibliotecas JS -->
+    <!-- Biblioteca Sortable.js para arrastar e reordenar itens -->
     <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js" defer></script>
-    <script src="https://cdn.jsdelivr.net/npm/vosk-browser@0.0.6/dist/vosk.js" async></script>
-    <script src="https://unpkg.com/vosk-browser@0.0.8/dist/vosk.js"></script>
-
+    
     <style>
-        /* [SEU CÓDIGO CSS VAI AQUI] */
         :root {
             --primary: #3b82f6;
             --primary-hover: #2563eb;
@@ -327,86 +324,16 @@
     <!-- SCRIPT PRINCIPAL DA APLICAÇÃO -->
     <script src="app.js" defer></script>
 
-    <!-- SCRIPT DE CONTROLE DA VOZ (VOSK) -->
-    <script>
-        let voskModel, recognizer, activeRecognitionButton, audioContext;
-        const modelUrl = "models/vosk-model-small-pt-0.3.zip";
-        
-        async function loadVoskModel() {
-          showToast("Carregando modelo de voz...", "warning");
-          try {
-            if (!voskModel) {
-              voskModel = await Vosk.createModel(modelUrl);
-            }
-            showToast("Modelo de voz carregado! Pode usar o microfone.", "success");
-            return voskModel;
-          } catch (error) {
-            console.error("Erro ao carregar o modelo Vosk:", error);
-            showToast("Erro ao carregar modelo de voz. Verifique o caminho /models/…", "error");
-            return null;
-          }
-        }
-        
-        async function startRecognition(button) {
-          activeRecognitionButton = button;
-          if (!voskModel) {
-            const m = await loadVoskModel();
-            if (!m) return;
-          }
-        
-          audioContext = new (window.AudioContext || window.webkitAudioContext)();
-          const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-          const source = audioContext.createMediaStreamSource(stream);
-          recognizer = await voskModel.createRecognizer(audioContext.sampleRate);
-        
-          const processor = audioContext.createScriptProcessor(4096, 1, 1);
-          source.connect(processor);
-          processor.connect(audioContext.destination);
-        
-          processor.onaudioprocess = (e) => {
-            recognizer.acceptWaveform(e.inputBuffer.getChannelData(0));
-          };
-        
-          button.textContent = "Parar reconhecimento";
-          showToast("Reconhecimento iniciado.", "success");
-        }
-        
-        function stopRecognition() {
-          if (audioContext) {
-            audioContext.close();
-            audioContext = null;
-          }
-          if (recognizer) {
-            recognizer.free();
-            recognizer = null;
-          }
-          if (activeRecognitionButton) {
-            activeRecognitionButton.textContent = "Iniciar reconhecimento";
-            activeRecognitionButton = null;
-          }
-          showToast("Reconhecimento parado.", "warning");
-        }
-        
-        async function toggleRecognition(button) {
-          if (!voskModel) {
-            const model = await loadVoskModel();
-            if (!model) return;
-          }
-          if (recognizer) stopRecognition();
-          else startRecognition(button);
-        }
-        </script>
-
     <!-- SCRIPT DO SERVICE WORKER (PWA) -->
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
                 navigator.serviceWorker.register('/ns/sw.js')
                     .then(registration => {
-                        console.log('Service Worker registrado com sucesso:', registration);
+                        console.log('✅ Service Worker registrado:', registration);
                     })
                     .catch(error => {
-                        console.log('Falha ao registrar o Service Worker:', error);
+                        console.error('❌ Falha ao registrar Service Worker:', error);
                     });
             });
         }

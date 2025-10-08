@@ -1420,243 +1420,196 @@ function generateInspectionReport(id) {
     request.onerror = (e) => console.error("Erro ao gerar relatório:", e);
 }
 
-/// ==========================================
-// RECONHECIMENTO DE VOZ OFFLINE - VOSK CORRIGIDO
 // ==========================================
-// SUBSTITUA a seção de voz no app.js por este código
+// RECONHECIMENTO DE VOZ - WEB SPEECH API
+// Funciona OFFLINE após primeira permissão!
+// ==========================================
+// SUBSTITUA toda a seção de voz no app.js
 
-let voskModel = null;
-let voskRecognizer = null;
-let audioContext = null;
-let mediaStream = null;
-let scriptProcessor = null;
+let currentRecognition = null;
+let currentTargetInput = null;
 let isRecording = false;
-let currentButton = null;
-let currentInput = null;
 
-// Usar modelo hospedado online (primeira vez baixa, depois fica em cache)
-const MODEL_URL = 'https://alphacephei.com/vosk/models/vosk-model-small-pt-0.3.zip';
-
-async function toggleRecognition(button) {
+function toggleRecognition(button) {
     const targetId = button.dataset.target;
     const input = document.getElementById(targetId);
     
     if (!input) {
-        showToast("Campo não encontrado!", "error");
+        showToast("Campo de entrada não encontrado!", "error");
         return;
     }
 
     // Se já está gravando, parar
     if (isRecording) {
-        stopRecognition();
+        stopRecognition(button);
         return;
     }
 
-    currentButton = button;
-    currentInput = input;
+    // Verificar suporte do navegador
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    
+    if (!SpeechRecognition) {
+        showToast("❌ Seu navegador não suporta reconhecimento de voz. Use Chrome ou Edge.", "error");
+        return;
+    }
 
-    try {
-        // 1. PRIMEIRO: Pedir permissão do microfone
-        showToast("🎤 Solicitando acesso ao microfone...", "warning");
-        
-        mediaStream = await navigator.mediaDevices.getUserMedia({ 
-            audio: {
-                echoCancellation: true,
-                noiseSuppression: true,
-                autoGainControl: true
-            } 
-        });
+    // Criar reconhecedor
+    const recognition = new SpeechRecognition();
 
-        showToast("✅ Microfone autorizado! Carregando modelo...", "success");
+    // Configurações otimizadas
+    recognition.lang = 'pt-BR';
+    recognition.continuous = true;  // Continua gravando até parar manualmente
+    recognition.interimResults = true;  // Mostra resultados parciais
+    recognition.maxAlternatives = 1;
 
-        // 2. DEPOIS: Carregar modelo (se necessário)
-        const model = await loadVoskModel();
-        if (!model) {
-            // Se falhar, parar stream do microfone
-            mediaStream.getTracks().forEach(track => track.stop());
-            return;
-        }
+    currentRecognition = recognition;
+    currentTargetInput = input;
 
-        // 3. Criar contexto de áudio
-        audioContext = new (window.AudioContext || window.webkitAudioContext)({
-            sampleRate: 16000
-        });
-
-        // 4. Criar reconhecedor
-        voskRecognizer = new model.KaldiRecognizer(audioContext.sampleRate);
-        voskRecognizer.setWords(true);
-        
-        // 5. Conectar microfone
-        const source = audioContext.createMediaStreamSource(mediaStream);
-        const bufferSize = 4096;
-        scriptProcessor = audioContext.createScriptProcessor(bufferSize, 1, 1);
-        
-        let partialText = '';
-        
-        scriptProcessor.onaudioprocess = (audioEvent) => {
-            if (!isRecording) return;
-            
-            try {
-                const audioData = audioEvent.inputBuffer.getChannelData(0);
-                const int16Data = new Int16Array(audioData.length);
-                for (let i = 0; i < audioData.length; i++) {
-                    int16Data[i] = Math.max(-32768, Math.min(32767, audioData[i] * 32768));
-                }
-                
-                if (voskRecognizer.acceptWaveform(int16Data)) {
-                    const result = voskRecognizer.result();
-                    if (result && result.text && result.text.trim()) {
-                        addTextToInput(result.text.trim());
-                    }
-                } else {
-                    const partial = voskRecognizer.partialResult();
-                    if (partial && partial.partial) {
-                        partialText = partial.partial;
-                        updateButtonWithPartialText(partialText);
-                    }
-                }
-            } catch (err) {
-                console.error('Erro ao processar áudio:', err);
-            }
-        };
-        
-        source.connect(scriptProcessor);
-        scriptProcessor.connect(audioContext.destination);
-        
+    // Eventos
+    recognition.onstart = () => {
         isRecording = true;
-        
-        // Atualizar interface
         button.classList.add('active');
         button.innerHTML = '<i class="bi bi-mic-fill" style="color: red;"></i>';
         button.style.animation = 'pulse 1.5s infinite';
-        button.title = 'Clique para parar de gravar';
+        button.title = 'Clique para parar';
+        showToast("🎤 Gravando... Fale agora! Clique novamente para parar.", "success");
+    };
+
+    recognition.onresult = (event) => {
+        let interimTranscript = '';
+        let finalTranscript = '';
+
+        // Processar todos os resultados
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+            const transcript = event.results[i][0].transcript;
+            
+            if (event.results[i].isFinal) {
+                finalTranscript += transcript + ' ';
+            } else {
+                interimTranscript += transcript;
+            }
+        }
+
+        // Atualizar o campo com texto final
+        if (finalTranscript) {
+            addTextToInput(finalTranscript.trim());
+        }
+
+        // Mostrar preview do texto interim
+        if (interimTranscript) {
+            button.title = `Reconhecendo: "${interimTranscript.substring(0, 30)}..."`;
+        }
+    };
+
+    recognition.onerror = (event) => {
+        let errorMessage = "Erro no reconhecimento de voz";
         
-        showToast("🎤 Gravando... Fale agora!", "success");
-        
-    } catch (error) {
-        console.error('Erro ao iniciar reconhecimento:', error);
-        
-        let errorMsg = "Erro ao acessar microfone";
-        if (error.name === 'NotAllowedError') {
-            errorMsg = "❌ Permissão de microfone negada. Clique em 'Permitir' no navegador.";
-        } else if (error.name === 'NotFoundError') {
-            errorMsg = "❌ Nenhum microfone encontrado no dispositivo.";
-        } else if (error.message && error.message.includes('404')) {
-            errorMsg = "❌ Erro ao baixar modelo de voz. Verifique sua conexão.";
-        } else {
-            errorMsg = "❌ Erro: " + error.message;
+        switch(event.error) {
+            case 'no-speech':
+                errorMessage = "⚠️ Nenhuma fala detectada. Continue falando ou clique no microfone novamente.";
+                // Não parar, apenas avisar
+                showToast(errorMessage, "warning");
+                return; // Não para o reconhecimento
+                
+            case 'audio-capture':
+                errorMessage = "❌ Microfone não encontrado ou sem permissão.";
+                break;
+                
+            case 'not-allowed':
+                errorMessage = "❌ Permissão de microfone negada. Permita o acesso nas configurações do navegador.";
+                break;
+                
+            case 'network':
+                errorMessage = "⚠️ Erro de rede. O reconhecimento pode estar funcionando em modo offline.";
+                showToast(errorMessage, "warning");
+                return; // Não para
+                
+            case 'aborted':
+                errorMessage = "⏸️ Reconhecimento interrompido.";
+                break;
+                
+            default:
+                errorMessage = `❌ Erro: ${event.error}`;
         }
         
-        showToast(errorMsg, "error");
-        stopRecognition();
-    }
-}
+        showToast(errorMessage, "error");
+        stopRecognition(button);
+    };
 
-async function loadVoskModel() {
-    if (voskModel) {
-        return voskModel; // Já carregado
-    }
+    recognition.onend = () => {
+        // Se ainda deveria estar gravando, reiniciar automaticamente
+        if (isRecording && currentRecognition === recognition) {
+            console.log("Reiniciando reconhecimento automaticamente...");
+            try {
+                recognition.start();
+            } catch (e) {
+                console.error("Erro ao reiniciar:", e);
+                stopRecognition(button);
+            }
+        } else {
+            stopRecognition(button);
+        }
+    };
 
+    // Iniciar reconhecimento
     try {
-        showToast("📥 Baixando modelo de voz (~43MB, primeira vez)...", "warning");
-        
-        // Verificar se Vosk está disponível
-        if (typeof Vosk === 'undefined') {
-            throw new Error('Biblioteca Vosk não carregada. Recarregue a página.');
-        }
-
-        // Criar modelo (download com cache automático)
-        voskModel = await Vosk.createModel(MODEL_URL);
-        
-        showToast("✅ Modelo carregado com sucesso!", "success");
-        return voskModel;
-        
+        recognition.start();
+        console.log("Reconhecimento de voz iniciado");
     } catch (error) {
-        console.error('Erro ao carregar modelo Vosk:', error);
-        
-        let errorMsg = "❌ Erro ao carregar modelo de voz. ";
-        if (error.message.includes('404') || error.message.includes('HTTP')) {
-            errorMsg += "Verifique sua conexão com a internet.";
-        } else {
-            errorMsg += error.message;
-        }
-        
-        showToast(errorMsg, "error");
-        return null;
+        console.error("Erro ao iniciar reconhecimento:", error);
+        showToast("❌ Erro ao iniciar reconhecimento: " + error.message, "error");
+        stopRecognition(button);
     }
 }
 
-function stopRecognition() {
+function stopRecognition(button) {
     isRecording = false;
     
-    // Obter resultado final
-    if (voskRecognizer) {
+    if (currentRecognition) {
         try {
-            const finalResult = voskRecognizer.finalResult();
-            if (finalResult && finalResult.text && finalResult.text.trim()) {
-                addTextToInput(finalResult.text.trim());
-            }
-        } catch (err) {
-            console.error('Erro ao obter resultado final:', err);
+            currentRecognition.stop();
+            console.log("Reconhecimento de voz parado");
+        } catch (e) {
+            console.error("Erro ao parar reconhecimento:", e);
         }
+        currentRecognition = null;
     }
     
-    // Limpar recursos de áudio
-    if (scriptProcessor) {
-        scriptProcessor.disconnect();
-        scriptProcessor = null;
-    }
+    currentTargetInput = null;
     
-    if (mediaStream) {
-        mediaStream.getTracks().forEach(track => track.stop());
-        mediaStream = null;
-    }
-    
-    if (audioContext && audioContext.state !== 'closed') {
-        audioContext.close();
-        audioContext = null;
-    }
-    
-    // Restaurar interface
-    if (currentButton) {
-        currentButton.classList.remove('active');
-        currentButton.innerHTML = '<i class="bi bi-mic-fill"></i>';
-        currentButton.style.animation = '';
-        currentButton.title = 'Ativar ditado por voz';
+    if (button) {
+        button.classList.remove('active');
+        button.innerHTML = '<i class="bi bi-mic-fill"></i>';
+        button.style.animation = '';
+        button.title = 'Ativar ditado por voz';
     }
     
     showToast("⏸️ Gravação parada.", "success");
-    
-    currentButton = null;
-    currentInput = null;
 }
 
 function addTextToInput(text) {
-    if (!currentInput || !text) return;
+    if (!currentTargetInput || !text) return;
     
     // Adicionar texto ao campo
-    if (currentInput.value && currentInput.value.trim() !== '') {
-        currentInput.value += ' ' + text;
+    const currentValue = currentTargetInput.value.trim();
+    
+    if (currentValue) {
+        // Se já tem texto, adicionar um espaço
+        currentTargetInput.value = currentValue + ' ' + text;
     } else {
-        currentInput.value = text;
+        currentTargetInput.value = text;
     }
     
     // Disparar evento de input para ativar autosave
-    currentInput.dispatchEvent(new Event('input', { bubbles: true }));
+    currentTargetInput.dispatchEvent(new Event('input', { bubbles: true }));
     
-    showToast(`✅ Reconhecido: "${text}"`, "success");
-}
-
-function updateButtonWithPartialText(text) {
-    if (!currentButton || !text) return;
-    const preview = text.length > 20 ? text.substring(0, 20) + '...' : text;
-    currentButton.title = `Reconhecendo: "${preview}"`;
+    console.log("Texto adicionado:", text);
 }
 
 // Adicionar estilos CSS (se ainda não existir)
-if (!document.getElementById('vosk-styles')) {
+if (!document.getElementById('voice-styles')) {
     const styleSheet = document.createElement("style");
-    styleSheet.id = 'vosk-styles';
+    styleSheet.id = 'voice-styles';
     styleSheet.textContent = `
         @keyframes pulse {
             0%, 100% { transform: scale(1); }
@@ -1675,3 +1628,5 @@ if (!document.getElementById('vosk-styles')) {
     `;
     document.head.appendChild(styleSheet);
 }
+
+console.log("✅ Sistema de reconhecimento de voz (Web Speech API) carregado!");
