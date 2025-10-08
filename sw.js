@@ -1,29 +1,114 @@
-// Importa a biblioteca Workbox
-importScripts('https://storage.googleapis.com/workbox-cdn/releases/6.4.1/workbox-sw.js');
+// Service Worker para funcionamento OFFLINE
+const CACHE_NAME = 'inspecao-riscos-v1';
+const MODEL_CACHE = 'vosk-model-cache-v1';
 
-// Cache para páginas HTML
-workbox.routing.registerRoute(
-  ({request}) => request.destination === 'document',
-  new workbox.strategies.StaleWhileRevalidate({ cacheName: 'pages-cache' })
-);
+// Arquivos essenciais para cache
+const ESSENTIAL_FILES = [
+  '/ns/',
+  '/ns/index.html',
+  '/ns/app.js',
+  '/ns/manifest.json',
+  '/ns/icon-192.png',
+  '/ns/icon-512.png',
+  'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap',
+  'https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css',
+  'https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js',
+  'https://unpkg.com/vosk-browser@0.0.8/dist/vosk.js'
+];
 
-// Cache para assets (CSS, JS, Ícones)
-workbox.routing.registerRoute(
-  ({request}) => request.destination === 'script' || request.destination === 'style' || request.destination === 'image',
-  new workbox.strategies.CacheFirst({ cacheName: 'assets-cache' })
-);
+// Instalar Service Worker
+self.addEventListener('install', (event) => {
+  console.log('Service Worker: Instalando...');
+  
+  event.waitUntil(
+    caches.open(CACHE_NAME)
+      .then((cache) => {
+        console.log('Service Worker: Cacheando arquivos essenciais');
+        return cache.addAll(ESSENTIAL_FILES);
+      })
+      .then(() => self.skipWaiting())
+  );
+});
 
-// ***** NOVO E IMPORTANTE: Cache para o modelo de voz *****
-// Usamos CacheFirst porque o modelo não muda.
-workbox.routing.registerRoute(
-  ({url}) => url.pathname.includes('model/') || url.pathname.includes('models/'), 
-  new workbox.strategies.CacheFirst({
-    cacheName: 'vosk-model-cache',
-    plugins: [
-      new workbox.cacheableResponse.CacheableResponsePlugin({statuses: [0, 200]}),
-      new workbox.expiration.ExpirationPlugin({
-        maxAgeSeconds: 365 * 24 * 60 * 60, // Cache válido por 1 ano
-      }),
-    ],
-  })
-);
+// Ativar Service Worker
+self.addEventListener('activate', (event) => {
+  console.log('Service Worker: Ativando...');
+  
+  event.waitUntil(
+    caches.keys().then((cacheNames) => {
+      return Promise.all(
+        cacheNames.map((cache) => {
+          if (cache !== CACHE_NAME && cache !== MODEL_CACHE) {
+            console.log('Service Worker: Limpando cache antigo:', cache);
+            return caches.delete(cache);
+          }
+        })
+      );
+    }).then(() => self.clients.claim())
+  );
+});
+
+// Interceptar requisições
+self.addEventListener('fetch', (event) => {
+  const url = new URL(event.request.url);
+  
+  // Cache especial para modelo Vosk (nunca expira)
+  if (url.pathname.includes('models/') || url.pathname.includes('vosk-model')) {
+    event.respondWith(
+      caches.open(MODEL_CACHE).then((cache) => {
+        return cache.match(event.request).then((response) => {
+          if (response) {
+            console.log('Service Worker: Modelo Vosk do cache:', url.pathname);
+            return response;
+          }
+          
+          console.log('Service Worker: Baixando modelo Vosk:', url.pathname);
+          return fetch(event.request).then((response) => {
+            // Cachear apenas se for sucesso
+            if (response && response.status === 200) {
+              cache.put(event.request, response.clone());
+            }
+            return response;
+          });
+        });
+      })
+    );
+    return;
+  }
+  
+  // Estratégia: Network First, fallback para Cache
+  event.respondWith(
+    fetch(event.request)
+      .then((response) => {
+        // Se online, atualizar cache
+        if (response && response.status === 200) {
+          const responseClone = response.clone();
+          caches.open(CACHE_NAME).then((cache) => {
+            cache.put(event.request, responseClone);
+          });
+        }
+        return response;
+      })
+      .catch(() => {
+        // Se offline, usar cache
+        return caches.match(event.request).then((response) => {
+          if (response) {
+            console.log('Service Worker: Servindo do cache (offline):', event.request.url);
+            return response;
+          }
+          
+          // Se não tem no cache e é uma página HTML, retornar index.html
+          if (event.request.mode === 'navigate') {
+            return caches.match('/ns/index.html');
+          }
+        });
+      })
+  );
+});
+
+// Mensagem de status
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'SKIP_WAITING') {
+    self.skipWaiting();
+  }
+});

@@ -50,8 +50,8 @@ const predefinedRisks = [
     { tipo: "ERGONÔMICO", codigoEsocial: "", perigo: "Iluminação inadequada ou deficiente", danos: "Fadiga visual" },
     { tipo: "ERGONÔMICO", codigoEsocial: "-", perigo: "Movimentos repetitivos", danos: "DORT" },
     { tipo: "ERGONÔMICO", codigoEsocial: "-", perigo: "Posturas incômodas ou pouco confortáveis", danos: "Lombalgias, lesões musculares" },
-    { tipo: "ERGONÔMICO PSICOSSOCIAIS", codigoEsocial: "-", perigo: "Estresse", danos: "Fagida, estresse e distúrbios" },
-    { tipo: "ERGONÔMICO PSICOSSOCIAIS", codigoEsocial: "-", perigo: "Carga de trabalho excessiva", danos: "Fagida, estresse e distúrbios" },
+    { tipo: "ERGONÔMICO PSICOSSOCIAIS", codigoEsocial: "-", perigo: "Estresse", danos: "Fagida, estresse e distúrbos" },
+    { tipo: "ERGONÔMICO PSICOSSOCIAIS", codigoEsocial: "-", perigo: "Carga de trabalho excessiva", danos: "Fagida, estresse e distúrbos" },
     { tipo: "ACIDENTE", codigoEsocial: "-", perigo: "Contato com eletricidade", danos: "Choque elétrico, quimaduras, parada cardíaca, morte" },
     { tipo: "ACIDENTE", codigoEsocial: "-", perigo: "Escorregão e queda", danos: "Lesões por quedas / torções" },
     { tipo: "ACIDENTE", codigoEsocial: "", perigo: "Contato com partes móveis de equipamentos", danos: "Corte, contusão, esmagamento, morte, Amputações" },
@@ -308,11 +308,13 @@ function renderEmpresaStep() {
             <div class="wizard-nav"><button class="nav" onclick="showDashboard()">Voltar ao Painel</button><button class="primary" onclick="saveEmpresaAndNext()">Salvar e Próximo</button></div>
         </div>`;
 }
+
 function saveEmpresaAndNext() {
     currentInspection.empresa = { nome: document.getElementById("nome").value, cnpj: document.getElementById("cnpj").value, data: document.getElementById("data").value, elaborado: document.getElementById("elaborado").value, aprovado: document.getElementById("aprovado").value };
     if (!currentInspection.empresa.nome) return showToast("O nome da empresa é obrigatório.", "error");
     persistCurrentInspection((success) => { if(success) { showToast("Dados da empresa salvos!", "success"); nextStep(); } });
 }
+
 function renderDepartamentoStep() {
     document.getElementById('wizard-content').innerHTML = `
         <div class="card">
@@ -334,6 +336,7 @@ function renderDepartamentoStep() {
     updateDepartamentoList();
     setTimeout(() => initializeSortableLists(), 0);
 }
+
 function updateDepartamentoList() {
     const list = document.getElementById("departamento-list");
     if (!currentInspection.departamentos || currentInspection.departamentos.length === 0) { list.innerHTML = '<li class="empty-state">Nenhum departamento adicionado.</li>'; return; }
@@ -349,6 +352,7 @@ function updateDepartamentoList() {
         list.appendChild(li);
     });
 }
+
 function saveDepartamento() {
     const deptoData = {
         nome: document.getElementById("depto-nome").value,
@@ -379,6 +383,7 @@ function saveDepartamento() {
     updateDepartamentoList();
     persistCurrentInspection();
 }
+
 function editDepartamento(index) {
     editingIndex = index; const depto = currentInspection.departamentos[index];
     document.getElementById("depto-nome").value = depto.nome;
@@ -388,6 +393,7 @@ function editDepartamento(index) {
     document.getElementById("save-depto-btn").innerHTML = "Salvar Alterações";
     document.getElementById("cancel-depto-edit-btn").classList.remove("hidden");
 }
+
 function deleteDepartamento(index) {
     if (confirm(`Excluir o departamento "${currentInspection.departamentos[index].nome}"?`)) {
         currentInspection.departamentos.splice(index, 1);
@@ -396,6 +402,7 @@ function deleteDepartamento(index) {
         persistCurrentInspection();
     }
 }
+
 function clearDeptoForm() {
     editingIndex = -1;
     document.getElementById("depto-form").reset();
@@ -403,10 +410,12 @@ function clearDeptoForm() {
     document.getElementById("save-depto-btn").innerHTML = "Adicionar";
     document.getElementById("cancel-depto-edit-btn").classList.add("hidden");
 }
+
 function goToCargos(index) {
     activeDepartamentoIndex = index;
     nextStep();
 }
+
 function getFormFieldsHTML(prefix) {
     return `
         <fieldset><legend>Observação para os Cargos</legend>
@@ -462,6 +471,7 @@ function getFormFieldsHTML(prefix) {
         </fieldset>
     `;
 }
+
 function renderCargoFuncionarioStep() {
     const depto = currentInspection.departamentos[activeDepartamentoIndex];
     if (!depto.grupos) depto.grupos = [];
@@ -520,11 +530,13 @@ function renderCargoFuncionarioStep() {
     updateAllLists();
     setTimeout(() => initializeSortableLists(), 0);
 }
+
 function updateAllLists() {
     updateCargoList();
     updateGrupoList();
     updateFuncionarioList();
 }
+
 function updateCargoList() {
     const list = document.getElementById("cargo-list"), depto = currentInspection.departamentos[activeDepartamentoIndex];
     if (!depto.cargos || depto.cargos.length === 0) { list.innerHTML = '<li class="empty-state">Nenhum cargo individual.</li>'; return; }
@@ -541,6 +553,7 @@ function updateCargoList() {
         list.appendChild(li);
     });
 }
+
 function updateGrupoList() {
     const list = document.getElementById("grupo-list"), depto = currentInspection.departamentos[activeDepartamentoIndex];
     if (!depto.grupos || depto.grupos.length === 0) { list.innerHTML = '<li class="empty-state">Nenhum grupo.</li>'; return; }
@@ -556,6 +569,7 @@ function updateGrupoList() {
         list.appendChild(li);
     });
 }
+
 function updateFuncionarioList() {
     const list = document.getElementById("funcionario-list"), depto = currentInspection.departamentos[activeDepartamentoIndex];
     if (!depto.funcionarios || depto.funcionarios.length === 0) { list.innerHTML = '<li class="empty-state">Nenhum funcionário individual.</li>'; return; }
@@ -572,6 +586,7 @@ function updateFuncionarioList() {
         list.appendChild(li);
     });
 }
+
 function collectFormData(prefix) {
     const observacoes = [];
     if (document.getElementById(`${prefix}-obs-altura`).checked) observacoes.push("Trabalho em altura");
@@ -601,6 +616,7 @@ function collectFormData(prefix) {
         dadosLtcat
     };
 }
+
 function saveCargo() {
     const nome = document.getElementById("cargo-nome").value.trim();
     if (!nome) return showToast("O nome do cargo é obrigatório.", "error");
@@ -619,6 +635,7 @@ function saveCargo() {
     setTimeout(() => updateCargoList(), 0);
     persistCurrentInspection();
 }
+
 function saveFuncionario() {
     const nome = document.getElementById("funcionario-nome").value.trim();
     if (!nome) return showToast("O nome do funcionário é obrigatório.", "error");
@@ -637,6 +654,7 @@ function saveFuncionario() {
     setTimeout(() => updateFuncionarioList(), 0);
     persistCurrentInspection();
 }
+
 function saveGrupo() {
     const nomesText = document.getElementById("grupo-nomes").value.trim();
     if (!nomesText) return showToast("Digite os nomes dos cargos do grupo.", "error");
@@ -657,14 +675,17 @@ function saveGrupo() {
     setTimeout(() => updateGrupoList(), 0);
     persistCurrentInspection();
 }
+
 function deleteCargo(index) {
     const depto = currentInspection.departamentos[activeDepartamentoIndex];
     if (confirm(`Excluir o cargo "${depto.cargos[index].nome}"?`)) { depto.cargos.splice(index, 1); updateCargoList(); persistCurrentInspection(); showToast("Cargo excluído!", "success"); }
 }
+
 function deleteFuncionario(index) {
     const depto = currentInspection.departamentos[activeDepartamentoIndex];
     if (confirm(`Excluir o funcionário "${depto.funcionarios[index].nome}"?`)) { depto.funcionarios.splice(index, 1); updateFuncionarioList(); persistCurrentInspection(); showToast("Funcionário excluído!", "success"); }
 }
+
 function populateForm(prefix, data) {
     if (!data) return;
     (data.observacoes || []).forEach(obs => {
@@ -698,6 +719,7 @@ function populateForm(prefix, data) {
         if (checkboxId && document.getElementById(checkboxId)) document.getElementById(checkboxId).checked = true;
     });
 }
+
 function editCargo(index) {
     editingIndex = index;
     editingType = 'cargo';
@@ -708,6 +730,7 @@ function editCargo(index) {
     document.getElementById("save-cargo-btn").innerHTML = "Salvar Alterações";
     document.getElementById("cancel-cargo-edit-btn").classList.remove("hidden");
 }
+
 function editFuncionario(index) {
     editingIndex = index;
     editingType = 'funcionario';
@@ -718,6 +741,7 @@ function editFuncionario(index) {
     document.getElementById("save-funcionario-btn").innerHTML = "Salvar Alterações";
     document.getElementById("cancel-funcionario-edit-btn").classList.remove("hidden");
 }
+
 function editGrupo(index) {
     editingIndex = index;
     editingType = 'grupo';
@@ -728,6 +752,7 @@ function editGrupo(index) {
     document.getElementById("save-grupo-btn").innerHTML = "Salvar Alterações";
     document.getElementById("cancel-grupo-edit-btn").classList.remove("hidden");
 }
+
 function clearForm(type) {
     editingIndex = -1;
     editingType = null;
@@ -736,16 +761,19 @@ function clearForm(type) {
     document.getElementById(`cancel-${type}-edit-btn`).classList.add("hidden");
     document.getElementById(`${type}-form-details`).removeAttribute("open");
 }
+
 function deleteGrupo(index) {
     const depto = currentInspection.departamentos[activeDepartamentoIndex];
     if (confirm(`Excluir este grupo?`)) { depto.grupos.splice(index, 1); updateGrupoList(); persistCurrentInspection(); showToast("Grupo excluído!", "success"); }
 }
+
 function goToRiscos(index, type) {
     activeCargoIndex = type === 'cargo' ? index : -1;
     activeFuncionarioIndex = type === 'funcionario' ? index : -1;
     currentGroupId = type === 'grupo' ? currentInspection.departamentos[activeDepartamentoIndex].grupos[index].id : null;
     nextStep();
 }
+
 function renderRiscoStep() {
     const depto = currentInspection.departamentos[activeDepartamentoIndex];
     let breadcrumbText = '', tituloRiscos = '', infoBox = '', targetObject;
@@ -846,12 +874,14 @@ function renderRiscoStep() {
         </div>`;
     updateRiscoList();
 }
+
 function voltarDosRiscos() { 
     currentGroupId = null; 
     activeCargoIndex = -1;
     activeFuncionarioIndex = -1;
     prevStep(); 
 }
+
 function updatePerigoOptions(selectedType) {
     const perigoSelect = document.getElementById("risk-perigo-select");
     perigoSelect.innerHTML = '<option value="">-- Selecione um perigo (opcional) --</option>';
@@ -865,6 +895,7 @@ function updatePerigoOptions(selectedType) {
         }
     });
 }
+
 function updateRiscoList() {
     const list = document.getElementById("risco-list");
     const depto = currentInspection.departamentos[activeDepartamentoIndex];
@@ -880,6 +911,7 @@ function updateRiscoList() {
         list.appendChild(li);
     });
 }
+
 function saveRisco() {
     const riscoData = {
         riscoPresente: document.getElementById("risco-presente").value, tipo: document.getElementById("risco-tipo").value, codigoEsocial: document.getElementById("risco-esocial").value, perigo: document.getElementById("risco-perigo").value, descricaoDetalhada: document.getElementById("risco-descricao-detalhada").value, fonteGeradora: document.getElementById("risco-fonte").value, perfilExposicao: document.getElementById("risco-perfil-exposicao").value, medicao: document.getElementById("risco-medicao").value, tempoExposicao: document.getElementById("risco-tempo-exposicao").value, tipoExposicao: document.getElementById("risco-tipo-exposicao").value, obsAmbientais: document.getElementById("risco-obs-ambientais").value, probabilidade: document.getElementById("risco-probabilidade").value, severidade: document.getElementById("risco-severidade").value, aceitabilidade: document.getElementById("risco-aceitabilidade").value, danos: document.getElementById("risco-danos").value, epiUtilizado: document.getElementById("risco-epi-utilizado").value, ca: document.getElementById("risco-ca").value, epc: document.getElementById("risco-epc").value, epiSugerido: document.getElementById("risco-epi-sugerido").value, acoesNecessarias: document.getElementById("risco-acoes").value, observacoesGerais: document.getElementById("risco-observacoes-gerais").value
@@ -902,6 +934,7 @@ function saveRisco() {
     showToast(message, "success");
     clearRiscoForm(); updateRiscoList(); persistCurrentInspection();
 }
+
 function editRisco(index) {
     editingIndex = index;
     const depto = currentInspection.departamentos[activeDepartamentoIndex]; let risco;
@@ -934,6 +967,7 @@ function editRisco(index) {
     document.getElementById("save-risco-btn").innerHTML = "<i class='bi bi-save-fill'></i> Salvar";
     document.getElementById("cancel-risco-edit-btn").classList.remove("hidden");
 }
+
 function deleteRisco(index) {
     const depto = currentInspection.departamentos[activeDepartamentoIndex]; let targetArray, nomeRisco;
     if (currentGroupId) { const grupo = depto.grupos.find(g => g.id === currentGroupId); targetArray = grupo.riscos; }
@@ -946,6 +980,7 @@ function deleteRisco(index) {
     updateRiscoList();
     persistCurrentInspection();
 }
+
 function clearRiscoForm() {
     editingIndex = -1;
     document.getElementById("risco-form").reset();
@@ -953,12 +988,14 @@ function clearRiscoForm() {
     document.getElementById("save-risco-btn").innerHTML = "<i class='bi bi-plus-lg'></i> Adicionar";
     document.getElementById("cancel-risco-edit-btn").classList.add("hidden");
 }
+
 function saveAndExit() {
     persistCurrentInspection((success) => {
         if(success) { showToast('Inspeção salva!', 'success'); showDashboard(); }
         else { showToast('Não foi possível salvar.', 'error'); }
     });
 }
+
 function loadInspections() {
     const request = db.transaction(["inspections"], "readonly").objectStore("inspections").getAll();
     request.onerror = () => {
@@ -997,11 +1034,13 @@ function loadInspections() {
         listElement.innerHTML = listHTML;
     };
 }
+
 function editInspection(t) {
     const e = db.transaction(["inspections"], "readonly").objectStore("inspections").get(t);
     e.onsuccess = () => { currentInspection = e.result; wizardStep = 0; showWizard(); };
     e.onerror = (t) => console.error("Erro ao carregar inspeção:", t);
 }
+
 function deleteInspection(t) {
     if (confirm('Excluir esta inspeção? A ação não pode ser desfeita.')) {
         const e = db.transaction(["inspections"], "readwrite").objectStore("inspections").delete(t);
@@ -1009,11 +1048,13 @@ function deleteInspection(t) {
         e.onerror = (t) => console.error("Erro ao excluir:", t);
     }
 }
+
 function getAllInspections(callback) {
     const t = db.transaction(["inspections"], "readonly").objectStore("inspections").getAll();
     t.onsuccess = () => callback(t.result);
     t.onerror = (e) => console.error("Erro ao buscar inspeções:", e);
 }
+
 function renderCargoReport(cargo, titulo) {
     const req = cargo.requisitosNR || {};
     const formatChecklistItem = (value) => {
@@ -1052,6 +1093,7 @@ function renderCargoReport(cargo, titulo) {
     html += `</div>`; 
     return html;
 }
+
 function showActionPlanView(inspectionId) {
     const request = db.transaction(["inspections"], "readonly").objectStore("inspections").get(inspectionId);
     request.onsuccess = () => {
@@ -1061,6 +1103,7 @@ function showActionPlanView(inspectionId) {
     };
     request.onerror = () => showToast("Erro ao carregar inspeção.", "error");
 }
+
 function renderActionPlanView() {
     if (!currentInspection) return; const e = currentInspection.empresa || {};
     actionPlanView.innerHTML = `
@@ -1086,6 +1129,7 @@ function renderActionPlanView() {
         </div>`;
     updateActionItemList();
 }
+
 function updateActionItemList() {
     const list = document.getElementById("action-item-list");
     if (!currentInspection.planoDeAcao || currentInspection.planoDeAcao.length === 0) { list.innerHTML = '<li class="empty-state">Nenhum item no plano de ação.</li>'; return; }
@@ -1096,6 +1140,7 @@ function updateActionItemList() {
         list.appendChild(li);
     });
 }
+
 function formatDateBR(dateString) {
     if (!dateString) return 'N/A';
     const date = new Date(dateString + 'T00:00:00'); 
@@ -1105,6 +1150,7 @@ function formatDateBR(dateString) {
         year: 'numeric'
     });
 }
+
 function saveActionItem() {
     const itemData = { atividade: document.getElementById("action-atividade").value, descricao: document.getElementById("action-descricao").value, prazoInicio: document.getElementById("action-prazo-inicio").value, prazoFim: document.getElementById("action-prazo-fim").value, status: document.getElementById("action-status").value, };
     if (!itemData.atividade) return showToast("A atividade é obrigatória.", "error");
@@ -1113,6 +1159,7 @@ function saveActionItem() {
     else { currentInspection.planoDeAcao.push(itemData); showToast("Item adicionado!", "success"); }
     persistCurrentInspection(); clearActionForm(); updateActionItemList();
 }
+
 function editActionItem(index) {
     editingIndex = index; const item = currentInspection.planoDeAcao[index];
     document.getElementById("action-atividade").value = item.atividade;
@@ -1124,6 +1171,7 @@ function editActionItem(index) {
     document.getElementById("save-action-btn").innerText = "Salvar Alterações";
     document.getElementById("cancel-action-edit-btn").classList.remove("hidden");
 }
+
 function deleteActionItem(index) {
     if (confirm("Excluir este item do plano de ação?")) {
         currentInspection.planoDeAcao.splice(index, 1);
@@ -1132,6 +1180,7 @@ function deleteActionItem(index) {
         showToast("Item excluído.", "success");
     }
 }
+
 function clearActionForm() {
     editingIndex = -1;
     document.getElementById("action-item-form").reset();
@@ -1139,6 +1188,7 @@ function clearActionForm() {
     document.getElementById("save-action-btn").innerText = "Adicionar Item";
     document.getElementById("cancel-action-edit-btn").classList.add("hidden");
 }
+
 function duplicateInspection(id) {
     const request = db.transaction(["inspections"], "readonly").objectStore("inspections").get(id);
     request.onerror = (e) => showToast("Erro ao encontrar a inspeção para duplicar.", "error");
@@ -1160,6 +1210,7 @@ function duplicateInspection(id) {
         addRequest.onerror = (e) => showToast("Erro ao salvar a inspeção duplicada.", "error");
     };
 }
+
 function duplicateDepartamento(index) {
     const originalDepto = currentInspection.departamentos[index];
     const newDepto = JSON.parse(JSON.stringify(originalDepto));
@@ -1169,6 +1220,7 @@ function duplicateDepartamento(index) {
     persistCurrentInspection();
     showToast("Departamento duplicado com sucesso!", "success");
 }
+
 function duplicateCargo(index) {
     const depto = currentInspection.departamentos[activeDepartamentoIndex];
     const originalCargo = depto.cargos[index];
@@ -1179,6 +1231,7 @@ function duplicateCargo(index) {
     persistCurrentInspection();
     showToast("Cargo duplicado com sucesso!", "success");
 }
+
 function duplicateFuncionario(index) {
     const depto = currentInspection.departamentos[activeDepartamentoIndex];
     const originalFunc = depto.funcionarios[index];
@@ -1189,6 +1242,7 @@ function duplicateFuncionario(index) {
     persistCurrentInspection();
     showToast("Funcionário duplicado com sucesso!", "success");
 }
+
 function duplicateGrupo(index) {
     const depto = currentInspection.departamentos[activeDepartamentoIndex];
     const originalGrupo = depto.grupos[index];
@@ -1202,6 +1256,7 @@ function duplicateGrupo(index) {
     persistCurrentInspection();
     showToast("Grupo duplicado com sucesso!", "success");
 }
+
 function showAutosaveStatus(status) {
     const statusEl = document.getElementById('autosave-status');
     if (!statusEl) return;
@@ -1223,11 +1278,13 @@ function showAutosaveStatus(status) {
             statusEl.style.opacity = '0';
     }
 }
+
 function triggerAutosave() {
     clearTimeout(autosaveTimer);
     if (isAutosaving) return;
     autosaveTimer = setTimeout(performAutosave, 2500);
 }
+
 function performAutosave() {
     if (!db || !currentInspection || !currentInspection.id || isAutosaving) {
         return;
@@ -1274,6 +1331,7 @@ function performAutosave() {
         showAutosaveStatus('hidden');
     }
 }
+
 function initializeSortableLists() {
     const sortableConfig = {
         animation: 150,
@@ -1302,6 +1360,7 @@ function initializeSortableLists() {
         if (el) Sortable.create(el, sortableConfig);
     });
 }
+
 function switchRiskContext(value) {
     if (!value) return;
     const [type, indexStr] = value.split('-');
@@ -1311,6 +1370,7 @@ function switchRiskContext(value) {
     currentGroupId = type === 'grupo' ? currentInspection.departamentos[activeDepartamentoIndex].grupos[index].id : null;
     renderRiscoStep();
 }
+
 function generateInspectionReport(id) {
     const request = db.transaction(["inspections"], "readonly").objectStore("inspections").get(id);
     request.onsuccess = () => {
@@ -1359,45 +1419,224 @@ function generateInspectionReport(id) {
     };
     request.onerror = (e) => console.error("Erro ao gerar relatório:", e);
 }
-// --- Reconhecimento de Voz com Vosk ---
-let recognizer;
-let micActive = false;
 
-async function initVosk() {
-    if (recognizer) return recognizer;
+// ==========================================
+// RECONHECIMENTO DE VOZ OFFLINE - VOSK
+// ==========================================
+
+let voskModel = null;
+let voskRecognizer = null;
+let audioContext = null;
+let mediaStream = null;
+let scriptProcessor = null;
+let isRecording = false;
+let currentButton = null;
+let currentInput = null;
+
+const MODEL_URL = 'models/vosk-model-small-pt-0.3.zip';
+
+async function loadVoskModel() {
+    if (voskModel) {
+        return voskModel;
+    }
 
     try {
-        const modelUrl = "https://alphacephei.com/vosk/models/vosk-model-small-pt-0.22.zip"; // modelo leve PT-BR
-        const model = await vosk.createModel(modelUrl);
-        recognizer = new model.Recognizer();
-        console.log("Modelo de voz carregado com sucesso!");
-        return recognizer;
-    } catch (err) {
-        console.error("Erro ao carregar o modelo Vosk:", err);
-        showToast("Erro ao carregar modelo de voz.", "error");
+        showToast("📥 Baixando modelo de voz (primeira vez)...", "warning");
+        
+        if (typeof Vosk === 'undefined') {
+            throw new Error('Biblioteca Vosk não carregada. Verifique o CDN.');
+        }
+
+        voskModel = await Vosk.createModel(MODEL_URL);
+        
+        showToast("✅ Modelo carregado! Pode usar o microfone.", "success");
+        return voskModel;
+        
+    } catch (error) {
+        console.error('Erro ao carregar modelo Vosk:', error);
+        showToast("❌ Erro ao carregar modelo. Verifique se a pasta /models/ existe com o arquivo do modelo.", "error");
+        return null;
     }
 }
 
 async function toggleRecognition(button) {
     const targetId = button.dataset.target;
     const input = document.getElementById(targetId);
-    if (!input) return;
-
-    if (micActive) {
-        micActive = false;
-        recognizer?.stop();
-        showToast("Microfone desligado.", "success");
-        button.classList.remove("active");
+    
+    if (!input) {
+        showToast("Campo não encontrado!", "error");
         return;
     }
 
-    micActive = true;
-    button.classList.add("active");
-    showToast("Microfone ligado. Fale agora...", "success");
+    if (isRecording) {
+        stopRecognition();
+        return;
+    }
 
-    const rec = await initVosk();
-    const mic = await navigator.mediaDevices.getUserMedia({ audio: true });
-    rec.start(mic, (text) => {
-        input.value = text;
-    });
+    currentButton = button;
+    currentInput = input;
+
+    try {
+        const model = await loadVoskModel();
+        if (!model) {
+            return;
+        }
+
+        showToast("🎤 Solicitando acesso ao microfone...", "warning");
+        
+        mediaStream = await navigator.mediaDevices.getUserMedia({ 
+            audio: {
+                echoCancellation: true,
+                noiseSuppression: true,
+                autoGainControl: true
+            } 
+        });
+
+        audioContext = new (window.AudioContext || window.webkitAudioContext)({
+            sampleRate: 16000
+        });
+
+        voskRecognizer = new model.KaldiRecognizer(audioContext.sampleRate);
+        voskRecognizer.setWords(true);
+        
+        const source = audioContext.createMediaStreamSource(mediaStream);
+        const bufferSize = 4096;
+        scriptProcessor = audioContext.createScriptProcessor(bufferSize, 1, 1);
+        
+        let partialText = '';
+        
+        scriptProcessor.onaudioprocess = (audioEvent) => {
+            if (!isRecording) return;
+            
+            try {
+                const audioData = audioEvent.inputBuffer.getChannelData(0);
+                const int16Data = new Int16Array(audioData.length);
+                for (let i = 0; i < audioData.length; i++) {
+                    int16Data[i] = Math.max(-32768, Math.min(32767, audioData[i] * 32768));
+                }
+                
+                if (voskRecognizer.acceptWaveform(int16Data)) {
+                    const result = voskRecognizer.result();
+                    if (result && result.text && result.text.trim()) {
+                        addTextToInput(result.text.trim());
+                    }
+                } else {
+                    const partial = voskRecognizer.partialResult();
+                    if (partial && partial.partial) {
+                        partialText = partial.partial;
+                        updateButtonWithPartialText(partialText);
+                    }
+                }
+            } catch (err) {
+                console.error('Erro ao processar áudio:', err);
+            }
+        };
+        
+        source.connect(scriptProcessor);
+        scriptProcessor.connect(audioContext.destination);
+        
+        isRecording = true;
+        
+        button.classList.add('active');
+        button.innerHTML = '<i class="bi bi-mic-fill" style="color: red;"></i>';
+        button.style.animation = 'pulse 1.5s infinite';
+        button.title = 'Clique para parar de gravar';
+        
+        showToast("🎤 Gravando... Fale agora! Clique novamente para parar.", "success");
+        
+    } catch (error) {
+        console.error('Erro ao iniciar reconhecimento:', error);
+        
+        let errorMsg = "Erro ao acessar microfone";
+        if (error.name === 'NotAllowedError') {
+            errorMsg = "Permissão de microfone negada. Permita nas configurações do navegador.";
+        } else if (error.name === 'NotFoundError') {
+            errorMsg = "Nenhum microfone encontrado.";
+        }
+        
+        showToast(errorMsg, "error");
+        stopRecognition();
+    }
 }
+
+function stopRecognition() {
+    isRecording = false;
+    
+    if (voskRecognizer) {
+        try {
+            const finalResult = voskRecognizer.finalResult();
+            if (finalResult && finalResult.text && finalResult.text.trim()) {
+                addTextToInput(finalResult.text.trim());
+            }
+        } catch (err) {
+            console.error('Erro ao obter resultado final:', err);
+        }
+    }
+    
+    if (scriptProcessor) {
+        scriptProcessor.disconnect();
+        scriptProcessor = null;
+    }
+    
+    if (mediaStream) {
+        mediaStream.getTracks().forEach(track => track.stop());
+        mediaStream = null;
+    }
+    
+    if (audioContext && audioContext.state !== 'closed') {
+        audioContext.close();
+        audioContext = null;
+    }
+    
+    if (currentButton) {
+        currentButton.classList.remove('active');
+        currentButton.innerHTML = '<i class="bi bi-mic-fill"></i>';
+        currentButton.style.animation = '';
+        currentButton.title = 'Ativar ditado por voz';
+    }
+    
+    showToast("⏸️ Gravação parada.", "success");
+    
+    currentButton = null;
+    currentInput = null;
+}
+
+function addTextToInput(text) {
+    if (!currentInput || !text) return;
+    
+    if (currentInput.value && currentInput.value.trim() !== '') {
+        currentInput.value += ' ' + text;
+    } else {
+        currentInput.value = text;
+    }
+    
+    currentInput.dispatchEvent(new Event('input', { bubbles: true }));
+    
+    showToast(`✅ "${text}"`, "success");
+}
+
+function updateButtonWithPartialText(text) {
+    if (!currentButton || !text) return;
+    const preview = text.length > 20 ? text.substring(0, 20) + '...' : text;
+    currentButton.title = `Reconhecendo: "${preview}"`;
+}
+
+// Adicionar estilos CSS
+const styleSheet = document.createElement("style");
+styleSheet.textContent = `
+    @keyframes pulse {
+        0%, 100% { transform: scale(1); }
+        50% { transform: scale(1.1); }
+    }
+    
+    button.active {
+        background-color: #fee2e2 !important;
+        border-color: #ef4444 !important;
+    }
+    
+    .sortable-ghost {
+        opacity: 0.4;
+        background: var(--primary-light);
+    }
+`;
+document.head.appendChild(styleSheet);
