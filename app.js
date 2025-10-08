@@ -1519,6 +1519,14 @@ const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/
 const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
 
 function toggleRecognition(button) {
+    // DEBUG: Mostrar informações do sistema
+    console.log('=== DEBUG VOZ ===');
+    console.log('Navigator:', navigator);
+    console.log('UserAgent:', navigator.userAgent);
+    console.log('Microfone disponível?:', 'mediaDevices' in navigator);
+    console.log('SpeechRecognition disponível?:', 'webkitSpeechRecognition' in window || 'SpeechRecognition' in window);
+    alert(`Debug:\nMobile: ${isMobile}\niOS: ${isIOS}\nCampo: ${input ? 'OK' : 'ERRO'}`);
+    
     const targetId = button.dataset.target;
     const input = document.getElementById(targetId);
     
