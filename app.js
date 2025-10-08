@@ -1359,3 +1359,45 @@ function generateInspectionReport(id) {
     };
     request.onerror = (e) => console.error("Erro ao gerar relatório:", e);
 }
+// --- Reconhecimento de Voz com Vosk ---
+let recognizer;
+let micActive = false;
+
+async function initVosk() {
+    if (recognizer) return recognizer;
+
+    try {
+        const modelUrl = "https://alphacephei.com/vosk/models/vosk-model-small-pt-0.22.zip"; // modelo leve PT-BR
+        const model = await vosk.createModel(modelUrl);
+        recognizer = new model.Recognizer();
+        console.log("Modelo de voz carregado com sucesso!");
+        return recognizer;
+    } catch (err) {
+        console.error("Erro ao carregar o modelo Vosk:", err);
+        showToast("Erro ao carregar modelo de voz.", "error");
+    }
+}
+
+async function toggleRecognition(button) {
+    const targetId = button.dataset.target;
+    const input = document.getElementById(targetId);
+    if (!input) return;
+
+    if (micActive) {
+        micActive = false;
+        recognizer?.stop();
+        showToast("Microfone desligado.", "success");
+        button.classList.remove("active");
+        return;
+    }
+
+    micActive = true;
+    button.classList.add("active");
+    showToast("Microfone ligado. Fale agora...", "success");
+
+    const rec = await initVosk();
+    const mic = await navigator.mediaDevices.getUserMedia({ audio: true });
+    rec.start(mic, (text) => {
+        input.value = text;
+    });
+}
