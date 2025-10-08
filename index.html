@@ -329,34 +329,82 @@
     <!-- SCRIPT DE CONTROLE DA VOZ (VOSK) -->
     <script>
         let voskModel, recognizer, activeRecognitionButton, audioContext;
-        const modelUrl = "models/vosk-model-small-pt-0.3.zip";
-
+      
+        const modelUrl = "/model/vosk-model-small-pt-0.3/"; // <- absoluto + barra final
+      
         async function loadVoskModel() {
-            showToast("Carregando modelo de voz...", "warning");
-            try {
-                if (!voskModel) {
-                    voskModel = await Vosk.createModel(modelUrl);
-                }
-                showToast("Modelo de voz carregado! Pode usar o microfone.", "success");
-                return voskModel;
-            } catch (error) {
-                console.error("Erro ao carregar o modelo Vosk:", error);
-                showToast("Erro ao carregar modelo de voz.", "error");
-                return null;
-            }
-        }
-
-        async function toggleRecognition(button) {
+          showToast("Carregando modelo de voz...", "warning");
+          try {
             if (!voskModel) {
-                const model = await loadVoskModel();
-                if (!model) return;
+              voskModel = await Vosk.createModel(modelUrl);
             }
-            if (recognizer) {
-                stopRecognition();
-            } else {
-                startRecognition(button);
-            }
+            showToast("Modelo de voz carregado! Pode usar o microfone.", "success");
+            return voskModel;
+          } catch (error) {
+            console.error("Erro ao carregar o modelo Vosk:", error);
+            showToast("Erro ao carregar modelo de voz. Verifique o caminho /model/…", "error");
+            return null;
+          }
         }
+      
+        async function startRecognition(button) {
+          activeRecognitionButton = button;
+          // Garante modelo pronto
+          if (!voskModel) {
+            const m = await loadVoskModel();
+            if (!m) return;
+          }
+      
+          // Áudio
+          audioContext = new (window.AudioContext || window.webkitAudioContext)();
+          const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+          const source = audioContext.createMediaStreamSource(stream);
+      
+          // Cria recognizer com a taxa do dispositivo
+          recognizer = await voskModel.createRecognizer(audioContext.sampleRate);
+      
+          const processor = audioContext.createScriptProcessor(4096, 1, 1);
+          source.connect(processor);
+          processor.connect(audioContext.destination);
+      
+          processor.onaudioprocess = (e) => {
+            const input = e.inputBuffer.getChannelData(0);
+            recognizer.acceptWaveform(input);
+            // opcional: pegar resultado parcial/final:
+            // const res = recognizer.result();
+            // console.log(res);
+          };
+      
+          button.textContent = "Parar reconhecimento";
+          showToast("Reconhecimento iniciado.", "success");
+        }
+      
+        function stopRecognition() {
+          if (audioContext) {
+            audioContext.close();
+            audioContext = null;
+          }
+          if (recognizer) {
+            recognizer.free();
+            recognizer = null;
+          }
+          if (activeRecognitionButton) {
+            activeRecognitionButton.textContent = "Iniciar reconhecimento";
+            activeRecognitionButton = null;
+          }
+          showToast("Reconhecimento parado.", "warning");
+        }
+      
+        async function toggleRecognition(button) {
+          // Mantém sua lógica original, mas garante caminho e criação do recognizer
+          if (!voskModel) {
+            const model = await loadVoskModel();
+            if (!model) return;
+          }
+          if (recognizer) stopRecognition();
+          else startRecognition(button);
+        }
+      </script>
 
         async function startRecognition(button) {
             activeRecognitionButton = button;
