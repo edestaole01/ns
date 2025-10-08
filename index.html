@@ -328,6 +328,117 @@
         // [COLE TODO O SEU CÓDIGO JAVASCRIPT ORIGINAL (MAIS DE 1000 LINHAS) AQUI]
         // ... começando com 'const predefinedRisks = [...]'
         // ... e terminando com a última função 'generateInspectionReport(...)'
+        // =======================================================================
+        // NOVO CÓDIGO PARA RECONHECIMENTO DE VOZ (VOSK)
+        // =======================================================================
+        let voskModel, recognizer, activeRecognitionButton, audioContext;
+
+        // URL para o modelo de língua portuguesa.
+        // Para produção, é recomendado hospedar este arquivo no seu próprio servidor.
+        const modelUrl = "https://cdn.jsdelivr.net/npm/vosk-browser@0.0.6/models/vosk-model-small-pt-0.3.zip";
+
+        // Função para carregar o modelo de reconhecimento de voz.
+        // Isso só acontece uma vez.
+        async function loadVoskModel() {
+            showToast("Carregando modelo de voz...", "warning");
+            try {
+                if (!voskModel) {
+                    voskModel = await Vosk.createModel(modelUrl);
+                }
+                showToast("Modelo de voz carregado! Pode usar o microfone.", "success");
+                return voskModel;
+            } catch (error) {
+                console.error("Erro ao carregar o modelo Vosk:", error);
+                showToast("Erro ao carregar modelo de voz.", "error");
+                return null;
+            }
+        }
+
+        // Função principal chamada pelo botão do microfone (onclick).
+        async function toggleRecognition(button) {
+            if (!voskModel) {
+                // Se o modelo não foi carregado, carrega primeiro.
+                const model = await loadVoskModel();
+                if (!model) return; // Se falhar, não continua.
+            }
+
+            if (recognizer) {
+                // Se já está reconhecendo, para.
+                stopRecognition();
+            } else {
+                // Se não está, começa a reconhecer.
+                startRecognition(button);
+            }
+        }
+
+        // Inicia a captura de áudio e o reconhecimento.
+        async function startRecognition(button) {
+            activeRecognitionButton = button;
+            const targetInputId = button.getAttribute('data-target');
+            const targetInput = document.getElementById(targetInputId);
+
+            if (!targetInput) {
+                console.error("Campo de destino não encontrado:", targetInputId);
+                showToast("Erro interno: campo não encontrado.", "error");
+                return;
+            }
+
+            // Altera a aparência do botão para indicar que está "ouvindo".
+            button.classList.add('primary');
+            button.innerHTML = '<i class="bi bi-record-circle"></i>';
+
+            try {
+                // Pede permissão e obtém o áudio do microfone.
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                const source = audioContext.createMediaStreamSource(stream);
+
+                // Cria o objeto reconhecedor com o modelo e a taxa de amostragem.
+                recognizer = new voskModel.Recognizer({ sampleRate: audioContext.sampleRate });
+
+                // Conecta o áudio do microfone ao processador do Vosk.
+                const processor = audioContext.createScriptProcessor(1024, 1, 1);
+                processor.onaudioprocess = (event) => {
+                    recognizer.acceptWaveform(event.inputBuffer);
+                };
+                source.connect(processor);
+                processor.connect(audioContext.destination);
+
+                // Quando o Vosk tem um resultado, esta função é chamada.
+                recognizer.onresult = (message) => {
+                    const text = message.result.text;
+                    if (text) {
+                        // Adiciona o texto reconhecido ao campo de input.
+                        targetInput.value += (targetInput.value ? " " : "") + text;
+                        // Dispara o evento 'input' para que o autosave funcione.
+                        targetInput.dispatchEvent(new Event('input', { bubbles: true }));
+                    }
+                };
+            } catch (error) {
+                console.error("Erro ao iniciar o reconhecimento:", error);
+                showToast("Não foi possível acessar o microfone.", "error");
+                stopRecognition(); // Garante que tudo seja limpo em caso de erro.
+            }
+        }
+
+        // Para a captura de áudio e o reconhecimento.
+        function stopRecognition() {
+            if (recognizer) {
+                recognizer.free();
+                recognizer = null;
+            }
+            if (audioContext) {
+                audioContext.close();
+                audioContext = null;
+            }
+            if (activeRecognitionButton) {
+                // Restaura a aparência original do botão.
+                activeRecognitionButton.classList.remove('primary');
+                activeRecognitionButton.innerHTML = '<i class="bi bi-mic-fill"></i>';
+                activeRecognitionButton = null;
+            }
+        }
+
         const predefinedRisks = [
             { tipo: "FÍSICO", codigoEsocial: "02.01.001", perigo: "Exposição a ruído contínuo e intermitente", danos: "Diminuição gradual da audição, cansaço, irritação, zumbido, fadiga, surdez" },
             { tipo: "FÍSICO", codigoEsocial: "02.01.002", perigo: "Vibrações localizadas (mão-braço)", danos: "lesões musculares, problemas nas articulações, fadiga muscular." },
