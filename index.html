@@ -16,13 +16,11 @@
 
     <!-- Bibliotecas JS -->
     <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
-    <!-- *** ADICIONADO: Biblioteca de Voz Vosk *** -->
-    <script src="js/vosk.js"></script>
+    <script src="https://cdn.jsdelivr.net/gh/ccoreilly/vosk-browser@gh-pages/dist/vosk.js"></script>
 
     <style>
-        /* [SEU CÓDIGO CSS COMPLETO VAI AQUI - sem alterações] */
+        /* [SEU CÓDIGO CSS VAI AQUI - NENHUMA MUDANÇA NECESSÁRIA] */
         :root {
-            /* Paleta de cores */
             --primary: #3b82f6;
             --primary-hover: #2563eb;
             --primary-light: #eff6ff;
@@ -41,25 +39,18 @@
             --gray-700: #334155;
             --gray-800: #1e293b;
             --gray-900: #0f172a;
-            
-            /* Sombras */
             --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
             --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
             --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
             --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
-    
-            /* Variável para transições */
             --transition-speed: 0.3s ease-in-out;
         }
-    
         * { box-sizing: border-box; margin: 0; padding: 0; }
-    
         html {
             scroll-behavior: smooth;
             -webkit-font-smoothing: antialiased;
             -moz-osx-font-smoothing: grayscale;
         }
-        
         body { 
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
             background-color: var(--gray-100);
@@ -68,7 +59,6 @@
             padding-top: 70px;
             min-height: 100vh;
         }
-    
         .main-nav {
             background: white;
             box-shadow: var(--shadow-md);
@@ -90,9 +80,7 @@
         .nav-links { display: flex; gap: 0.5rem; }
         .nav-links button { background: none; border: none; color: var(--gray-700); font-size: 0.95rem; font-weight: 500; padding: 0.6rem 1.2rem; cursor: pointer; border-radius: 0.5rem; transition: var(--transition-speed); }
         .nav-links button:hover { background: var(--primary-light); color: var(--primary); }
-    
         .container { max-width: 1200px; margin: 2rem auto; padding: 0 1.5rem; }
-        
         .card {
             background: white;
             border-radius: 1rem;
@@ -104,12 +92,10 @@
         }
         .card:hover { box-shadow: var(--shadow-lg); border-color: var(--gray-300); }
         #dashboard-view .card:first-child { background: linear-gradient(135deg, var(--primary-light) 0%, white 50%); border-color: var(--primary); border-left: 4px solid var(--primary); }
-    
         h1 { font-size: 2rem; font-weight: 700; color: var(--gray-900); margin-bottom: 0.5rem; }
         h2 { font-size: 1.5rem; font-weight: 600; color: var(--gray-800); margin-bottom: 1.5rem; padding-bottom: 0.75rem; border-bottom: 1px solid var(--gray-200); }
         h3 { font-size: 1.25rem; font-weight: 600; color: var(--gray-700); margin: 1.5rem 0 1rem; }
         h4 { font-size: 1rem; font-weight: 600; color: var(--gray-700); margin: 1rem 0 0.5rem; }
-    
         button { font-family: inherit; font-size: 0.95rem; font-weight: 500; padding: 0.65rem 1.5rem; border: none; border-radius: 0.5rem; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem; box-shadow: var(--shadow-sm); transition: all var(--transition-speed); }
         button:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); }
         button:active { transform: translateY(0); box-shadow: var(--shadow-sm); }
@@ -124,7 +110,6 @@
         button.nav:hover { background: var(--gray-300); }
         button.outline { background: white; border: 2px solid var(--gray-300); color: var(--gray-700); }
         button.outline:hover { border-color: var(--primary); color: var(--primary); background: var(--primary-light); }
-    
         .header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; margin-bottom: 2rem; }
         .actions { display: flex; gap: 0.75rem; flex-wrap: wrap; }
         .form-group { margin-bottom: 1.5rem; }
@@ -136,7 +121,6 @@
         .form-actions { display: flex; gap: 0.75rem; margin-top: 2rem; padding-top: 1.5rem; border-top: 1px solid var(--gray-100); }
         fieldset { border: 1px solid var(--gray-200); border-radius: 0.75rem; padding: 1.5rem; margin: 1.5rem 0; background: var(--gray-50); }
         legend { font-weight: 600; color: var(--gray-800); padding: 0 0.75rem; font-size: 1rem; }
-    
         .item-list { list-style: none; }
         .item-list li { background: white; border: 1px solid var(--gray-200); border-radius: 0.75rem; padding: 1.25rem; margin-bottom: 1rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; transition: all var(--transition-speed); border-left: 4px solid var(--gray-200); }
         .item-list li:hover { border-color: var(--primary); box-shadow: var(--shadow); border-left: 4px solid var(--primary); transform: scale(1.01); }
@@ -147,8 +131,6 @@
         .item-actions { display: flex; gap: 0.5rem; flex-shrink: 0; flex-wrap: wrap; }
         .item-list li .item-actions button { opacity: 0.8; }
         .item-list li:hover .item-actions button { opacity: 1; }
-    
-        /* --- BARRA DE PROGRESSO COM NOVO DESIGN --- */
         .progress-bar { 
             display: flex; 
             justify-content: space-between; 
@@ -181,7 +163,6 @@
             transition: var(--transition-speed);
             width: var(--after-width, 0%);
         }
-    
         .progress-bar li { 
             flex: 1; 
             text-align: center; 
@@ -196,7 +177,6 @@
             align-items: center;
             gap: 0.5rem;
         }
-    
         .progress-bar li::before {
             content: attr(data-step);
             display: flex;
@@ -211,13 +191,10 @@
             font-weight: 700;
             transition: var(--transition-speed);
         }
-    
         .progress-bar li.completed { color: var(--gray-700); }
         .progress-bar li.completed::before { background: var(--primary-light); border-color: var(--primary); color: var(--primary); }
         .progress-bar li.active { color: var(--primary); font-weight: 700; }
         .progress-bar li.active::before { background: var(--primary); border-color: var(--primary); color: white; }
-        /* --- FIM DA BARRA DE PROGRESSO --- */
-    
         .breadcrumb { font-size: 0.95rem; color: var(--gray-600); margin-bottom: 1.5rem; padding: 0.75rem 1rem; background: white; border-radius: 0.5rem; border-left: 4px solid var(--primary); }
         .breadcrumb strong { color: var(--gray-900); font-weight: 600; }
         .wizard-header { display: flex; justify-content: space-between; align-items: center; padding: 1.25rem; margin-bottom: 1.5rem; background: linear-gradient(135deg, var(--primary-light) 0%, white 100%); border-radius: 0.75rem; border-left: 4px solid var(--primary); }
@@ -230,28 +207,23 @@
         .stat-card:hover { transform: translateY(-3px); box-shadow: var(--shadow-md); }
         .stat-card .stat-value { font-size: 2rem; font-weight: 700; color: var(--primary); display: block; }
         .stat-card .stat-label { color: var(--gray-600); font-size: 0.9rem; display: block; margin-top: 0.25rem; }
-        
         .toast { position: fixed; bottom: 2rem; right: 2rem; background: var(--gray-900); color: white; padding: 1rem 1.5rem; border-radius: 0.5rem; box-shadow: var(--shadow-lg); z-index: 2000; animation: slideIn 0.3s ease-out; }
         @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
         .toast.success { background: var(--secondary); }
         .toast.error { background: var(--danger); }
         .toast.warning { background: var(--warning); }
-        
         .accordion-section { border: 1px solid var(--gray-200); border-radius: 0.75rem; margin-bottom: 1rem; transition: all var(--transition-speed); overflow: hidden; }
         .accordion-section[open] { background-color: white; border-color: var(--primary); box-shadow: var(--shadow); }
         .accordion-section summary { font-weight: 600; color: var(--gray-800); cursor: pointer; padding: 1rem; list-style: none; position: relative; }
         .accordion-section summary::after { content: '+'; position: absolute; right: 1rem; font-size: 1.5rem; font-weight: 400; transition: transform 0.2s; color: var(--primary); }
         .accordion-section[open] summary::after { transform: rotate(45deg); }
         .accordion-section > div { padding: 0 1rem 1rem 1rem; }
-    
         .radio-group-container { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem; align-items: center; }
         .radio-group-item { display: flex; align-items: center; gap: 0.75rem; font-size: 0.9rem; }
         .radio-group-item label { margin-bottom: 0; font-weight: 500; }
         .radio-group-item input[type="radio"] { width: auto; }
-    
         .report-checklist { font-family: 'Courier New', Courier, monospace; font-size: 0.85em; line-height: 1.5; background-color: var(--gray-50); padding: 10px; border-radius: 4px; border: 1px solid var(--gray-200); }
         .report-checklist-item { margin-right: 1.5rem; white-space: nowrap; }        
-        
         @media (max-width: 768px) {
             .container { padding: 0 1rem; }
             .card { padding: 1.5rem; }
@@ -260,7 +232,6 @@
             .main-nav { padding: 0 1rem; }
             .nav-links button { padding: 0.5rem 0.75rem; font-size: 0.85rem; }
             .form-grid { grid-template-columns: 1fr; }
-            
             .progress-bar {
                 flex-direction: column;
                 align-items: flex-start;
@@ -293,7 +264,6 @@
                 display: flex;
             }
             .progress-bar li.active { border: none; }
-            
             .header { flex-direction: column; align-items: flex-start; }
             .actions { width: 100%; }
             .actions button { flex: 1; justify-content: center; }
@@ -319,7 +289,6 @@
                         <p style="color: var(--gray-600); margin-top: 0.5rem;">Gerencie inspeções de segurança e riscos ocupacionais</p>
                     </div>
                 </div>
-
                 <div class="stats-grid" id="stats-container">
                     <div class="stat-card"><span class="stat-value" id="stat-total">0</span><span class="stat-label">Inspeções Cadastradas</span></div>
                     <div class="stat-card"><span class="stat-value" id="stat-departamentos">0</span><span class="stat-label">Total de Departamentos</span></div>
@@ -327,7 +296,6 @@
                     <div class="stat-card"><span class="stat-value" id="stat-riscos">0</span><span class="stat-label">Total de Riscos</span></div>
                 </div>
             </div>
-
             <div class="card" id="inspections-section">
                 <div class="header">
                     <h2>Inspeções Cadastradas</h2>
@@ -355,9 +323,11 @@
         <div id="action-plan-view" class="hidden"></div>
     </div>
 
-    <!-- *** SEU SCRIPT PRINCIPAL FOI MOVIDO PARA CÁ, PARA DENTRO DO BODY *** -->
+    <!-- SCRIPT PRINCIPAL DA APLICAÇÃO -->
     <script>
-        /* [SEU CÓDIGO JAVASCRIPT PRINCIPAL VAI AQUI - sem alterações] */
+        // [COLE TODO O SEU CÓDIGO JAVASCRIPT ORIGINAL (MAIS DE 1000 LINHAS) AQUI]
+        // ... começando com 'const predefinedRisks = [...]'
+        // ... e terminando com a última função 'generateInspectionReport(...)'
         const predefinedRisks = [
             { tipo: "FÍSICO", codigoEsocial: "02.01.001", perigo: "Exposição a ruído contínuo e intermitente", danos: "Diminuição gradual da audição, cansaço, irritação, zumbido, fadiga, surdez" },
             { tipo: "FÍSICO", codigoEsocial: "02.01.002", perigo: "Vibrações localizadas (mão-braço)", danos: "lesões musculares, problemas nas articulações, fadiga muscular." },
@@ -617,7 +587,6 @@
             }
         }
         
-        // *** FUNÇÃO ATUALIZADA com o botão de microfone ***
         function renderEmpresaStep() {
             const e = currentInspection.empresa || {};
             document.getElementById('wizard-content').innerHTML = `
@@ -669,13 +638,11 @@
                     <div class="wizard-nav"><button class="nav" onclick="showDashboard()">Voltar ao Painel</button><button class="primary" onclick="saveEmpresaAndNext()">Salvar e Próximo</button></div>
                 </div>`;
         }
-
         function saveEmpresaAndNext() {
             currentInspection.empresa = { nome: document.getElementById("nome").value, cnpj: document.getElementById("cnpj").value, data: document.getElementById("data").value, elaborado: document.getElementById("elaborado").value, aprovado: document.getElementById("aprovado").value };
             if (!currentInspection.empresa.nome) return showToast("O nome da empresa é obrigatório.", "error");
             persistCurrentInspection((success) => { if(success) { showToast("Dados da empresa salvos!", "success"); nextStep(); } });
         }
-        
         function renderDepartamentoStep() {
             document.getElementById('wizard-content').innerHTML = `
                 <div class="card">
@@ -697,7 +664,6 @@
             updateDepartamentoList();
             setTimeout(() => initializeSortableLists(), 0);
         }
-        
         function updateDepartamentoList() {
             const list = document.getElementById("departamento-list");
             if (!currentInspection.departamentos || currentInspection.departamentos.length === 0) { list.innerHTML = '<li class="empty-state">Nenhum departamento adicionado.</li>'; return; }
@@ -713,50 +679,36 @@
                 list.appendChild(li);
             });
         }
-        
         function saveDepartamento() {
             const deptoData = {
                 nome: document.getElementById("depto-nome").value,
                 caracteristica: document.getElementById("depto-caracteristica").value,
                 descricao: document.getElementById("depto-descricao").value
             };
-
             if (!deptoData.nome) {
                 return showToast("O nome do departamento é obrigatório.", "error");
             }
-
-            // --- INÍCIO DA CORREÇÃO CRUCIAL ---
             if (editingIndex > -1) {
-                // MODO DE EDIÇÃO: Apenas atualiza as propriedades do departamento existente.
                 const deptoToUpdate = currentInspection.departamentos[editingIndex];
                 deptoToUpdate.nome = deptoData.nome;
                 deptoToUpdate.caracteristica = deptoData.caracteristica;
                 deptoToUpdate.descricao = deptoData.descricao;
-                // Os arrays .cargos, .funcionarios e .grupos não são tocados, preservando os dados.
-
                 showToast("Departamento atualizado!", "success");
                 clearDeptoForm();
             } else {
-                // MODO DE ADIÇÃO: Cria um novo departamento com arrays vazios.
                 if (!currentInspection.departamentos) {
                     currentInspection.departamentos = [];
                 }
-                // Adiciona os arrays vazios que serão preenchidos depois
                 deptoData.cargos = [];
                 deptoData.funcionarios = [];
                 deptoData.grupos = [];
                 currentInspection.departamentos.push(deptoData);
-
                 showToast("Departamento adicionado!", "success");
                 document.getElementById("depto-form").reset();
             }
-            // --- FIM DA CORREÇÃO CRUCIAL ---
-
-            // Atualiza a lista na tela e persiste os dados no banco de dados.
             updateDepartamentoList();
             persistCurrentInspection();
         }
-        
         function editDepartamento(index) {
             editingIndex = index; const depto = currentInspection.departamentos[index];
             document.getElementById("depto-nome").value = depto.nome;
@@ -766,7 +718,6 @@
             document.getElementById("save-depto-btn").innerHTML = "Salvar Alterações";
             document.getElementById("cancel-depto-edit-btn").classList.remove("hidden");
         }
-        
         function deleteDepartamento(index) {
             if (confirm(`Excluir o departamento "${currentInspection.departamentos[index].nome}"?`)) {
                 currentInspection.departamentos.splice(index, 1);
@@ -775,7 +726,6 @@
                 persistCurrentInspection();
             }
         }
-        
         function clearDeptoForm() {
             editingIndex = -1;
             document.getElementById("depto-form").reset();
@@ -783,12 +733,10 @@
             document.getElementById("save-depto-btn").innerHTML = "Adicionar";
             document.getElementById("cancel-depto-edit-btn").classList.add("hidden");
         }
-        
         function goToCargos(index) {
             activeDepartamentoIndex = index;
             nextStep();
         }
-        
         function getFormFieldsHTML(prefix) {
             return `
                 <fieldset><legend>Observação para os Cargos</legend>
@@ -805,7 +753,6 @@
                 </fieldset>
                 <div class="form-group"><label for="${prefix}-perfil-exposicao">Observação específica (Perfil de Exposição)</label><textarea id="${prefix}-perfil-exposicao" rows="2" placeholder="Ex: A soma da exposição ao agente FRD em todos os períodos de acesso é de ___ min..."></textarea></div>
                 <div class="form-group"><label for="${prefix}-descricao-atividade">Descrição Atividade por função</label><select id="${prefix}-descricao-atividade"><option value="Sim">Sim</option><option value="Não">Não</option></select></div>
-                
                 <fieldset><legend>Atendimento aos requisitos das NR-06 e NR-01</legend>
                     <div class="radio-group-container">
                         <div class="radio-group-item">
@@ -835,7 +782,6 @@
                         </div>
                     </div>
                 </fieldset>
-        
                 <fieldset><legend>Classificações e Dados</legend>
                     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 0.75rem;">
                         <label style="display: flex; align-items: center; gap: 0.5rem;"><input type="checkbox" id="${prefix}-insalubre"> Insalubre (NR15)</label>
@@ -846,17 +792,14 @@
                 </fieldset>
             `;
         }
-        
         function renderCargoFuncionarioStep() {
             const depto = currentInspection.departamentos[activeDepartamentoIndex];
             if (!depto.grupos) depto.grupos = [];
             if (!depto.cargos) depto.cargos = [];
             if (!depto.funcionarios) depto.funcionarios = [];
-        
             document.getElementById('wizard-content').innerHTML = `
                 <div class="card">
                     <div class="breadcrumb">${currentInspection.empresa.nome} › <strong>${depto.nome}</strong></div>
-        
                     <h3>Grupos de Cargos <small style="font-weight: 400; color: var(--gray-500);">(Arraste para reordenar)</small></h3>
                     <ul id="grupo-list" class="item-list"></ul>
                     <details id="grupo-form-details" class="accordion-section">
@@ -872,7 +815,6 @@
                             </form>
                         </div>
                     </details>
-        
                     <h3 style="margin-top: 2rem;">Cargos Individuais <small style="font-weight: 400; color: var(--gray-500);">(Arraste para reordenar)</small></h3>
                     <ul id="cargo-list" class="item-list"></ul>
                     <details id="cargo-form-details" class="accordion-section">
@@ -888,7 +830,6 @@
                             </form>
                         </div>
                     </details>
-                    
                     <h3 style="margin-top: 2rem;">Funcionários Individuais <small style="font-weight: 400; color: var(--gray-500);">(Arraste para reordenar)</small></h3>
                     <ul id="funcionario-list" class="item-list"></ul>
                     <details id="funcionario-form-details" class="accordion-section">
@@ -904,19 +845,16 @@
                             </form>
                         </div>
                     </details>
-        
                     <div class="wizard-nav"><button class="nav" onclick="prevStep()">Voltar</button></div>
                 </div>`;
             updateAllLists();
             setTimeout(() => initializeSortableLists(), 0);
         }
-        
         function updateAllLists() {
             updateCargoList();
             updateGrupoList();
             updateFuncionarioList();
         }
-        
         function updateCargoList() {
             const list = document.getElementById("cargo-list"), depto = currentInspection.departamentos[activeDepartamentoIndex];
             if (!depto.cargos || depto.cargos.length === 0) { list.innerHTML = '<li class="empty-state">Nenhum cargo individual.</li>'; return; }
@@ -933,7 +871,6 @@
                 list.appendChild(li);
             });
         }
-        
         function updateGrupoList() {
             const list = document.getElementById("grupo-list"), depto = currentInspection.departamentos[activeDepartamentoIndex];
             if (!depto.grupos || depto.grupos.length === 0) { list.innerHTML = '<li class="empty-state">Nenhum grupo.</li>'; return; }
@@ -949,7 +886,6 @@
                 list.appendChild(li);
             });
         }
-        
         function updateFuncionarioList() {
             const list = document.getElementById("funcionario-list"), depto = currentInspection.departamentos[activeDepartamentoIndex];
             if (!depto.funcionarios || depto.funcionarios.length === 0) { list.innerHTML = '<li class="empty-state">Nenhum funcionário individual.</li>'; return; }
@@ -966,7 +902,6 @@
                 list.appendChild(li);
             });
         }
-        
         function collectFormData(prefix) {
             const observacoes = [];
             if (document.getElementById(`${prefix}-obs-altura`).checked) observacoes.push("Trabalho em altura");
@@ -977,13 +912,11 @@
             if (document.getElementById(`${prefix}-obs-talhas`).checked) observacoes.push("Operação de Talhas");
             if (document.getElementById(`${prefix}-obs-paleteiras`).checked) observacoes.push("Operação de paleteiras");
             if (document.getElementById(`${prefix}-obs-veiculos`).checked) observacoes.push("Condução de Veículos");
-        
             const dadosLtcat = [];
             if (document.getElementById(`${prefix}-insalubre`).checked) dadosLtcat.push("Insalubre (NR15)");
             if (document.getElementById(`${prefix}-perigoso`).checked) dadosLtcat.push("Perigoso (NR16)");
             if (document.getElementById(`${prefix}-nho01`).checked) dadosLtcat.push("NHO 01");
             if (document.getElementById(`${prefix}-ltcat`).checked) dadosLtcat.push("DADOS PARA LTCAT");
-        
             return {
                 observacoes,
                 perfilExposicao: document.getElementById(`${prefix}-perfil-exposicao`).value,
@@ -998,16 +931,12 @@
                 dadosLtcat
             };
         }
-        
         function saveCargo() {
             const nome = document.getElementById("cargo-nome").value.trim();
             if (!nome) return showToast("O nome do cargo é obrigatório.", "error");
-        
             const depto = currentInspection.departamentos[activeDepartamentoIndex];
             if (!depto.cargos) depto.cargos = [];
-        
             const cargoData = { nome, ...collectFormData('cargo'), riscos: editingIndex > -1 && editingType === 'cargo' ? depto.cargos[editingIndex].riscos : [] };
-            
             if (editingIndex > -1 && editingType === 'cargo') {
                 depto.cargos[editingIndex] = cargoData;
                 showToast("Cargo atualizado!", "success");
@@ -1017,20 +946,15 @@
                 showToast("Cargo adicionado!", "success");
                 document.getElementById("cargo-form").reset();
             }
-            
             setTimeout(() => updateCargoList(), 0);
             persistCurrentInspection();
         }
-        
         function saveFuncionario() {
             const nome = document.getElementById("funcionario-nome").value.trim();
             if (!nome) return showToast("O nome do funcionário é obrigatório.", "error");
-        
             const depto = currentInspection.departamentos[activeDepartamentoIndex];
             if (!depto.funcionarios) depto.funcionarios = [];
-        
             const funcionarioData = { nome, ...collectFormData('funcionario'), riscos: editingIndex > -1 && editingType === 'funcionario' ? depto.funcionarios[editingIndex].riscos : [] };
-            
             if (editingIndex > -1 && editingType === 'funcionario') {
                 depto.funcionarios[editingIndex] = funcionarioData;
                 showToast("Funcionário atualizado!", "success");
@@ -1040,22 +964,17 @@
                 showToast("Funcionário adicionado!", "success");
                 document.getElementById("funcionario-form").reset();
             }
-        
             setTimeout(() => updateFuncionarioList(), 0);
             persistCurrentInspection();
         }
-        
         function saveGrupo() {
             const nomesText = document.getElementById("grupo-nomes").value.trim();
             if (!nomesText) return showToast("Digite os nomes dos cargos do grupo.", "error");
             const nomes = nomesText.split('\n').map(n => n.trim()).filter(n => n.length > 0);
             if (nomes.length === 0) return showToast("Nomes de cargos inválidos.", "error");
-        
             const depto = currentInspection.departamentos[activeDepartamentoIndex];
             if (!depto.grupos) depto.grupos = [];
-        
             const grupoData = { listaDeCargos: nomes, ...collectFormData('grupo'), riscos: editingIndex > -1 && editingType === 'grupo' ? depto.grupos[editingIndex].riscos : [], id: editingIndex > -1 && editingType === 'grupo' ? depto.grupos[editingIndex].id : 'grupo_' + Date.now() };
-            
             if (editingIndex > -1 && editingType === 'grupo') {
                 depto.grupos[editingIndex] = grupoData;
                 showToast("Grupo atualizado!", "success");
@@ -1065,24 +984,19 @@
                 showToast("Grupo criado!", "success");
                 document.getElementById("grupo-form").reset();
             }
-            
             setTimeout(() => updateGrupoList(), 0);
             persistCurrentInspection();
         }
-        
         function deleteCargo(index) {
             const depto = currentInspection.departamentos[activeDepartamentoIndex];
             if (confirm(`Excluir o cargo "${depto.cargos[index].nome}"?`)) { depto.cargos.splice(index, 1); updateCargoList(); persistCurrentInspection(); showToast("Cargo excluído!", "success"); }
         }
-        
         function deleteFuncionario(index) {
             const depto = currentInspection.departamentos[activeDepartamentoIndex];
             if (confirm(`Excluir o funcionário "${depto.funcionarios[index].nome}"?`)) { depto.funcionarios.splice(index, 1); updateFuncionarioList(); persistCurrentInspection(); showToast("Funcionário excluído!", "success"); }
         }
-        
         function populateForm(prefix, data) {
             if (!data) return;
-        
             (data.observacoes || []).forEach(obs => {
                 const checkboxId = {
                     "Trabalho em altura": `${prefix}-obs-altura`,
@@ -1096,17 +1010,14 @@
                 }[obs];
                 if (checkboxId && document.getElementById(checkboxId)) document.getElementById(checkboxId).checked = true;
             });
-        
             document.getElementById(`${prefix}-perfil-exposicao`).value = data.perfilExposicao || '';
             document.getElementById(`${prefix}-descricao-atividade`).value = data.descricaoAtividade || 'Sim';
-        
             const req = data.requisitosNR || {};
             document.querySelector(`input[name="${prefix}-req-medida"][value="${req.medida || 'Sim'}"]`).checked = true;
             document.querySelector(`input[name="${prefix}-req-condicao"][value="${req.condicao || 'Sim'}"]`).checked = true;
             document.querySelector(`input[name="${prefix}-req-prazo"][value="${req.prazo || 'Sim'}"]`).checked = true;
             document.querySelector(`input[name="${prefix}-req-periodicidade"][value="${req.periodicidade || 'Sim'}"]`).checked = true;
             document.querySelector(`input[name="${prefix}-req-higienizacao"][value="${req.higienizacao || 'Sim'}"]`).checked = true;
-        
             (data.dadosLtcat || []).forEach(dado => {
                 const checkboxId = {
                     "Insalubre (NR15)": `${prefix}-insalubre`,
@@ -1117,46 +1028,36 @@
                 if (checkboxId && document.getElementById(checkboxId)) document.getElementById(checkboxId).checked = true;
             });
         }
-        
         function editCargo(index) {
             editingIndex = index;
             editingType = 'cargo';
             const cargo = currentInspection.departamentos[activeDepartamentoIndex].cargos[index];
-            
             document.getElementById("cargo-form-details").setAttribute("open", "");
             document.getElementById("cargo-nome").value = cargo.nome || '';
             populateForm('cargo', cargo);
-            
             document.getElementById("save-cargo-btn").innerHTML = "Salvar Alterações";
             document.getElementById("cancel-cargo-edit-btn").classList.remove("hidden");
         }
-        
         function editFuncionario(index) {
             editingIndex = index;
             editingType = 'funcionario';
             const funcionario = currentInspection.departamentos[activeDepartamentoIndex].funcionarios[index];
-            
             document.getElementById("funcionario-form-details").setAttribute("open", "");
             document.getElementById("funcionario-nome").value = funcionario.nome || '';
             populateForm('funcionario', funcionario);
-            
             document.getElementById("save-funcionario-btn").innerHTML = "Salvar Alterações";
             document.getElementById("cancel-funcionario-edit-btn").classList.remove("hidden");
         }
-        
         function editGrupo(index) {
             editingIndex = index;
             editingType = 'grupo';
             const grupo = currentInspection.departamentos[activeDepartamentoIndex].grupos[index];
-            
             document.getElementById("grupo-form-details").setAttribute("open", "");
             document.getElementById("grupo-nomes").value = (grupo.listaDeCargos || []).join('\n');
             populateForm('grupo', grupo);
-            
             document.getElementById("save-grupo-btn").innerHTML = "Salvar Alterações";
             document.getElementById("cancel-grupo-edit-btn").classList.remove("hidden");
         }
-        
         function clearForm(type) {
             editingIndex = -1;
             editingType = null;
@@ -1165,24 +1066,20 @@
             document.getElementById(`cancel-${type}-edit-btn`).classList.add("hidden");
             document.getElementById(`${type}-form-details`).removeAttribute("open");
         }
-        
         function deleteGrupo(index) {
             const depto = currentInspection.departamentos[activeDepartamentoIndex];
             if (confirm(`Excluir este grupo?`)) { depto.grupos.splice(index, 1); updateGrupoList(); persistCurrentInspection(); showToast("Grupo excluído!", "success"); }
         }
-        
         function goToRiscos(index, type) {
             activeCargoIndex = type === 'cargo' ? index : -1;
             activeFuncionarioIndex = type === 'funcionario' ? index : -1;
             currentGroupId = type === 'grupo' ? currentInspection.departamentos[activeDepartamentoIndex].grupos[index].id : null;
             nextStep();
         }
-        
         function renderRiscoStep() {
             const depto = currentInspection.departamentos[activeDepartamentoIndex];
             let breadcrumbText = '', tituloRiscos = '', infoBox = '', targetObject;
             let currentContextValue = '';
-        
             if (currentGroupId) {
                 const grupo = depto.grupos.find(g => g.id === currentGroupId);
                 if (!grupo) { showToast("Grupo não encontrado.", "error"); prevStep(); return; }
@@ -1206,22 +1103,17 @@
             } else {
                 prevStep(); return;
             }
-        
             const riskTypes = [...new Set(predefinedRisks.map(r => r.tipo.replace(' PSICOSSOCIAIS', '')))];
-            
             let quickNavOptions = (depto.cargos || []).map((c, i) => `<option value="cargo-${i}" ${currentContextValue === `cargo-${i}` ? 'selected' : ''}>Cargo: ${c.nome}</option>`).join('');
             quickNavOptions += (depto.funcionarios || []).map((f, i) => `<option value="funcionario-${i}" ${currentContextValue === `funcionario-${i}` ? 'selected' : ''}>Funcionário: ${f.nome}</option>`).join('');
             quickNavOptions += (depto.grupos || []).map((g, i) => `<option value="grupo-${i}" ${currentContextValue === `grupo-${i}` ? 'selected' : ''}>Grupo: ${g.listaDeCargos.join(', ')}</option>`).join('');
-        
             document.getElementById('wizard-content').innerHTML = `
                 <div class="card">
                     <div class="breadcrumb">${breadcrumbText}</div>
-                    
                     <div class="form-group">
                         <label for="quick-nav-select">Navegar para riscos de:</label>
                         <select id="quick-nav-select" onchange="switchRiskContext(this.value)">${quickNavOptions}</select>
                     </div>
-        
                     ${infoBox}
                     <h3>${tituloRiscos}</h3>
                     <ul id="risco-list" class="item-list"></ul>
@@ -1246,7 +1138,6 @@
                         <div class="form-group"><label for="risco-presente">Risco Presente?</label><select id="risco-presente"><option>Sim</option><option>Não</option></select></div>
                         <div class="form-group"><label for="risco-perigo">Descrição (Nome) do Perigo *</label><input type="text" id="risco-perigo" required placeholder="Ex: Ruído contínuo acima de 85 dB"></div>
                         <div class="form-group"><label for="risco-descricao-detalhada">Descrição Detalhada</label><textarea id="risco-descricao-detalhada" rows="2" placeholder="Detalhe o contexto do risco..."></textarea></div>
-                        
                         <details class="accordion-section">
                             <summary>Fonte, Medição e Exposição</summary>
                             <div class="form-grid">
@@ -1279,26 +1170,22 @@
                             <div class="form-group"><label for="risco-acoes">Ações Necessárias</label><textarea id="risco-acoes" rows="2" placeholder="Descreva as ações recomendadas..."></textarea></div>
                             <div class="form-group"><label for="risco-observacoes-gerais">Observações Gerais</label><textarea id="risco-observacoes-gerais" rows="2"></textarea></div>
                         </details>
-                        
                         <div class="form-actions"><button type="button" class="primary" id="save-risco-btn" onclick="saveRisco()"><i class="bi bi-plus-lg"></i> Adicionar</button><button type="button" id="cancel-risco-edit-btn" class="nav hidden" onclick="clearRiscoForm()">Cancelar</button></div>
                     </form>
                     <div class="wizard-nav"><button class="nav" onclick="voltarDosRiscos()">Voltar</button></div>
                 </div>`;
             updateRiscoList();
         }
-        
         function voltarDosRiscos() { 
             currentGroupId = null; 
             activeCargoIndex = -1;
             activeFuncionarioIndex = -1;
             prevStep(); 
         }
-        
         function updatePerigoOptions(selectedType) {
             const perigoSelect = document.getElementById("risk-perigo-select");
             perigoSelect.innerHTML = '<option value="">-- Selecione um perigo (opcional) --</option>';
             if (!selectedType) return;
-        
             predefinedRisks.forEach((risk, index) => {
                 if (risk.tipo.replace(' PSICOSSOCIAIS', '') === selectedType) {
                     const option = document.createElement('option');
@@ -1308,7 +1195,6 @@
                 }
             });
         }
-        
         function updateRiscoList() {
             const list = document.getElementById("risco-list");
             const depto = currentInspection.departamentos[activeDepartamentoIndex];
@@ -1316,7 +1202,6 @@
             if (currentGroupId) { const grupo = depto.grupos.find(g => g.id === currentGroupId); riscos = grupo?.riscos || []; }
             else if (activeCargoIndex > -1) { riscos = depto.cargos[activeCargoIndex]?.riscos || []; }
             else if (activeFuncionarioIndex > -1) { riscos = depto.funcionarios[activeFuncionarioIndex]?.riscos || []; }
-        
             if (riscos.length === 0) { list.innerHTML = '<li class="empty-state">Nenhum risco identificado.</li>'; return; }
             list.innerHTML = "";
             riscos.forEach((risco, index) => {
@@ -1325,17 +1210,14 @@
                 list.appendChild(li);
             });
         }
-        
         function saveRisco() {
             const riscoData = {
                 riscoPresente: document.getElementById("risco-presente").value, tipo: document.getElementById("risco-tipo").value, codigoEsocial: document.getElementById("risco-esocial").value, perigo: document.getElementById("risco-perigo").value, descricaoDetalhada: document.getElementById("risco-descricao-detalhada").value, fonteGeradora: document.getElementById("risco-fonte").value, perfilExposicao: document.getElementById("risco-perfil-exposicao").value, medicao: document.getElementById("risco-medicao").value, tempoExposicao: document.getElementById("risco-tempo-exposicao").value, tipoExposicao: document.getElementById("risco-tipo-exposicao").value, obsAmbientais: document.getElementById("risco-obs-ambientais").value, probabilidade: document.getElementById("risco-probabilidade").value, severidade: document.getElementById("risco-severidade").value, aceitabilidade: document.getElementById("risco-aceitabilidade").value, danos: document.getElementById("risco-danos").value, epiUtilizado: document.getElementById("risco-epi-utilizado").value, ca: document.getElementById("risco-ca").value, epc: document.getElementById("risco-epc").value, epiSugerido: document.getElementById("risco-epi-sugerido").value, acoesNecessarias: document.getElementById("risco-acoes").value, observacoesGerais: document.getElementById("risco-observacoes-gerais").value
             };
             if (!riscoData.perigo) return showToast("A descrição do perigo é obrigatória.", "error");
-        
             const depto = currentInspection.departamentos[activeDepartamentoIndex];
             let targetArray;
             let message = `Risco ${editingIndex > -1 ? 'atualizado' : 'adicionado'}`;
-        
             if (currentGroupId) {
                 const grupo = depto.grupos.find(g => g.id === currentGroupId); if (!grupo.riscos) grupo.riscos = [];
                 targetArray = grupo.riscos; message += ' para o grupo!';
@@ -1346,19 +1228,16 @@
                 const funcionario = depto.funcionarios[activeFuncionarioIndex]; if (!funcionario.riscos) funcionario.riscos = [];
                 targetArray = funcionario.riscos; message += '!';
             }
-        
             if (editingIndex > -1) targetArray[editingIndex] = riscoData; else targetArray.push(riscoData);
             showToast(message, "success");
             clearRiscoForm(); updateRiscoList(); persistCurrentInspection();
         }
-        
         function editRisco(index) {
             editingIndex = index;
             const depto = currentInspection.departamentos[activeDepartamentoIndex]; let risco;
             if (currentGroupId) { const grupo = depto.grupos.find(g => g.id === currentGroupId); risco = grupo?.riscos[index]; }
             else if (activeCargoIndex > -1) { risco = depto.cargos[activeCargoIndex].riscos[index]; }
             else if (activeFuncionarioIndex > -1) { risco = depto.funcionarios[activeFuncionarioIndex].riscos[index]; }
-        
             if (!risco) return;
             document.getElementById("risco-presente").value = risco.riscoPresente || "Sim";
             document.getElementById("risco-tipo").value = risco.tipo || "Físico";
@@ -1385,13 +1264,11 @@
             document.getElementById("save-risco-btn").innerHTML = "<i class='bi bi-save-fill'></i> Salvar";
             document.getElementById("cancel-risco-edit-btn").classList.remove("hidden");
         }
-        
         function deleteRisco(index) {
             const depto = currentInspection.departamentos[activeDepartamentoIndex]; let targetArray, nomeRisco;
             if (currentGroupId) { const grupo = depto.grupos.find(g => g.id === currentGroupId); targetArray = grupo.riscos; }
             else if (activeCargoIndex > -1) { targetArray = depto.cargos[activeCargoIndex].riscos; }
             else if (activeFuncionarioIndex > -1) { targetArray = depto.funcionarios[activeFuncionarioIndex].riscos; }
-        
             nomeRisco = targetArray[index]?.perigo;
             if (!confirm(`Excluir o risco "${nomeRisco}"?`)) return;
             targetArray.splice(index, 1);
@@ -1399,7 +1276,6 @@
             updateRiscoList();
             persistCurrentInspection();
         }
-        
         function clearRiscoForm() {
             editingIndex = -1;
             document.getElementById("risco-form").reset();
@@ -1407,36 +1283,29 @@
             document.getElementById("save-risco-btn").innerHTML = "<i class='bi bi-plus-lg'></i> Adicionar";
             document.getElementById("cancel-risco-edit-btn").classList.add("hidden");
         }
-        
         function saveAndExit() {
             persistCurrentInspection((success) => {
                 if(success) { showToast('Inspeção salva!', 'success'); showDashboard(); }
                 else { showToast('Não foi possível salvar.', 'error'); }
             });
         }
-        
         function loadInspections() {
             const request = db.transaction(["inspections"], "readonly").objectStore("inspections").getAll();
-        
             request.onerror = () => {
                 document.getElementById("inspection-list").innerHTML = 
                     '<li class="empty-state" style="color: var(--danger);">Erro ao carregar as inspeções.</li>';
             };
-        
             request.onsuccess = () => {
                 const listElement = document.getElementById("inspection-list");
                 const inspections = request.result;
-        
                 if (inspections.length === 0) {
                     listElement.innerHTML = '<li class="empty-state">Nenhuma inspeção salva.</li>';
                     return;
                 }
-        
                 const listHTML = inspections.map(inspection => {
                     const lastUpdated = inspection.updatedAt 
                         ? new Date(inspection.updatedAt).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }) 
                         : 'N/A';
-        
                     return `
                         <li>
                             <div class="item-info">
@@ -1455,17 +1324,14 @@
                             </div>
                         </li>`;
                 }).join('');
-        
                 listElement.innerHTML = listHTML;
             };
         }
-        
         function editInspection(t) {
             const e = db.transaction(["inspections"], "readonly").objectStore("inspections").get(t);
             e.onsuccess = () => { currentInspection = e.result; wizardStep = 0; showWizard(); };
             e.onerror = (t) => console.error("Erro ao carregar inspeção:", t);
         }
-        
         function deleteInspection(t) {
             if (confirm('Excluir esta inspeção? A ação não pode ser desfeita.')) {
                 const e = db.transaction(["inspections"], "readwrite").objectStore("inspections").delete(t);
@@ -1473,23 +1339,18 @@
                 e.onerror = (t) => console.error("Erro ao excluir:", t);
             }
         }
-        
         function getAllInspections(callback) {
             const t = db.transaction(["inspections"], "readonly").objectStore("inspections").getAll();
             t.onsuccess = () => callback(t.result);
             t.onerror = (e) => console.error("Erro ao buscar inspeções:", e);
         }
-        
         function renderCargoReport(cargo, titulo) {
             const req = cargo.requisitosNR || {};
-            
-            // Pequena função auxiliar para criar o formato S (X) N ( )
             const formatChecklistItem = (value) => {
                 const sim = value === 'Sim' ? 'X' : '&nbsp;';
                 const nao = value === 'Não' ? 'X' : '&nbsp;';
                 return `S&nbsp;(&nbsp;${sim}&nbsp;)&nbsp;&nbsp;N&nbsp;(&nbsp;${nao}&nbsp;)`;
             };
-
             let html = `<div style="border:2px solid #dbeafe;padding:15px;border-radius:8px;margin:20px 0;page-break-inside:avoid">
                 <h3>${titulo}</h3>
                 <div class="cargo-details">
@@ -1497,7 +1358,6 @@
                     <p><strong>Perfil de Exposição (Observação Específica):</strong> ${cargo.perfilExposicao||'N/A'}</p>
                     <p><strong>Descrição Atividade:</strong> ${cargo.descricaoAtividade||'N/A'}</p>
                     <p><strong>Dados LTCAT:</strong> ${(cargo.dadosLtcat||[]).join(', ')||'N/A'}</p>
-                    
                     <h4>✅ Requisitos NR-06/NR-01:</h4>
                     <div class="report-checklist">
                         <span class="report-checklist-item">Medida de Proteção ${formatChecklistItem(req.medida)}</span>
@@ -1507,10 +1367,7 @@
                         <span class="report-checklist-item">Higienização do EPI ${formatChecklistItem(req.higienizacao)}</span>
                     </div>
                 </div>
-                
                 <h4>⚠️ Riscos Identificados</h4>`;
-            
-            // A LÓGICA CORRETA COMEÇA AQUI
             if (cargo.riscos && cargo.riscos.length > 0) {
                 cargo.riscos.forEach((risco, idx) => {
                     html += `<div class="risco-card"><h5>Risco ${idx+1}: ${risco.perigo||'N/A'}</h5>
@@ -1522,11 +1379,9 @@
             } else { 
                 html += `<p style="color:#999;font-style:italic;padding:20px;background:#f9fafb;border-radius:8px">Nenhum risco adicionado.</p>`; 
             }
-            
             html += `</div>`; 
             return html;
         }
-        
         function showActionPlanView(inspectionId) {
             const request = db.transaction(["inspections"], "readonly").objectStore("inspections").get(inspectionId);
             request.onsuccess = () => {
@@ -1536,7 +1391,6 @@
             };
             request.onerror = () => showToast("Erro ao carregar inspeção.", "error");
         }
-        
         function renderActionPlanView() {
             if (!currentInspection) return; const e = currentInspection.empresa || {};
             actionPlanView.innerHTML = `
@@ -1562,7 +1416,6 @@
                 </div>`;
             updateActionItemList();
         }
-        
         function updateActionItemList() {
             const list = document.getElementById("action-item-list");
             if (!currentInspection.planoDeAcao || currentInspection.planoDeAcao.length === 0) { list.innerHTML = '<li class="empty-state">Nenhum item no plano de ação.</li>'; return; }
@@ -1573,7 +1426,6 @@
                 list.appendChild(li);
             });
         }
-        
         function formatDateBR(dateString) {
             if (!dateString) return 'N/A';
             const date = new Date(dateString + 'T00:00:00'); 
@@ -1583,7 +1435,6 @@
                 year: 'numeric'
             });
         }
-        
         function saveActionItem() {
             const itemData = { atividade: document.getElementById("action-atividade").value, descricao: document.getElementById("action-descricao").value, prazoInicio: document.getElementById("action-prazo-inicio").value, prazoFim: document.getElementById("action-prazo-fim").value, status: document.getElementById("action-status").value, };
             if (!itemData.atividade) return showToast("A atividade é obrigatória.", "error");
@@ -1592,7 +1443,6 @@
             else { currentInspection.planoDeAcao.push(itemData); showToast("Item adicionado!", "success"); }
             persistCurrentInspection(); clearActionForm(); updateActionItemList();
         }
-        
         function editActionItem(index) {
             editingIndex = index; const item = currentInspection.planoDeAcao[index];
             document.getElementById("action-atividade").value = item.atividade;
@@ -1604,7 +1454,6 @@
             document.getElementById("save-action-btn").innerText = "Salvar Alterações";
             document.getElementById("cancel-action-edit-btn").classList.remove("hidden");
         }
-        
         function deleteActionItem(index) {
             if (confirm("Excluir este item do plano de ação?")) {
                 currentInspection.planoDeAcao.splice(index, 1);
@@ -1613,7 +1462,6 @@
                 showToast("Item excluído.", "success");
             }
         }
-        
         function clearActionForm() {
             editingIndex = -1;
             document.getElementById("action-item-form").reset();
@@ -1621,21 +1469,18 @@
             document.getElementById("save-action-btn").innerText = "Adicionar Item";
             document.getElementById("cancel-action-edit-btn").classList.add("hidden");
         }
-        
         function duplicateInspection(id) {
             const request = db.transaction(["inspections"], "readonly").objectStore("inspections").get(id);
             request.onerror = (e) => showToast("Erro ao encontrar a inspeção para duplicar.", "error");
             request.onsuccess = () => {
                 const originalInsp = request.result;
                 if (!originalInsp) return;
-        
                 const newInsp = JSON.parse(JSON.stringify(originalInsp));
                 delete newInsp.id;
                 newInsp.empresa.nome = `${originalInsp.empresa.nome} (Cópia)`;
                 const now = new Date().toISOString();
                 newInsp.createdAt = now;
                 newInsp.updatedAt = now;
-        
                 const addRequest = db.transaction(["inspections"], "readwrite").objectStore("inspections").add(newInsp);
                 addRequest.onsuccess = () => {
                     showToast("Inspeção duplicada com sucesso!", "success");
@@ -1645,7 +1490,6 @@
                 addRequest.onerror = (e) => showToast("Erro ao salvar a inspeção duplicada.", "error");
             };
         }
-        
         function duplicateDepartamento(index) {
             const originalDepto = currentInspection.departamentos[index];
             const newDepto = JSON.parse(JSON.stringify(originalDepto));
@@ -1655,7 +1499,6 @@
             persistCurrentInspection();
             showToast("Departamento duplicado com sucesso!", "success");
         }
-        
         function duplicateCargo(index) {
             const depto = currentInspection.departamentos[activeDepartamentoIndex];
             const originalCargo = depto.cargos[index];
@@ -1666,7 +1509,6 @@
             persistCurrentInspection();
             showToast("Cargo duplicado com sucesso!", "success");
         }
-        
         function duplicateFuncionario(index) {
             const depto = currentInspection.departamentos[activeDepartamentoIndex];
             const originalFunc = depto.funcionarios[index];
@@ -1677,7 +1519,6 @@
             persistCurrentInspection();
             showToast("Funcionário duplicado com sucesso!", "success");
         }
-        
         function duplicateGrupo(index) {
             const depto = currentInspection.departamentos[activeDepartamentoIndex];
             const originalGrupo = depto.grupos[index];
@@ -1691,7 +1532,6 @@
             persistCurrentInspection();
             showToast("Grupo duplicado com sucesso!", "success");
         }
-        
         function showAutosaveStatus(status) {
             const statusEl = document.getElementById('autosave-status');
             if (!statusEl) return;
@@ -1713,32 +1553,25 @@
                     statusEl.style.opacity = '0';
             }
         }
-        
         function triggerAutosave() {
             clearTimeout(autosaveTimer);
             if (isAutosaving) return;
             autosaveTimer = setTimeout(performAutosave, 2500);
         }
-        
         function performAutosave() {
             if (!db || !currentInspection || !currentInspection.id || isAutosaving) {
                 return;
             }
-        
             isAutosaving = true;
             showAutosaveStatus('saving');
-        
             const empresaForm = document.getElementById('empresa-form');
             const riscoForm = document.getElementById('risco-form');
             const actionForm = document.getElementById('action-item-form');
-            
             let dataUpdated = false;
-        
             if (empresaForm && !wizardView.classList.contains('hidden')) {
                 currentInspection.empresa = { nome: document.getElementById("nome").value, cnpj: document.getElementById("cnpj").value, data: document.getElementById("data").value, elaborado: document.getElementById("elaborado").value, aprovado: document.getElementById("aprovado").value };
                 dataUpdated = true;
             }
-            
             if (riscoForm && !wizardView.classList.contains('hidden') && editingIndex > -1) {
                 const riscoData = {
                     riscoPresente: document.getElementById("risco-presente").value, tipo: document.getElementById("risco-tipo").value, codigoEsocial: document.getElementById("risco-esocial").value, perigo: document.getElementById("risco-perigo").value, descricaoDetalhada: document.getElementById("risco-descricao-detalhada").value, fonteGeradora: document.getElementById("risco-fonte").value, perfilExposicao: document.getElementById("risco-perfil-exposicao").value, medicao: document.getElementById("risco-medicao").value, tempoExposicao: document.getElementById("risco-tempo-exposicao").value, tipoExposicao: document.getElementById("risco-tipo-exposicao").value, obsAmbientais: document.getElementById("risco-obs-ambientais").value, probabilidade: document.getElementById("risco-probabilidade").value, severidade: document.getElementById("risco-severidade").value, aceitabilidade: document.getElementById("risco-aceitabilidade").value, danos: document.getElementById("risco-danos").value, epiUtilizado: document.getElementById("risco-epi-utilizado").value, ca: document.getElementById("risco-ca").value, epc: document.getElementById("risco-epc").value, epiSugerido: document.getElementById("risco-epi-sugerido").value, acoesNecessarias: document.getElementById("risco-acoes").value, observacoesGerais: document.getElementById("risco-observacoes-gerais").value
@@ -1753,7 +1586,6 @@
                     dataUpdated = true;
                 }
             }
-        
             if (actionForm && !actionPlanView.classList.contains('hidden') && editingIndex > -1) {
                 const itemData = { atividade: document.getElementById("action-atividade").value, descricao: document.getElementById("action-descricao").value, prazoInicio: document.getElementById("action-prazo-inicio").value, prazoFim: document.getElementById("action-prazo-fim").value, status: document.getElementById("action-status").value };
                 if (currentInspection.planoDeAcao && currentInspection.planoDeAcao[editingIndex]) {
@@ -1761,7 +1593,6 @@
                     dataUpdated = true;
                 }
             }
-        
             if (dataUpdated) {
                 persistCurrentInspection((success) => {
                     if (success) showAutosaveStatus('saved');
@@ -1773,7 +1604,6 @@
                 showAutosaveStatus('hidden');
             }
         }
-        
         function initializeSortableLists() {
             const sortableConfig = {
                 animation: 150,
@@ -1782,7 +1612,6 @@
                     const { from, oldIndex, newIndex } = evt;
                     const listId = from.id;
                     let targetArray;
-        
                     if (listId === 'departamento-list') {
                         targetArray = currentInspection.departamentos;
                     } else if (listId === 'cargo-list') {
@@ -1792,7 +1621,6 @@
                     } else if (listId === 'grupo-list') {
                         targetArray = currentInspection.departamentos[activeDepartamentoIndex].grupos;
                     }
-        
                     if (targetArray) {
                         targetArray.splice(newIndex, 0, targetArray.splice(oldIndex, 1)[0]);
                         persistCurrentInspection(() => showToast("Ordem salva!", "success"));
@@ -1804,39 +1632,29 @@
                 if (el) Sortable.create(el, sortableConfig);
             });
         }
-        
         function switchRiskContext(value) {
             if (!value) return;
             const [type, indexStr] = value.split('-');
             const index = parseInt(indexStr);
-        
             activeCargoIndex = type === 'cargo' ? index : -1;
             activeFuncionarioIndex = type === 'funcionario' ? index : -1;
             currentGroupId = type === 'grupo' ? currentInspection.departamentos[activeDepartamentoIndex].grupos[index].id : null;
-        
             renderRiscoStep();
         }
         function generateInspectionReport(id) {
             const request = db.transaction(["inspections"], "readonly").objectStore("inspections").get(id);
-
-            // A função onsuccess agora engloba TODA a lógica de geração do relatório
             request.onsuccess = () => {
                 const insp = request.result;
                 if (!insp) {
                     return showToast("Inspeção não encontrada!", "error");
                 }
-
                 const e = insp.empresa || {};
                 const reportDate = new Date().toLocaleString('pt-BR');
-
-                // Início da construção do HTML
                 let html = `<!DOCTYPE html><html lang="pt-br"><head><meta charset="UTF-8"><title>Relatório - ${e.nome}</title>
                     <style>body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;margin:20px;color:#333;line-height:1.6}.header,.section{border-bottom:2px solid #eee;padding-bottom:15px;margin-bottom:20px;page-break-inside:avoid}h1{color:#1f2937;font-size:2rem}h2{color:#111827;border-bottom:1px solid #ccc;padding-bottom:5px;margin-top:2rem}h3{color:#374151;margin-top:1.5rem}h4{margin:1rem 0 .5rem;color:#4b5563}h5{color:#2563eb;margin:0 0 10px;font-size:1.1rem;padding-bottom:5px;border-bottom:1px solid #dbeafe}table{width:100%;border-collapse:collapse;margin-top:15px;font-size:.9em}th,td{border:1px solid #ccc;padding:8px;text-align:left;vertical-align:top}th{background-color:#f3f4f6;font-weight:600}.details-grid{display:grid;grid-template-columns:150px 1fr;gap:5px 15px;margin:1rem 0}.details-grid strong{color:#4b5563}.no-print{margin-bottom:20px}@media print{.no-print{display:none}body{margin:0}}.cargo-details p{margin:5px 0}.risco-card{background:#f9fafb;border:2px solid #e5e7eb;border-radius:8px;padding:15px;margin:15px 0;page-break-inside:avoid}.risco-card table{margin-bottom:15px}.risco-card th{color:white;font-weight:600}</style>
                 </head><body>
                     <div class="no-print"><button onclick="window.print()" style="padding:10px 20px;background:#2563eb;color:white;border:none;border-radius:5px;cursor:pointer;">🖨️ Imprimir/Salvar PDF</button></div>
                     <div class="header"><h1>📋 Relatório de Inspeção</h1><h2>${e.nome||'N/A'}</h2><div class="details-grid"><strong>CNPJ:</strong><span>${e.cnpj||'N/A'}</span><strong>Data de Inspeção:</strong><span>${formatDateBR(e.data)}</span><strong>Elaborado por:</strong><span>${e.elaborado||'N/A'}</span><strong>Aprovado por:</strong><span>${e.aprovado||'N/A'}</span><strong>Gerado em:</strong><span>${reportDate}</span></div></div>`;
-
-                // Loop para os departamentos
                 (insp.departamentos || []).forEach(depto => {
                     html += `<div class="section"><h2>📂 Departamento: ${depto.nome||'N/A'}</h2><p><strong>Característica:</strong> ${depto.caracteristica||'N/A'}</p><p><strong>Descrição:</strong> ${depto.descricao||'N/A'}</p>`;
                     (depto.grupos || []).forEach(grupo => {
@@ -1851,8 +1669,6 @@
                     });
                     html += `</div>`;
                 });
-
-                // Geração do Plano de Ação (agora dentro do onsuccess)
                 html += `<div class="section" style="page-break-before: always;"><h2>📝 Plano de Ação</h2>`;
                 if (insp.planoDeAcao && insp.planoDeAcao.length > 0) {
                     html += `<table><thead><tr><th style="width:25%">Atividade</th><th>Descrição</th><th style="width:20%">Prazo</th><th style="width:15%">Status</th></tr></thead><tbody>`;
@@ -1865,28 +1681,20 @@
                     html += `<p>Nenhum item no plano de ação.</p>`;
                 }
                 html += `</div>`;
-
-                // Finalização do HTML
                 html += '</body></html>';
-
-                // Abertura da nova janela e toast (agora dentro do onsuccess)
                 const win = window.open('', `Relatório - ${e.nome}`);
                 win.document.write(html);
                 win.document.close();
                 showToast("Relatório gerado!", "success");
-
-            }; // <-- A CHAVE DE FECHAMENTO FOI MOVIDA PARA CÁ
-
+            };
             request.onerror = (e) => console.error("Erro ao gerar relatório:", e);
         }
     </script>
-    
-    <!-- *** ADICIONADO: Script de registro do Service Worker *** -->
+
+    <!-- SCRIPT DO SERVICE WORKER (PWA) -->
     <script>
-        // Verifica se o navegador suporta Service Workers
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
-                // Caminho corrigido para o GitHub Pages
                 navigator.serviceWorker.register('/ns/sw.js')
                     .then(registration => {
                         console.log('Service Worker registrado com sucesso:', registration);
@@ -1898,81 +1706,10 @@
         }
     </script>
     
-    <!-- *** ADICIONADO: Script de controle da Voz (Vosk) *** -->
+    <!-- SCRIPT DE CONTROLE DA VOZ (VOSK) -->
     <script>
-        let voskModel;
-        let recognizer;
-        let currentListeningButton = null;
-
-        document.addEventListener('DOMContentLoaded', async () => {
-            const modelUrl = 'model/'; // O Vosk busca os arquivos na pasta
-            try {
-                showToast('Carregando modelo de voz...', 'warning');
-                voskModel = await Vosk.createModel(modelUrl);
-                showToast('Modelo de voz pronto!', 'success');
-
-                // Tenta pré-solicitar a permissão do microfone
-                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                stream.getTracks().forEach(track => track.stop()); // Libera o microfone logo em seguida
-            } catch (e) {
-                console.error("Erro ao carregar modelo ou pedir permissão:", e);
-                if (e.name === "NotAllowedError") {
-                    showToast('Permissão do microfone negada.', 'error');
-                } else {
-                    showToast('Erro ao carregar modelo de voz.', 'error');
-                }
-            }
-        });
-
-        async function toggleRecognition(button) {
-            if (!voskModel) {
-                showToast('Modelo de voz ainda não está pronto.', 'error');
-                return;
-            }
-
-            if (recognizer) {
-                recognizer.stop();
-                recognizer = null;
-                if (currentListeningButton) {
-                    currentListeningButton.classList.remove('primary');
-                    currentListeningButton.classList.add('outline');
-                    currentListeningButton.querySelector('i').classList.remove('bi-stop-circle-fill');
-                    currentListeningButton.querySelector('i').classList.add('bi-mic-fill');
-                }
-                currentListeningButton = null;
-            } else {
-                currentListeningButton = button;
-                const targetId = button.dataset.target;
-                const targetInput = document.getElementById(targetId);
-
-                if (!targetInput) {
-                    showToast('Erro: Campo de texto alvo não encontrado.', 'error');
-                    return;
-                }
-                
-                button.classList.remove('outline');
-                button.classList.add('primary');
-                button.querySelector('i').classList.remove('bi-mic-fill');
-                button.querySelector('i').classList.add('bi-stop-circle-fill');
-
-                recognizer = new voskModel.KaldiRecognizer();
-                recognizer.on("result", (message) => {
-                    const text = message.result.text;
-                    if (text) {
-                        targetInput.value += (targetInput.value ? ' ' : '') + text;
-                        targetInput.dispatchEvent(new Event('input')); // Dispara o evento de input para o autosave
-                    }
-                });
-
-                try {
-                    await recognizer.start();
-                } catch (error) {
-                    console.error("Erro ao iniciar o reconhecimento:", error);
-                    showToast('Não foi possível acessar o microfone.', 'error');
-                    toggleRecognition(button); // Chama de novo para resetar o estado
-                }
-            }
-        }
+        // Este script já foi movido para o <head> e unificado.
+        // Remova este bloco se ele ainda existir aqui.
     </script>
 </body>
 </html>

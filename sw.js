@@ -1,28 +1,28 @@
-// Importa a biblioteca Workbox do CDN do Google
+// Importa a biblioteca Workbox
 importScripts('https://storage.googleapis.com/workbox-cdn/releases/6.4.1/workbox-sw.js');
 
-// Define uma estratégia de cache: "Stale While Revalidate"
-// Isso significa que o app tentará buscar a versão mais nova da rede,
-// mas se estiver offline, usará a versão do cache imediatamente.
-// É ótimo para arquivos que podem mudar, como o ns.html.
+// Cache para páginas HTML
 workbox.routing.registerRoute(
   ({request}) => request.destination === 'document',
-  new workbox.strategies.StaleWhileRevalidate({
-    cacheName: 'pages-cache',
-  })
+  new workbox.strategies.StaleWhileRevalidate({ cacheName: 'pages-cache' })
 );
 
-// Define uma estratégia para arquivos estáticos (CSS, JS, Ícones)
-// "Cache First": Uma vez salvo no cache, sempre será pego de lá,
-// o que é mais rápido.
+// Cache para assets (CSS, JS, Ícones)
 workbox.routing.registerRoute(
   ({request}) => request.destination === 'script' || request.destination === 'style' || request.destination === 'image',
+  new workbox.strategies.CacheFirst({ cacheName: 'assets-cache' })
+);
+
+// ***** NOVO E IMPORTANTE: Cache para o modelo de voz *****
+// Usamos CacheFirst porque o modelo não muda.
+workbox.routing.registerRoute(
+  ({url}) => url.pathname.includes('/model/'), // Captura qualquer arquivo dentro da pasta /model/
   new workbox.strategies.CacheFirst({
-    cacheName: 'assets-cache',
+    cacheName: 'vosk-model-cache',
     plugins: [
+      new workbox.cacheableResponse.CacheableResponsePlugin({statuses: [0, 200]}),
       new workbox.expiration.ExpirationPlugin({
-        maxEntries: 60, // No máximo 60 arquivos
-        maxAgeSeconds: 30 * 24 * 60 * 60, // Cache válido por 30 dias
+        maxAgeSeconds: 365 * 24 * 60 * 60, // Cache válido por 1 ano
       }),
     ],
   })
