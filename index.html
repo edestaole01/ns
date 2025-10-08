@@ -1,3 +1,5 @@
+<!DOCTYPE html>
+<html lang="pt-br">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -328,14 +330,15 @@
         // [COLE TODO O SEU CÓDIGO JAVASCRIPT ORIGINAL (MAIS DE 1000 LINHAS) AQUI]
         // ... começando com 'const predefinedRisks = [...]'
         // ... e terminando com a última função 'generateInspectionReport(...)'
+        
         // =======================================================================
-        // NOVO CÓDIGO PARA RECONHECIMENTO DE VOZ (VOSK)
+        // CÓDIGO PARA RECONHECIMENTO DE VOZ (VOSK)
         // =======================================================================
         let voskModel, recognizer, activeRecognitionButton, audioContext;
 
         // URL para o modelo de língua portuguesa.
-        // Para produção, é recomendado hospedar este arquivo no seu próprio servidor.
-        const modelUrl = models/vosk-model-small-pt-0.3.zip;
+        // **A CORREÇÃO ESTÁ AQUI**
+        const modelUrl = "models/vosk-model-small-pt-0.3.zip";
 
         // Função para carregar o modelo de reconhecimento de voz.
         // Isso só acontece uma vez.
@@ -438,7 +441,10 @@
                 activeRecognitionButton = null;
             }
         }
-    
+
+        // =======================================================================
+        // SEU CÓDIGO ORIGINAL DA APLICAÇÃO COMEÇA AQUI
+        // =======================================================================
         const predefinedRisks = [
             { tipo: "FÍSICO", codigoEsocial: "02.01.001", perigo: "Exposição a ruído contínuo e intermitente", danos: "Diminuição gradual da audição, cansaço, irritação, zumbido, fadiga, surdez" },
             { tipo: "FÍSICO", codigoEsocial: "02.01.002", perigo: "Vibrações localizadas (mão-braço)", danos: "lesões musculares, problemas nas articulações, fadiga muscular." },
@@ -1819,8 +1825,8 @@
     
     <!-- SCRIPT DE CONTROLE DA VOZ (VOSK) -->
     <script>
-        // Este script já foi movido para o <head> e unificado.
-        // Remova este bloco se ele ainda existir aqui.
+        // Este script já foi movido e unificado no script principal acima.
+        // Manter este bloco vazio ou removê-lo.
     </script>
 </body>
 </html>
