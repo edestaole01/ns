@@ -1,5 +1,4 @@
-// Service Worker Otimizado - Versão sem Loop
-
+// Service Worker Simples e Confiável
 importScripts('version.js');
 
 const CACHE_NAME = `inspecao-riscos-v${APP_VERSION}`;
@@ -9,43 +8,26 @@ const ESSENTIAL_FILES = [
   '/ns/index.html',
   '/ns/app.js',
   '/ns/manifest.json',
-  '/ns/version.js' // <-- IMPORTANTE: Adicione o version.js à lista de arquivos essenciais!
-];
-
-const OPTIONAL_FILES = [
-  '/ns/icon-192.png',
-  '/ns/icon-512.png',
-  'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap',
-  'https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css',
-  'https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js'
+  '/ns/version.js'
 ];
 
 // INSTALAÇÃO
 self.addEventListener('install', (event) => {
-  console.log('📦 Service Worker: Instalando...');
+  console.log('📦 Service Worker: Instalando versão', APP_VERSION);
   
   event.waitUntil(
     caches.open(CACHE_NAME)
-      .then(async (cache) => {
-        // Cachear essenciais
-        try {
-          await cache.addAll(ESSENTIAL_FILES);
-          console.log('✅ Arquivos essenciais cacheados');
-        } catch (err) {
-          console.warn('⚠️ Erro ao cachear essenciais:', err);
-        }
-        
-        // Cachear opcionais
-        for (const url of OPTIONAL_FILES) {
-          try {
-            const response = await fetch(url, { mode: 'no-cors' });
-            await cache.put(url, response);
-          } catch (err) {
-            console.log('⏭️ Ignorado:', url);
-          }
-        }
+      .then((cache) => {
+        console.log('✅ Cache aberto');
+        return cache.addAll(ESSENTIAL_FILES);
       })
-      .then(() => self.skipWaiting())
+      .then(() => {
+        console.log('✅ Arquivos essenciais cacheados');
+        return self.skipWaiting();
+      })
+      .catch((error) => {
+        console.error('❌ Erro na instalação:', error);
+      })
   );
 });
 
@@ -65,50 +47,71 @@ self.addEventListener('activate', (event) => {
           })
         );
       })
-      .then(() => self.clients.claim())
+      .then(() => {
+        console.log('✅ Service Worker ativado');
+        return self.clients.claim();
+      })
   );
 });
 
-// FETCH - ESTRATÉGIA: Cache First para arquivos locais, Network Only para dados
+// FETCH - ESTRATÉGIA SIMPLES E CONFIÁVEL
 self.addEventListener('fetch', (event) => {
-  const url = new URL(event.request.url);
-  
-  // Se for IndexedDB ou dados locais, não interceptar
-  if (url.protocol === 'chrome-extension:' || url.protocol === 'devtools:') {
-    return;
-  }
-  
-  // Para arquivos estáticos: Cache First
-  if (ESSENTIAL_FILES.includes(url.pathname) || OPTIONAL_FILES.includes(event.request.url)) {
-    event.respondWith(
-      caches.match(event.request)
-        .then((response) => {
-          if (response) {
-            console.log('📦 Servindo do cache:', event.request.url);
-            return response;
-          }
-          return fetch(event.request)
-            .then((response) => {
-              if (response && response.status === 200) {
-                const responseClone = response.clone();
-                caches.open(CACHE_NAME).then((cache) => {
-                  cache.put(event.request, responseClone);
+  // CRÍTICO: Sempre retornar uma Promise válida
+  event.respondWith(
+    caches.match(event.request)
+      .then((cachedResponse) => {
+        // Se tem cache, usar
+        if (cachedResponse) {
+          console.log('📦 Cache:', event.request.url);
+          return cachedResponse;
+        }
+        
+        // Se não tem cache, buscar da rede
+        return fetch(event.request)
+          .then((networkResponse) => {
+            // Se a resposta for válida, cachear
+            if (networkResponse && networkResponse.status === 200 && networkResponse.type === 'basic') {
+              const responseToCache = networkResponse.clone();
+              
+              caches.open(CACHE_NAME)
+                .then((cache) => {
+                  cache.put(event.request, responseToCache);
                 });
+            }
+            
+            return networkResponse;
+          })
+          .catch((error) => {
+            console.log('⚠️ Offline:', event.request.url);
+            
+            // Se for navegação e está offline, tentar retornar index.html do cache
+            if (event.request.mode === 'navigate') {
+              return caches.match('/ns/index.html')
+                .then((response) => {
+                  // CRÍTICO: Se não encontrar, retornar Response válida
+                  return response || new Response(
+                    '<h1>Offline</h1><p>Você está offline e esta página não está no cache.</p>',
+                    { 
+                      status: 503,
+                      statusText: 'Service Unavailable',
+                      headers: new Headers({ 'Content-Type': 'text/html' })
+                    }
+                  );
+                });
+            }
+            
+            // Para outros recursos, retornar erro 503
+            return new Response(
+              'Offline',
+              { 
+                status: 503,
+                statusText: 'Service Unavailable',
+                headers: new Headers({ 'Content-Type': 'text/plain' })
               }
-              return response;
-            });
-        })
-        .catch(() => {
-          if (event.request.mode === 'navigate') {
-            return caches.match('/ns/index.html');
-          }
-          return new Response('Offline', { status: 503 });
-        })
-    );
-  } else {
-    // Para outros recursos: Network Only (não interferir)
-    event.respondWith(fetch(event.request));
-  }
+            );
+          });
+      })
+  );
 });
 
-console.log('✅ Service Worker carregado!');
+console.log('✅ Service Worker carregado! Versão:', APP_VERSION);
