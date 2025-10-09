@@ -1529,9 +1529,44 @@ const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/
 const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
 
 // FUNÇÃO PRINCIPAL
-function toggleRecognition(button) {
+// ==========================================
+// RECONHECIMENTO DE VOZ - VERSÃO DEBUG PROTEGIDA
+// ==========================================
+
+let currentRecognition = null;
+let currentTargetInput = null;
+let isRecording = false;
+let recognitionTimeout = null;
+let isProcessing = false; // NOVO: Prevenir cliques múltiplos
+
+const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+
+// FUNÇÃO PRINCIPAL - PROTEGIDA
+function toggleRecognition(button, event) {
+    // PROTEÇÃO 1: Prevenir event bubbling
+    if (event) {
+        event.preventDefault();
+        event.stopPropagation();
+    }
+    
+    // PROTEÇÃO 2: Prevenir cliques múltiplos
+    if (isProcessing) {
+        addLog('⚠️ Aguarde... Processando clique anterior', 'orange');
+        return;
+    }
+    
+    isProcessing = true;
+    
+    // PROTEÇÃO 3: Desabilitar botão temporariamente
+    button.disabled = true;
+    setTimeout(function() {
+        button.disabled = false;
+    }, 1000);
+    
     addLog('═══════════════════════════════', 'white');
-    addLog('🎤 BOTÃO CLICADO!', 'yellow');
+    addLog('🎤 BOTÃO CLICADO! Timestamp: ' + Date.now(), 'yellow');
+    addLog('Estado atual: isRecording = ' + isRecording, 'cyan');
     addLog('═══════════════════════════════', 'white');
     
     const targetId = button.dataset.target;
@@ -1542,6 +1577,7 @@ function toggleRecognition(button) {
     if (!input) {
         addLog('❌ ERRO: Campo não encontrado!', 'red');
         showToast("❌ Campo não encontrado!", "error");
+        isProcessing = false;
         return;
     }
     
@@ -1549,11 +1585,14 @@ function toggleRecognition(button) {
 
     // Se já está gravando, parar
     if (isRecording) {
-        addLog('⏹️ Já estava gravando, parando...', 'orange');
+        addLog('⏹️ Já estava gravando (isRecording=true), vou parar...', 'orange');
+        addLog('⚠️ ATENÇÃO: Isso NÃO deveria acontecer no primeiro clique!', 'red');
         stopRecognition(button);
+        isProcessing = false;
         return;
     }
     
+    addLog('✅ Estado OK (isRecording=false), continuando...', 'lime');
     addLog('2️⃣ Verificando suporte...', 'cyan');
 
     // Verificar suporte
@@ -1563,6 +1602,7 @@ function toggleRecognition(button) {
         addLog('❌ SpeechRecognition NÃO disponível!', 'red');
         addLog('Seu navegador não suporta reconhecimento de voz', 'red');
         showToast("❌ Navegador não suporta voz", "error");
+        isProcessing = false;
         return;
     }
     
@@ -1601,7 +1641,9 @@ function toggleRecognition(button) {
     
     recognition.onstart = function() {
         addLog('✅ ONSTART - Gravação iniciada!', 'lime');
+        addLog('Setando isRecording = true', 'cyan');
         isRecording = true;
+        isProcessing = false; // Liberar para próximos cliques
         
         button.classList.add('active');
         button.innerHTML = '<i class="bi bi-stop-fill" style="color: red;"></i>';
@@ -1759,9 +1801,11 @@ function toggleRecognition(button) {
                 
                 try {
                     recognition.start();
-                    addLog('✅ recognition.start() OK!', 'lime');
+                    addLog('✅ recognition.start() executado!', 'lime');
+                    addLog('Aguardando evento ONSTART...', 'cyan');
                 } catch (error) {
                     addLog('❌ Erro no start(): ' + error.message, 'red');
+                    isProcessing = false;
                 }
             })
             .catch(function(error) {
@@ -1769,15 +1813,18 @@ function toggleRecognition(button) {
                 addLog('Erro: ' + error.name, 'red');
                 addLog('Mensagem: ' + error.message, 'red');
                 showToast("❌ Permissão de microfone negada", "error");
+                isProcessing = false;
             });
     } else {
         addLog('💻 Modo desktop: Iniciando direto...', 'cyan');
         
         try {
             recognition.start();
-            addLog('✅ recognition.start() OK!', 'lime');
+            addLog('✅ recognition.start() executado!', 'lime');
+            addLog('Aguardando evento ONSTART...', 'cyan');
         } catch (error) {
             addLog('❌ Erro no start(): ' + error.message, 'red');
+            isProcessing = false;
         }
     }
 }
@@ -1786,9 +1833,13 @@ function toggleRecognition(button) {
 // PARAR
 // ==========================================
 function stopRecognition(button) {
-    addLog('⏹️ Parando...', 'orange');
+    addLog('⏹️ Parando... (isRecording estava = ' + isRecording + ')', 'orange');
     
     isRecording = false;
+    isProcessing = false;
+    
+    addLog('Setando isRecording = false', 'cyan');
+    addLog('Setando isProcessing = false', 'cyan');
     
     if (recognitionTimeout) {
         clearTimeout(recognitionTimeout);
@@ -1799,7 +1850,7 @@ function stopRecognition(button) {
         try {
             currentRecognition.stop();
             currentRecognition = null;
-            addLog('✅ Parado', 'lime');
+            addLog('✅ Recognition.stop() executado', 'lime');
         } catch (e) {
             addLog('⚠️ Erro ao parar: ' + e.message, 'orange');
         }
@@ -1818,35 +1869,9 @@ function stopRecognition(button) {
     }
     
     showToast("⏹️ Gravação parada", "success");
+    addLog('✅ Parado completamente', 'lime');
     addLog('═══════════════════════════════', 'white');
 }
-
-// Parar ao sair
-window.addEventListener('beforeunload', function() {
-    if (currentRecognition) {
-        stopRecognition(null);
-    }
-});
-
-// Estilos
-if (!document.getElementById('voice-styles')) {
-    const styleSheet = document.createElement("style");
-    styleSheet.id = 'voice-styles';
-    styleSheet.textContent = `
-        @keyframes pulse {
-            0%, 100% { transform: scale(1); }
-            50% { transform: scale(1.1); }
-        }
-        button.active {
-            background-color: #fee2e2 !important;
-            border-color: #ef4444 !important;
-        }
-    `;
-    document.head.appendChild(styleSheet);
-}
-
-addLog('✅ Sistema de voz carregado!', 'lime');
-console.log("✅ Sistema de reconhecimento carregado!");
 
 // Botão de teste de voz (adicionar no dashboard)
 function addVoiceTestButton() {
