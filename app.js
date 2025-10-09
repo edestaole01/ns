@@ -1504,32 +1504,60 @@ function generateInspectionReport(id) {
     request.onerror = (e) => console.error("Erro ao gerar relatório:", e);
 }
 // ==========================================
-// RECONHECIMENTO DE VOZ - MOBILE OTIMIZADO CORRIGIDO
+// RECONHECIMENTO DE VOZ - DEBUG COMPLETO
 // ==========================================
 
 let currentRecognition = null;
 let currentTargetInput = null;
-let currentTargetButton = null; // NOVO: guardar referência do botão
 let isRecording = false;
 let recognitionTimeout = null;
-let finalTranscriptAccumulator = '';
-let autosaveDisabled = false; // NOVO: flag para desabilitar autosave
+let debugMode = true; // Ativar debug
 
 const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+
+// Toast com duração customizável
+function showToastLong(message, type = 'success', duration = 5000) {
+    const toast = document.createElement('div');
+    toast.className = `toast ${type}`;
+    toast.style.cssText = `
+        position: fixed;
+        bottom: 2rem;
+        right: 2rem;
+        left: 2rem;
+        background: ${type === 'success' ? 'var(--secondary)' : type === 'error' ? 'var(--danger)' : 'var(--warning)'};
+        color: white;
+        padding: 1rem;
+        border-radius: 0.5rem;
+        box-shadow: var(--shadow-lg);
+        z-index: 3000;
+        font-size: 0.9rem;
+        word-wrap: break-word;
+    `;
+    toast.textContent = message;
+    document.body.appendChild(toast);
+    setTimeout(() => toast.remove(), duration);
+}
+
+function debugLog(msg) {
+    if (debugMode) {
+        console.log(msg);
+        showToastLong(`🐛 ${msg}`, 'warning', 3000);
+    }
+}
 
 function toggleRecognition(button) {
     const targetId = button.dataset.target;
     const input = document.getElementById(targetId);
     
     if (!input) {
-        showToast("❌ Campo não encontrado!", "error");
+        showToastLong("❌ Campo não encontrado!", "error");
         return;
     }
 
     // Se já está gravando, parar
     if (isRecording) {
-        stopRecognition();
+        stopRecognition(button);
         return;
     }
 
@@ -1537,37 +1565,37 @@ function toggleRecognition(button) {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     
     if (!SpeechRecognition) {
-        showToast("❌ Reconhecimento de voz não disponível", "error");
+        showToastLong("❌ Seu navegador não suporta reconhecimento de voz", "error");
         return;
     }
 
-    console.log('🎤 Iniciando reconhecimento de voz...');
+    debugLog(`1. Iniciando para campo: ${targetId}`);
     
-    // CRÍTICO: Salvar referências ANTES de iniciar
+    // Salvar referências
     currentTargetInput = input;
-    currentTargetButton = button;
-    
-    // DESABILITAR AUTOSAVE durante gravação
-    autosaveDisabled = true;
     
     // Criar reconhecedor
     const recognition = new SpeechRecognition();
     
-    // Configurações otimizadas para mobile
+    // Configurações - IMPORTANTE: diferentes para mobile
     recognition.lang = 'pt-BR';
-    recognition.continuous = true; // MUDEI PARA TRUE no mobile
+    recognition.continuous = false; // FALSE para mobile funcionar melhor
     recognition.interimResults = true;
     recognition.maxAlternatives = 1;
 
+    debugLog(`2. Configurado: continuous=${recognition.continuous}`);
+
     currentRecognition = recognition;
-    finalTranscriptAccumulator = '';
+    let hasReceivedResults = false;
 
     // ==========================================
     // EVENTO: INÍCIO
     // ==========================================
     recognition.onstart = () => {
-        console.log('✅ Gravação INICIADA');
+        debugLog('3. ✅ ONSTART disparado!');
         isRecording = true;
+        hasReceivedResults = false;
+        
         button.classList.add('active');
         button.innerHTML = '<i class="bi bi-stop-fill" style="color: red;"></i>';
         button.style.animation = 'pulse 1.5s infinite';
@@ -1576,162 +1604,198 @@ function toggleRecognition(button) {
             navigator.vibrate(200);
         }
         
-        showToast("🎤 GRAVANDO... Fale agora! Clique novamente para parar.", "success");
+        showToastLong("🎤 GRAVANDO... Fale agora e aguarde 2 segundos!", "success", 4000);
         
         // Timeout de segurança
         recognitionTimeout = setTimeout(() => {
-            console.log('⏱️ Timeout atingido');
-            if (isRecording) {
-                stopRecognition();
-                showToast("⏱️ Tempo esgotado.", "warning");
+            debugLog('9. ⏱️ Timeout atingido');
+            if (!hasReceivedResults) {
+                showToastLong("⚠️ Nenhum resultado após 30s. Encerrando...", "warning");
             }
-        }, 60000); // 60 segundos
+            stopRecognition(button);
+        }, 30000);
     };
 
     // ==========================================
-    // EVENTO: RESULTADO - VERSÃO CORRIGIDA
+    // EVENTO: RESULTADO
     // ==========================================
     recognition.onresult = (event) => {
-        console.log('📝 Resultado recebido');
+        hasReceivedResults = true;
+        debugLog(`4. 📝 ONRESULT! Total: ${event.results.length} resultados`);
         
-        // VERIFICAR se ainda temos a referência do input
+        // Verificar se input ainda existe
         if (!currentTargetInput) {
-            console.error('❌ ERRO: currentTargetInput foi perdido!');
-            const input = document.getElementById(targetId); // Tentar recuperar
-            if (input) {
-                currentTargetInput = input;
-                console.log('✅ Input recuperado');
-            } else {
-                console.error('❌ Não foi possível recuperar o input');
-                return;
-            }
+            debugLog('❌ Input foi perdido!');
+            currentTargetInput = document.getElementById(targetId);
         }
         
-        let interimTranscript = '';
         let finalTranscript = '';
+        let interimTranscript = '';
 
-        for (let i = event.resultIndex; i < event.results.length; i++) {
+        for (let i = 0; i < event.results.length; i++) {
             const transcript = event.results[i][0].transcript;
+            const isFinal = event.results[i].isFinal;
+            const confidence = event.results[i][0].confidence;
             
-            if (event.results[i].isFinal) {
+            debugLog(`5. Resultado ${i}: "${transcript.substring(0, 20)}..." Final: ${isFinal} Conf: ${confidence}`);
+            
+            if (isFinal) {
                 finalTranscript += transcript + ' ';
-                console.log('✅ Texto final capturado:', transcript);
             } else {
                 interimTranscript += transcript;
             }
         }
 
-        // Mostrar preview
-        if (interimTranscript && !isIOS) {
-            updateVoicePreview(interimTranscript);
+        // Mostrar preview do interim
+        if (interimTranscript) {
+            showToastLong(`👂 Ouvindo: "${interimTranscript.substring(0, 50)}..."`, 'warning', 2000);
         }
 
-        // ADICIONAR TEXTO FINAL AO CAMPO - CRÍTICO
+        // ADICIONAR TEXTO FINAL
         if (finalTranscript.trim()) {
-            console.log('➕ Adicionando ao campo:', finalTranscript.trim());
+            debugLog(`6. ➕ Adicionando: "${finalTranscript.trim()}"`);
             
-            // ADICIONAR DIRETAMENTE sem chamar função separada
-            const currentValue = currentTargetInput.value.trim();
-            if (currentValue) {
-                currentTargetInput.value = currentValue + ' ' + finalTranscript.trim();
-            } else {
-                currentTargetInput.value = finalTranscript.trim();
+            try {
+                const oldValue = currentTargetInput.value;
+                const newValue = oldValue ? oldValue + ' ' + finalTranscript.trim() : finalTranscript.trim();
+                currentTargetInput.value = newValue;
+                
+                debugLog(`7. ✅ Adicionado! Valor: "${currentTargetInput.value.substring(0, 30)}..."`);
+                
+                showToastLong(`✅ Texto capturado: "${finalTranscript.trim().substring(0, 40)}..."`, "success", 4000);
+                
+                // Vibrar
+                if (navigator.vibrate) {
+                    navigator.vibrate([100, 50, 100]);
+                }
+                
+                // Disparar evento input
+                currentTargetInput.dispatchEvent(new Event('input', { bubbles: true }));
+                
+                // Scroll
+                if (isMobile) {
+                    currentTargetInput.scrollTop = currentTargetInput.scrollHeight;
+                }
+                
+            } catch (error) {
+                debugLog(`❌ ERRO ao adicionar: ${error.message}`);
             }
-            
-            console.log('✅ Texto adicionado! Valor atual:', currentTargetInput.value);
-            
-            // Vibrar
-            if (navigator.vibrate) {
-                navigator.vibrate(100);
-            }
-            
-            // Scroll no mobile
-            if (isMobile) {
-                currentTargetInput.scrollTop = currentTargetInput.scrollHeight;
-            }
-            
-            showToast(`✅ "${finalTranscript.trim().substring(0, 30)}..."`, "success");
         }
+    };
+
+    // ==========================================
+    // EVENTO: AUDIO START
+    // ==========================================
+    recognition.onaudiostart = () => {
+        debugLog('🎵 ONAUDIOSTART - Áudio começou a ser capturado');
+    };
+
+    recognition.onaudioend = () => {
+        debugLog('🎵 ONAUDIOEND - Áudio parou de ser capturado');
+    };
+
+    // ==========================================
+    // EVENTO: SOUND START
+    // ==========================================
+    recognition.onsoundstart = () => {
+        debugLog('🔊 ONSOUNDSTART - Som detectado!');
+    };
+
+    recognition.onsoundend = () => {
+        debugLog('🔇 ONSOUNDEND - Som parou');
+    };
+
+    // ==========================================
+    // EVENTO: SPEECH START
+    // ==========================================
+    recognition.onspeechstart = () => {
+        debugLog('🗣️ ONSPEECHSTART - Fala detectada!');
+    };
+
+    recognition.onspeechend = () => {
+        debugLog('🗣️ ONSPEECHEND - Fala terminou');
     };
 
     // ==========================================
     // EVENTO: ERRO
     // ==========================================
     recognition.onerror = (event) => {
-        console.error('❌ ERRO:', event.error, event.message);
+        debugLog(`❌ ONERROR: ${event.error} - ${event.message || 'sem mensagem'}`);
         
-        // Ignorar erros que não são críticos
-        if (event.error === 'no-speech' || event.error === 'aborted') {
-            console.log('⚠️ Erro ignorável:', event.error);
-            return;
-        }
-        
-        let errorMessage = "Erro no reconhecimento";
+        let errorMessage = "";
+        let shouldStop = true;
         
         switch(event.error) {
+            case 'no-speech':
+                errorMessage = "⚠️ Nenhuma fala detectada. Tente novamente mais perto do microfone.";
+                break;
             case 'audio-capture':
-                errorMessage = "❌ Microfone não disponível";
+                errorMessage = "❌ Microfone não acessível. Verifique as permissões.";
                 break;
             case 'not-allowed':
-                errorMessage = "❌ Permissão negada";
+                errorMessage = "❌ Permissão negada. Habilite o microfone nas configurações do navegador.";
                 break;
             case 'network':
-                errorMessage = "⚠️ Sem conexão";
+                errorMessage = "⚠️ Sem conexão. Reconhecimento de voz precisa de internet.";
+                break;
+            case 'aborted':
+                errorMessage = "⚠️ Reconhecimento abortado.";
+                shouldStop = false; // Não parar, pode ser normal
                 break;
             default:
                 errorMessage = `❌ Erro: ${event.error}`;
         }
         
-        showToast(errorMessage, "error");
-        stopRecognition();
+        showToastLong(errorMessage, "error", 5000);
+        
+        if (shouldStop) {
+            stopRecognition(button);
+        }
     };
 
     // ==========================================
     // EVENTO: FIM
     // ==========================================
     recognition.onend = () => {
-        console.log('🏁 Reconhecimento terminou');
+        debugLog('8. 🏁 ONEND - Reconhecimento terminou');
         
-        if (isRecording) {
-            console.log('🔄 Reiniciando automaticamente...');
-            try {
-                recognition.start();
-            } catch (e) {
-                console.log('⏳ Aguardando...', e.message);
-            }
-        } else {
-            stopRecognition();
+        if (!hasReceivedResults) {
+            showToastLong("⚠️ Nenhum resultado capturado. Possíveis causas:\n• Microfone bloqueado\n• Sem falar perto do mic\n• Sem internet", "warning", 6000);
         }
+        
+        stopRecognition(button);
     };
 
     // ==========================================
-    // INICIAR RECONHECIMENTO
+    // INICIAR
     // ==========================================
     
-    if (isMobile && navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+    debugLog('Solicitando permissão de microfone...');
+    
+    // No mobile, pedir permissão primeiro
+    if (isMobile) {
         navigator.mediaDevices.getUserMedia({ audio: true })
             .then(() => {
+                debugLog('✅ Permissão concedida');
                 try {
                     recognition.start();
-                    console.log('🎤 Reconhecimento iniciado (mobile)');
+                    debugLog('✅ recognition.start() executado');
                 } catch (error) {
-                    console.error('❌ Erro ao iniciar:', error);
-                    showToast("❌ Erro ao iniciar gravação", "error");
-                    stopRecognition();
+                    debugLog(`❌ Erro no start: ${error.message}`);
+                    showToastLong(`❌ Erro ao iniciar: ${error.message}`, "error");
                 }
             })
             .catch((error) => {
-                console.error('❌ Permissão negada:', error);
-                showToast("❌ Permissão de microfone negada", "error");
+                debugLog(`❌ Permissão negada: ${error.message}`);
+                showToastLong(`❌ Permissão de microfone negada. Habilite nas configurações.`, "error", 6000);
             });
     } else {
         try {
             recognition.start();
-            console.log('🎤 Reconhecimento iniciado (desktop)');
+            debugLog('✅ recognition.start() executado (desktop)');
         } catch (error) {
-            console.error('❌ Erro ao iniciar:', error);
-            showToast("❌ Erro ao iniciar gravação", "error");
-            stopRecognition();
+            debugLog(`❌ Erro no start: ${error.message}`);
+            showToastLong(`❌ Erro ao iniciar: ${error.message}`, "error");
         }
     }
 }
@@ -1739,11 +1803,10 @@ function toggleRecognition(button) {
 // ==========================================
 // PARAR RECONHECIMENTO
 // ==========================================
-function stopRecognition() {
-    console.log('⏹️ Parando reconhecimento...');
+function stopRecognition(button) {
+    debugLog('⏹️ Parando...');
     
     isRecording = false;
-    autosaveDisabled = false; // REABILITAR AUTOSAVE
     
     if (recognitionTimeout) {
         clearTimeout(recognitionTimeout);
@@ -1753,86 +1816,36 @@ function stopRecognition() {
     if (currentRecognition) {
         try {
             currentRecognition.stop();
-            currentRecognition.abort();
-            console.log('✅ Reconhecimento parado');
+            currentRecognition = null;
+            debugLog('✅ Parado com sucesso');
         } catch (e) {
-            console.error('Erro ao parar:', e);
+            debugLog(`⚠️ Erro ao parar: ${e.message}`);
         }
-        currentRecognition = null;
     }
     
-    // Resetar referências
-    const button = currentTargetButton;
     currentTargetInput = null;
-    currentTargetButton = null;
-    finalTranscriptAccumulator = '';
     
-    // Limpar preview
-    updateVoicePreview('');
-    
-    // Resetar botão
     if (button) {
         button.classList.remove('active');
         button.innerHTML = '<i class="bi bi-mic-fill"></i>';
         button.style.animation = '';
-        button.title = 'Ativar ditado por voz';
     }
     
     if (navigator.vibrate) {
         navigator.vibrate([100, 50, 100]);
     }
     
-    showToast("⏹️ Gravação parada", "success");
+    showToastLong("⏹️ Gravação parada", "success", 2000);
 }
-
-// ==========================================
-// ATUALIZAR PREVIEW VISUAL
-// ==========================================
-function updateVoicePreview(text) {
-    const preview = document.getElementById('voice-preview');
-    if (!preview) return;
-    
-    if (text) {
-        preview.textContent = text;
-        preview.style.display = 'block';
-    } else {
-        preview.style.display = 'none';
-    }
-}
-
-// ==========================================
-// MODIFICAR FUNÇÃO DE AUTOSAVE
-// ==========================================
-const originalTriggerAutosave = triggerAutosave;
-triggerAutosave = function() {
-    if (autosaveDisabled) {
-        console.log('⏸️ Autosave desabilitado (gravação em andamento)');
-        return;
-    }
-    originalTriggerAutosave();
-};
 
 // ==========================================
 // PARAR AO TROCAR DE TELA
 // ==========================================
 window.addEventListener('beforeunload', () => {
     if (currentRecognition) {
-        stopRecognition();
-    }
-});
-
-console.log("✅ Sistema de reconhecimento de voz (CORRIGIDO) carregado!");
-console.log("📱 Dispositivo Mobile:", isMobile);
-console.log("🍎 iOS:", isIOS);
-
-// Atualizar função showView para parar reconhecimento
-const originalShowView = showView;
-showView = function(viewName) {
-    if (currentRecognition && isRecording) {
         stopRecognition(null);
     }
-    originalShowView(viewName);
-};
+});
 
 // ==========================================
 // ESTILOS CSS
@@ -1850,56 +1863,12 @@ if (!document.getElementById('voice-styles')) {
             background-color: #fee2e2 !important;
             border-color: #ef4444 !important;
         }
-        
-        #voice-preview {
-            position: fixed;
-            bottom: 5rem;
-            left: 1rem;
-            right: 1rem;
-            background: rgba(59, 130, 246, 0.95);
-            color: white;
-            padding: 1rem;
-            border-radius: 0.75rem;
-            font-size: 1.1rem;
-            text-align: center;
-            display: none;
-            z-index: 2001;
-            box-shadow: 0 10px 25px rgba(0,0,0,0.3);
-            animation: slideUp 0.3s ease-out;
-        }
-        
-        @keyframes slideUp {
-            from {
-                transform: translateY(100%);
-                opacity: 0;
-            }
-            to {
-                transform: translateY(0);
-                opacity: 1;
-            }
-        }
-        
-        .sortable-ghost {
-            opacity: 0.4;
-            background: var(--primary-light);
-        }
     `;
     document.head.appendChild(styleSheet);
 }
 
-// ==========================================
-// ADICIONAR PREVIEW VISUAL
-// ==========================================
-if (!document.getElementById('voice-preview')) {
-    const preview = document.createElement('div');
-    preview.id = 'voice-preview';
-    document.body.appendChild(preview);
-}
-
-console.log("✅ Sistema de reconhecimento de voz (Mobile Otimizado) carregado!");
-console.log("📱 Dispositivo Mobile:", isMobile);
-console.log("🍎 iOS:", isIOS);
-
+console.log("✅ Sistema de reconhecimento de voz (DEBUG) carregado!");
+console.log("📱 Mobile:", isMobile, "| iOS:", isIOS);
 
 // Atualizar indicador visual de rede
 function updateNetworkStatus() {
