@@ -1455,134 +1455,398 @@ function switchRiskContext(value) {
     renderRiscoStep();
 }
 
-function generateInspectionReport(id) {
-    const request = db.transaction(["inspections"], "readonly").objectStore("inspections").get(id);
-    request.onsuccess = () => {
-        const insp = request.result;
-        if (!insp) {
-            return showToast("Inspeção não encontrada!", "error");
-        }
-        const e = insp.empresa || {};
-        const reportDate = new Date().toLocaleString('pt-BR');
-        let html = `<!DOCTYPE html><html lang="pt-br"><head><meta charset="UTF-8"><title>Relatório - ${e.nome}</title>
-            <style>body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;margin:20px;color:#333;line-height:1.6}.header,.section{border-bottom:2px solid #eee;padding-bottom:15px;margin-bottom:20px;page-break-inside:avoid}h1{color:#1f2937;font-size:2rem}h2{color:#111827;border-bottom:1px solid #ccc;padding-bottom:5px;margin-top:2rem}h3{color:#374151;margin-top:1.5rem}h4{margin:1rem 0 .5rem;color:#4b5563}h5{color:#2563eb;margin:0 0 10px;font-size:1.1rem;padding-bottom:5px;border-bottom:1px solid #dbeafe}table{width:100%;border-collapse:collapse;margin-top:15px;font-size:.9em}th,td{border:1px solid #ccc;padding:8px;text-align:left;vertical-align:top}th{background-color:#f3f4f6;font-weight:600}.details-grid{display:grid;grid-template-columns:150px 1fr;gap:5px 15px;margin:1rem 0}.details-grid strong{color:#4b5563}.no-print{margin-bottom:20px}@media print{.no-print{display:none}body{margin:0}}.cargo-details p{margin:5px 0}.risco-card{background:#f9fafb;border:2px solid #e5e7eb;border-radius:8px;padding:15px;margin:15px 0;page-break-inside:avoid}.risco-card table{margin-bottom:15px}.risco-card th{color:white;font-weight:600}</style>
-        </head><body>
-            <div class="no-print"><button onclick="window.print()" style="padding:10px 20px;background:#2563eb;color:white;border:none;border-radius:5px;cursor:pointer;">🖨️ Imprimir/Salvar PDF</button></div>
-            <div class="header"><h1>📋 Relatório de Inspeção</h1><h2>${e.nome||'N/A'}</h2><div class="details-grid"><strong>CNPJ:</strong><span>${e.cnpj||'N/A'}</span><strong>Data de Inspeção:</strong><span>${formatDateBR(e.data)}</span><strong>Elaborado por:</strong><span>${e.elaborado||'N/A'}</span><strong>Aprovado por:</strong><span>${e.aprovado||'N/A'}</span><strong>Gerado em:</strong><span>${reportDate}</span></div></div>`;
-        (insp.departamentos || []).forEach(depto => {
-            html += `<div class="section"><h2>📂 Departamento: ${depto.nome||'N/A'}</h2><p><strong>Característica:</strong> ${depto.caracteristica||'N/A'}</p><p><strong>Descrição:</strong> ${depto.descricao||'N/A'}</p>`;
-            (depto.grupos || []).forEach(grupo => {
-                const g = { ...grupo, nome: `Grupo: ${grupo.listaDeCargos.join(', ')}` };
-                html += renderCargoReport(g, `👥 ${g.nome}`);
-            });
-            (depto.cargos || []).forEach(cargo => {
-                html += renderCargoReport(cargo, `👤 Cargo: ${cargo.nome||'N/A'}`);
-            });
-            (depto.funcionarios || []).forEach(func => {
-                html += renderCargoReport(func, `👨‍💼 Funcionário: ${func.nome||'N/A'}`);
-            });
-            html += `</div>`;
-        });
-        html += `<div class="section" style="page-break-before: always;"><h2>📝 Plano de Ação</h2>`;
-        if (insp.planoDeAcao && insp.planoDeAcao.length > 0) {
-            html += `<table><thead><tr><th style="width:25%">Atividade</th><th>Descrição</th><th style="width:20%">Prazo</th><th style="width:15%">Status</th></tr></thead><tbody>`;
-            insp.planoDeAcao.forEach(item => {
-                const prazo = (item.prazoInicio ? formatDateBR(item.prazoInicio) : 'N/A') + ' a ' + (item.prazoFim ? formatDateBR(item.prazoFim) : 'N/A');
-                html += `<tr><td>${item.atividade||''}</td><td>${item.descricao||''}</td><td>${prazo}</td><td>${item.status||''}</td></tr>`;
-            });
-            html += `</tbody></table>`;
-        } else {
-            html += `<p>Nenhum item no plano de ação.</p>`;
-        }
-        html += `</div>`;
-        html += '</body></html>';
-        const win = window.open('', `Relatório - ${e.nome}`);
-        win.document.write(html);
-        win.document.close();
-        showToast("Relatório gerado!", "success");
-    };
-    request.onerror = (e) => console.error("Erro ao gerar relatório:", e);
-}
+// ==========================================
+// CONSOLE DE DEBUG VISUAL - VERSÃO SIMPLES
+// ==========================================
 
-// Atualizar indicador visual de rede
-function updateNetworkStatus() {
-    const indicator = document.getElementById('network-status');
-    if (!indicator) return;
+console.log('🔵 Carregando sistema de debug...');
+
+// Criar console IMEDIATAMENTE
+(function() {
+    console.log('🔵 Criando console visual...');
     
-    if (isOnline) {
-        indicator.className = 'network-status online';
-        indicator.textContent = '🌐 Online';
-    } else {
-        indicator.className = 'network-status offline';
-        indicator.textContent = '📴 Offline';
+    const consoleDiv = document.createElement('div');
+    consoleDiv.id = 'debug-console';
+    consoleDiv.innerHTML = `
+        <div style="position: fixed; bottom: 0; left: 0; right: 0; max-height: 40vh; background: rgba(0,0,0,0.95); color: lime; font-family: monospace; font-size: 11px; padding: 10px; overflow-y: auto; z-index: 99999; border-top: 3px solid lime;">
+            <div style="display: flex; justify-content: space-between; margin-bottom: 10px; padding-bottom: 5px; border-bottom: 1px solid lime;">
+                <span style="color: yellow; font-weight: bold;">🔍 DEBUG CONSOLE</span>
+                <button id="clear-debug-btn" style="background: red; color: white; border: none; padding: 5px 10px; border-radius: 3px; font-size: 12px;">Limpar</button>
+            </div>
+            <div id="debug-logs"></div>
+        </div>
+    `;
+    
+    document.body.appendChild(consoleDiv);
+    console.log('✅ Console visual criado!');
+    
+    // Botão limpar
+    document.getElementById('clear-debug-btn').onclick = function() {
+        document.getElementById('debug-logs').innerHTML = '';
+        addLog('Console limpo', 'yellow');
+    };
+    
+})();
+
+// Função para adicionar log
+function addLog(msg, color = 'lime') {
+    const logsDiv = document.getElementById('debug-logs');
+    if (!logsDiv) {
+        console.error('❌ Logs div não encontrado!');
+        return;
     }
+    
+    const time = new Date().toLocaleTimeString('pt-BR');
+    const entry = document.createElement('div');
+    entry.style.cssText = `color: ${color}; margin: 3px 0; padding: 3px 0; border-bottom: 1px solid rgba(0,255,0,0.2);`;
+    entry.textContent = `[${time}] ${msg}`;
+    
+    logsDiv.appendChild(entry);
+    logsDiv.scrollTop = logsDiv.scrollHeight;
+    
+    console.log(`[${time}] ${msg}`);
 }
 
-// Atualizar status ao carregar
-updateNetworkStatus();
+// Log inicial
+setTimeout(() => {
+    addLog('✅ Sistema carregado!', 'lime');
+    addLog('📱 Dispositivo: ' + (isMobile ? 'Mobile' : 'Desktop'), 'cyan');
+    addLog('🌐 Navegador: ' + navigator.userAgent.substring(0, 40) + '...', 'cyan');
+    addLog('', 'white');
+    addLog('👆 Clique no botão de microfone para testar', 'yellow');
+}, 500);
 
-// Atualizar quando mudar conexão
-window.addEventListener('online', updateNetworkStatus);
-window.addEventListener('offline', updateNetworkStatus);
-function initializeSortableLists() {
-    const sortableConfig = {
-        animation: 150,
-        ghostClass: 'sortable-ghost',
-        forceFallback: true, // Melhor suporte touch
-        touchStartThreshold: 3, // Sensibilidade touch
-        delay: 100, // Delay para distinguir tap de drag
-        delayOnTouchOnly: true, // Delay apenas no touch
-        onEnd: (evt) => {
-            const { from, oldIndex, newIndex } = evt;
-            const listId = from.id;
-            let targetArray;
+// ==========================================
+// RECONHECIMENTO DE VOZ - VERSÃO DEBUG
+// ==========================================
+
+let currentRecognition = null;
+let currentTargetInput = null;
+let isRecording = false;
+let recognitionTimeout = null;
+
+const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+
+// FUNÇÃO PRINCIPAL
+function toggleRecognition(button) {
+    addLog('═══════════════════════════════', 'white');
+    addLog('🎤 BOTÃO CLICADO!', 'yellow');
+    addLog('═══════════════════════════════', 'white');
+    
+    const targetId = button.dataset.target;
+    addLog('1️⃣ Target ID: ' + targetId, 'cyan');
+    
+    const input = document.getElementById(targetId);
+    
+    if (!input) {
+        addLog('❌ ERRO: Campo não encontrado!', 'red');
+        showToast("❌ Campo não encontrado!", "error");
+        return;
+    }
+    
+    addLog('✅ Campo encontrado OK', 'lime');
+
+    // Se já está gravando, parar
+    if (isRecording) {
+        addLog('⏹️ Já estava gravando, parando...', 'orange');
+        stopRecognition(button);
+        return;
+    }
+    
+    addLog('2️⃣ Verificando suporte...', 'cyan');
+
+    // Verificar suporte
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    
+    if (!SpeechRecognition) {
+        addLog('❌ SpeechRecognition NÃO disponível!', 'red');
+        addLog('Seu navegador não suporta reconhecimento de voz', 'red');
+        showToast("❌ Navegador não suporta voz", "error");
+        return;
+    }
+    
+    addLog('✅ SpeechRecognition disponível!', 'lime');
+    addLog('3️⃣ Criando instância...', 'cyan');
+    
+    // Salvar referências
+    currentTargetInput = input;
+    
+    // Criar reconhecedor
+    const recognition = new SpeechRecognition();
+    
+    addLog('✅ Instância criada', 'lime');
+    addLog('4️⃣ Configurando...', 'cyan');
+    
+    // Configurações
+    recognition.lang = 'pt-BR';
+    recognition.continuous = false;
+    recognition.interimResults = true;
+    recognition.maxAlternatives = 1;
+    
+    addLog('✅ Configurado (pt-BR, continuous=false)', 'lime');
+
+    currentRecognition = recognition;
+    
+    let stepsPassed = {
+        audioStart: false,
+        soundStart: false,
+        speechStart: false,
+        result: false
+    };
+
+    // ==========================================
+    // EVENTOS
+    // ==========================================
+    
+    recognition.onstart = function() {
+        addLog('✅ ONSTART - Gravação iniciada!', 'lime');
+        isRecording = true;
+        
+        button.classList.add('active');
+        button.innerHTML = '<i class="bi bi-stop-fill" style="color: red;"></i>';
+        button.style.animation = 'pulse 1.5s infinite';
+        
+        if (navigator.vibrate) {
+            navigator.vibrate(200);
+            addLog('📳 Vibrou', 'cyan');
+        }
+        
+        showToast("🎤 GRAVANDO... Fale agora!", "success");
+        
+        recognitionTimeout = setTimeout(function() {
+            addLog('⏱️ TIMEOUT 30s atingido', 'orange');
+            stopRecognition(button);
+        }, 30000);
+    };
+    
+    recognition.onaudiostart = function() {
+        stepsPassed.audioStart = true;
+        addLog('🎵 ONAUDIOSTART - Áudio capturando', 'lime');
+    };
+    
+    recognition.onaudioend = function() {
+        addLog('🎵 ONAUDIOEND - Áudio parou', 'orange');
+    };
+    
+    recognition.onsoundstart = function() {
+        stepsPassed.soundStart = true;
+        addLog('🔊 ONSOUNDSTART - SOM DETECTADO!', 'lime');
+    };
+    
+    recognition.onsoundend = function() {
+        addLog('🔇 ONSOUNDEND - Som parou', 'cyan');
+    };
+    
+    recognition.onspeechstart = function() {
+        stepsPassed.speechStart = true;
+        addLog('🗣️ ONSPEECHSTART - FALA DETECTADA!', 'lime');
+    };
+    
+    recognition.onspeechend = function() {
+        addLog('🗣️ ONSPEECHEND - Fala terminou', 'cyan');
+    };
+    
+    recognition.onresult = function(event) {
+        stepsPassed.result = true;
+        addLog('📝 ONRESULT - Texto recebido!', 'lime');
+        addLog('Total de resultados: ' + event.results.length, 'cyan');
+        
+        let finalText = '';
+        
+        for (let i = 0; i < event.results.length; i++) {
+            const transcript = event.results[i][0].transcript;
+            const isFinal = event.results[i].isFinal;
             
-            if (listId === 'departamento-list') {
-                targetArray = currentInspection.departamentos;
-            } else if (listId === 'cargo-list') {
-                targetArray = currentInspection.departamentos[activeDepartamentoIndex].cargos;
-            } else if (listId === 'funcionario-list') {
-                targetArray = currentInspection.departamentos[activeDepartamentoIndex].funcionarios;
-            } else if (listId === 'grupo-list') {
-                targetArray = currentInspection.departamentos[activeDepartamentoIndex].grupos;
+            addLog(`  Resultado ${i}: "${transcript.substring(0, 30)}..." (final=${isFinal})`, 'cyan');
+            
+            if (isFinal) {
+                finalText += transcript + ' ';
             }
+        }
+        
+        if (finalText.trim()) {
+            addLog('➕ Adicionando texto ao campo...', 'yellow');
             
-            if (targetArray) {
-                targetArray.splice(newIndex, 0, targetArray.splice(oldIndex, 1)[0]);
-                persistCurrentInspection(() => {
-                    showToast("✅ Ordem salva!", "success");
-                    // Vibrar no mobile
-                    if ('vibrate' in navigator) {
-                        navigator.vibrate(50);
-                    }
-                });
+            try {
+                const oldValue = currentTargetInput.value;
+                currentTargetInput.value = oldValue ? oldValue + ' ' + finalText.trim() : finalText.trim();
+                
+                addLog('✅ TEXTO ADICIONADO COM SUCESSO!', 'lime');
+                addLog('Texto: "' + finalText.trim() + '"', 'white');
+                
+                showToast("✅ Texto capturado!", "success");
+                
+                if (navigator.vibrate) {
+                    navigator.vibrate([100, 50, 100]);
+                }
+                
+                currentTargetInput.dispatchEvent(new Event('input', { bubbles: true }));
+                
+            } catch (error) {
+                addLog('❌ ERRO ao adicionar: ' + error.message, 'red');
             }
         }
     };
     
-    ['departamento-list', 'cargo-list', 'funcionario-list', 'grupo-list'].forEach(id => {
-        const el = document.getElementById(id);
-        if (el) Sortable.create(el, sortableConfig);
-    });
-}
-// PWA Install Prompt para Mobile
-let deferredPrompt;
-
-window.addEventListener('beforeinstallprompt', (e) => {
-    e.preventDefault();
-    deferredPrompt = e;
+    recognition.onerror = function(event) {
+        addLog('❌ ONERROR: ' + event.error, 'red');
+        
+        if (event.message) {
+            addLog('Mensagem: ' + event.message, 'red');
+        }
+        
+        switch(event.error) {
+            case 'no-speech':
+                addLog('⚠️ Nenhuma fala detectada', 'orange');
+                break;
+            case 'audio-capture':
+                addLog('⚠️ Microfone não acessível', 'red');
+                break;
+            case 'not-allowed':
+                addLog('⚠️ Permissão negada', 'red');
+                break;
+            case 'network':
+                addLog('⚠️ Sem internet', 'red');
+                break;
+        }
+        
+        if (event.error !== 'aborted' && event.error !== 'no-speech') {
+            stopRecognition(button);
+        }
+    };
     
-    // Mostrar botão de instalação apenas no mobile
-    const isMobile = /Android|webOS|iPhone|iPad|iPod/i.test(navigator.userAgent);
+    recognition.onend = function() {
+        addLog('🏁 ONEND - Reconhecimento terminou', 'orange');
+        addLog('', 'white');
+        addLog('📊 RESUMO:', 'yellow');
+        addLog('  Áudio iniciou: ' + (stepsPassed.audioStart ? '✅' : '❌'), stepsPassed.audioStart ? 'lime' : 'red');
+        addLog('  Som detectado: ' + (stepsPassed.soundStart ? '✅' : '❌'), stepsPassed.soundStart ? 'lime' : 'red');
+        addLog('  Fala detectada: ' + (stepsPassed.speechStart ? '✅' : '❌'), stepsPassed.speechStart ? 'lime' : 'red');
+        addLog('  Texto recebido: ' + (stepsPassed.result ? '✅' : '❌'), stepsPassed.result ? 'lime' : 'red');
+        
+        if (!stepsPassed.result) {
+            addLog('', 'white');
+            addLog('🔍 DIAGNÓSTICO:', 'yellow');
+            
+            if (!stepsPassed.audioStart) {
+                addLog('❌ Problema: Microfone não funcionou', 'red');
+            } else if (!stepsPassed.soundStart) {
+                addLog('❌ Problema: Nenhum som captado', 'red');
+                addLog('Solução: Fale mais alto ou mais perto', 'yellow');
+            } else if (!stepsPassed.speechStart) {
+                addLog('❌ Problema: Fala não reconhecida', 'red');
+                addLog('Solução: Fale mais claramente', 'yellow');
+            }
+        }
+        
+        stopRecognition(button);
+    };
+
+    // ==========================================
+    // INICIAR
+    // ==========================================
+    
+    addLog('5️⃣ Solicitando permissão de microfone...', 'yellow');
+    
     if (isMobile) {
-        showToast("💡 Instale este app na tela inicial!", "success");
+        addLog('📱 Modo mobile: getUserMedia...', 'cyan');
+        
+        navigator.mediaDevices.getUserMedia({ audio: true })
+            .then(function() {
+                addLog('✅ Permissão concedida!', 'lime');
+                addLog('6️⃣ Iniciando recognition.start()...', 'yellow');
+                
+                try {
+                    recognition.start();
+                    addLog('✅ recognition.start() OK!', 'lime');
+                } catch (error) {
+                    addLog('❌ Erro no start(): ' + error.message, 'red');
+                }
+            })
+            .catch(function(error) {
+                addLog('❌ Permissão negada!', 'red');
+                addLog('Erro: ' + error.name, 'red');
+                addLog('Mensagem: ' + error.message, 'red');
+                showToast("❌ Permissão de microfone negada", "error");
+            });
+    } else {
+        addLog('💻 Modo desktop: Iniciando direto...', 'cyan');
+        
+        try {
+            recognition.start();
+            addLog('✅ recognition.start() OK!', 'lime');
+        } catch (error) {
+            addLog('❌ Erro no start(): ' + error.message, 'red');
+        }
+    }
+}
+
+// ==========================================
+// PARAR
+// ==========================================
+function stopRecognition(button) {
+    addLog('⏹️ Parando...', 'orange');
+    
+    isRecording = false;
+    
+    if (recognitionTimeout) {
+        clearTimeout(recognitionTimeout);
+        recognitionTimeout = null;
+    }
+    
+    if (currentRecognition) {
+        try {
+            currentRecognition.stop();
+            currentRecognition = null;
+            addLog('✅ Parado', 'lime');
+        } catch (e) {
+            addLog('⚠️ Erro ao parar: ' + e.message, 'orange');
+        }
+    }
+    
+    currentTargetInput = null;
+    
+    if (button) {
+        button.classList.remove('active');
+        button.innerHTML = '<i class="bi bi-mic-fill"></i>';
+        button.style.animation = '';
+    }
+    
+    if (navigator.vibrate) {
+        navigator.vibrate([100, 50, 100]);
+    }
+    
+    showToast("⏹️ Gravação parada", "success");
+    addLog('═══════════════════════════════', 'white');
+}
+
+// Parar ao sair
+window.addEventListener('beforeunload', function() {
+    if (currentRecognition) {
+        stopRecognition(null);
     }
 });
 
-window.addEventListener('appinstalled', () => {
-    console.log('✅ PWA instalado com sucesso!');
-    deferredPrompt = null;
-});
+// Estilos
+if (!document.getElementById('voice-styles')) {
+    const styleSheet = document.createElement("style");
+    styleSheet.id = 'voice-styles';
+    styleSheet.textContent = `
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+        }
+        button.active {
+            background-color: #fee2e2 !important;
+            border-color: #ef4444 !important;
+        }
+    `;
+    document.head.appendChild(styleSheet);
+}
+
+addLog('✅ Sistema de voz carregado!', 'lime');
+console.log("✅ Sistema de reconhecimento carregado!");
 
 // Botão de teste de voz (adicionar no dashboard)
 function addVoiceTestButton() {
