@@ -1773,6 +1773,26 @@ function removeRecognitionPreview() {
     }
 }
 
+/**
+ * Função APENAS para anexar texto ao campo de forma inteligente.
+ */
+function appendTextToInput(text) {
+    if (!currentTargetInput || !text) return;
+
+    const currentValue = currentTargetInput.value;
+    // Adiciona um espaço apenas se o campo não estiver vazio e não terminar com um espaço.
+    const space = (currentValue.length > 0 && !currentValue.endsWith(' ')) ? ' ' : '';
+    
+    currentTargetInput.value += space + text;
+
+    // Dispara o evento para acionar o autosave.
+    currentTargetInput.dispatchEvent(new Event('input', { bubbles: true }));
+}
+
+
+/**
+ * Função stopRecognition - Permanece a mesma, garantindo a limpeza.
+ */
 function stopRecognition(button) {
     if (currentRecognition) {
         currentRecognition.onstart = null;
@@ -1797,8 +1817,7 @@ function stopRecognition(button) {
 
 
 /**
- * Função toggleRecognition - Versão Definitiva
- * Esta versão gerencia o estado do texto para evitar duplicação durante o ditado contínuo.
+ * Função toggleRecognition - Lógica final e corrigida.
  */
 function toggleRecognition(button) {
     if (isRecording) {
@@ -1815,10 +1834,6 @@ function toggleRecognition(button) {
         showToast("❌ Seu navegador não suporta reconhecimento de voz.", "error");
         return;
     }
-
-    // *** INÍCIO DA LÓGICA PRINCIPAL DE CORREÇÃO ***
-    // 1. Salva o texto que já existe no campo ANTES de começar a gravar.
-    const originalText = currentTargetInput.value.trim();
 
     currentRecognition = new SpeechRecognition();
     currentRecognition.lang = 'pt-BR';
@@ -1839,39 +1854,33 @@ function toggleRecognition(button) {
         if (event.error !== 'no-speech') {
             showToast(`❌ Erro de voz: ${event.error}`, "error");
         }
+        // O onend será chamado automaticamente, limpando o estado.
     };
 
     currentRecognition.onend = () => {
-        // Ao final da gravação, dispara o evento 'input' uma única vez
-        // para garantir que o autosave seja acionado com o valor final.
-        if (currentTargetInput) {
-            currentTargetInput.dispatchEvent(new Event('input', { bubbles: true }));
-        }
         stopRecognition(button);
     };
 
     currentRecognition.onresult = (event) => {
         let interimTranscript = '';
-        let finalTranscript = '';
-
-        // 2. Itera por TODOS os resultados recebidos nesta sessão de gravação.
-        for (let i = 0; i < event.results.length; i++) {
+        
+        // *** A CORREÇÃO CRÍTICA ESTÁ AQUI ***
+        // O loop agora começa em 'event.resultIndex'.
+        // Isso garante que processamos APENAS os novos resultados recebidos neste evento.
+        for (let i = event.resultIndex; i < event.results.length; i++) {
             const transcript = event.results[i][0].transcript;
+
             if (event.results[i].isFinal) {
-                // Constrói a frase completa dita ATÉ AGORA.
-                finalTranscript += transcript;
+                // Se o resultado for final, anexa ao campo de texto.
+                appendTextToInput(transcript.trim());
             } else {
+                // Se for provisório, apenas mostra na tela de preview.
                 interimTranscript += transcript;
             }
         }
-
-        // 3. ATUALIZA o campo de texto combinando o texto original com o ditado completo da sessão.
-        // Isso SUBSTITUI o valor antigo, em vez de anexar, evitando a duplicação.
-        const combinedText = originalText ? originalText + ' ' + finalTranscript : finalTranscript;
-        currentTargetInput.value = combinedText.trim();
         
-        // Atualiza a interface visual para o usuário.
-        updateRecognitionPreview(interimTranscript, finalTranscript);
+        // Atualiza a interface visual com o texto provisório.
+        updateRecognitionPreview(interimTranscript, '');
     };
     
     try {
