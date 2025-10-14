@@ -1,3 +1,14 @@
+// Aguarda o conteúdo da página ser totalmente carregado
+document.addEventListener('DOMContentLoaded', () => {
+    // Procura o elemento HTML que criamos para a versão
+    const versionElement = document.getElementById('app-version-display');
+    
+    // Verifica se o elemento e a variável APP_VERSION existem
+    if (versionElement && typeof APP_VERSION !== 'undefined') {
+      // Insere o texto da versão no elemento
+      versionElement.textContent = 'v' + APP_VERSION;
+    }
+  });
 const predefinedRisks = [
     { tipo: "FÍSICO", codigoEsocial: "02.01.001", perigo: "Exposição a ruído contínuo e intermitente", danos: "Diminuição gradual da audição, cansaço, irritação, zumbido, fadiga, surdez" },
     { tipo: "FÍSICO", codigoEsocial: "02.01.002", perigo: "Vibrações localizadas (mão-braço)", danos: "lesões musculares, problemas nas articulações, fadiga muscular." },

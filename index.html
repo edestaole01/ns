@@ -89,6 +89,14 @@
             transition: var(--transition-speed);
         }
         .card:hover { box-shadow: var(--shadow-lg); border-color: var(--gray-300); }
+        .app-version {
+            font-size: 0.8rem;
+            color: var(--gray-400);
+            align-self: center;
+            margin-left: 1rem;
+            font-weight: 500;
+        }
+
         #dashboard-view .card:first-child { background: linear-gradient(135deg, var(--primary-light) 0%, white 50%); border-color: var(--primary); border-left: 4px solid var(--primary); }
         h1 { font-size: 2rem; font-weight: 700; color: var(--gray-900); margin-bottom: 0.5rem; }
         h2 { font-size: 1.5rem; font-weight: 600; color: var(--gray-800); margin-bottom: 1.5rem; padding-bottom: 0.75rem; border-bottom: 1px solid var(--gray-200); }
@@ -320,6 +328,14 @@
         <div class="logo"><i class="bi bi-shield-check"></i> Inspeção de Riscos</div>
         <div class="nav-links">
             <button id="nav-dashboard">Painel</button>
+            <nav class="main-nav">
+                <div class="logo"><i class="bi bi-shield-check"></i> Inspeção de Riscos</div>
+                <div class="nav-links">
+                    <button id="nav-dashboard">Painel</button>
+                    <!-- ADICIONE O SPAN ABAIXO -->
+                    <span id="app-version-display" class="app-version"></span>
+                </div>
+            </nav>
         </div>
     </nav>
 
@@ -373,9 +389,10 @@
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
-                navigator.serviceWorker.register('/ns/sw.js')
+                // Garanta que o caminho aqui é direto, sem pastas extras
+                navigator.serviceWorker.register('sw.js')
                     .then(registration => {
-                        console.log('Service Worker registrado com sucesso:', registration);
+                        console.log('Service Worker (a "mochila") registrado com sucesso:', registration);
                     })
                     .catch(error => {
                         console.log('Falha ao registrar o Service Worker:', error);
