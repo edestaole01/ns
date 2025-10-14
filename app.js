@@ -1775,26 +1775,18 @@ function removeRecognitionPreview() {
 
 function stopRecognition(button) {
     if (currentRecognition) {
-        // 1. Desanexa todos os eventos para evitar que eles disparem durante o processo de parada.
-        // Isso é crucial para evitar o reinício automático e eventos "fantasma".
         currentRecognition.onstart = null;
         currentRecognition.onresult = null;
         currentRecognition.onerror = null;
         currentRecognition.onend = null;
-
-        // 2. Manda o comando para parar.
         currentRecognition.stop();
     }
-
-    // 3. Limpa o estado global, independentemente de qualquer coisa.
     isRecording = false;
     currentRecognition = null;
     currentTargetInput = null;
     
-    // 4. Remove a interface visual.
     removeRecognitionPreview();
     
-    // 5. Reseta o botão para o estado normal.
     if (button) {
         button.classList.remove('active');
         button.innerHTML = '<i class="bi bi-mic-fill"></i>';
@@ -1805,24 +1797,18 @@ function stopRecognition(button) {
 
 
 /**
- * Função toggleRecognition Aprimorada
- * Controla o início e o fim da gravação de forma mais segura.
+ * Função toggleRecognition - Versão Definitiva
+ * Esta versão gerencia o estado do texto para evitar duplicação durante o ditado contínuo.
  */
 function toggleRecognition(button) {
-    // Se já estiver gravando, a única ação possível é parar.
     if (isRecording) {
         stopRecognition(button);
         return;
     }
 
-    // Se não estiver gravando, vamos iniciar um novo processo limpo.
     const targetId = button.dataset.target;
     currentTargetInput = document.getElementById(targetId);
-
-    if (!currentTargetInput) {
-        showToast("Campo de entrada não encontrado!", "error");
-        return;
-    }
+    if (!currentTargetInput) return;
 
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SpeechRecognition) {
@@ -1830,120 +1816,70 @@ function toggleRecognition(button) {
         return;
     }
 
-    // Cria uma NOVA instância limpa para cada sessão de gravação.
+    // *** INÍCIO DA LÓGICA PRINCIPAL DE CORREÇÃO ***
+    // 1. Salva o texto que já existe no campo ANTES de começar a gravar.
+    const originalText = currentTargetInput.value.trim();
+
     currentRecognition = new SpeechRecognition();
     currentRecognition.lang = 'pt-BR';
-    currentRecognition.continuous = true; // Continua ouvindo mesmo após pausas
-    currentRecognition.interimResults = true; // Mostra resultados parciais
+    currentRecognition.continuous = true;
+    currentRecognition.interimResults = true;
     currentRecognition.maxAlternatives = 1;
 
-    // Evento: quando a gravação começa com sucesso.
     currentRecognition.onstart = () => {
         isRecording = true;
         button.classList.add('active');
         button.innerHTML = '<i class="bi bi-mic-fill" style="color: red;"></i>';
         button.style.animation = 'pulse 1.5s infinite';
         button.title = 'Clique para parar';
-        
         createRecognitionPreview();
-        updateRecognitionPreview('', '');
-        showToast("🎤 Gravação iniciada!", "success");
     };
 
-    // Evento: quando um erro ocorre.
     currentRecognition.onerror = (event) => {
-        let errorMessage = "Erro no reconhecimento de voz";
-        if (event.error === 'no-speech') {
-            updateRecognitionPreview('⚠️ Nenhuma fala detectada. Tente novamente.', '');
-            return;
-        } else if (event.error === 'not-allowed') {
-            errorMessage = "❌ Permissão de microfone negada.";
+        if (event.error !== 'no-speech') {
+            showToast(`❌ Erro de voz: ${event.error}`, "error");
         }
-        showToast(errorMessage, "error");
-        // O evento 'onend' será chamado automaticamente após um erro, limpando o estado.
     };
 
-    // Evento: quando a gravação termina (por qualquer motivo: erro, parada manual, etc.).
     currentRecognition.onend = () => {
-        // A única responsabilidade do 'onend' agora é garantir que tudo seja limpo.
-        // REMOVEMOS a lógica de reinício automático, que causava os problemas.
+        // Ao final da gravação, dispara o evento 'input' uma única vez
+        // para garantir que o autosave seja acionado com o valor final.
+        if (currentTargetInput) {
+            currentTargetInput.dispatchEvent(new Event('input', { bubbles: true }));
+        }
         stopRecognition(button);
     };
 
-    // Evento: quando novos resultados de fala são detectados.
-        currentRecognition.onresult = (event) => {
-            let interimTranscript = '';
-            let finalTranscript = '';
-            // CORREÇÃO: Inicializa a variável corretamente
-            let lastFinalText = ''; 
+    currentRecognition.onresult = (event) => {
+        let interimTranscript = '';
+        let finalTranscript = '';
 
-            for (let i = event.resultIndex; i < event.results.length; i++) {
-                const transcript = event.results[i][0].transcript;
-                if (event.results[i].isFinal) {
-                    // CORREÇÃO: Adiciona o espaço que faltava
-                    lastFinalText = transcript; 
-                    finalTranscript += transcript + ' ';
+        // 2. Itera por TODOS os resultados recebidos nesta sessão de gravação.
+        for (let i = 0; i < event.results.length; i++) {
+            const transcript = event.results[i][0].transcript;
+            if (event.results[i].isFinal) {
+                // Constrói a frase completa dita ATÉ AGORA.
+                finalTranscript += transcript;
+            } else {
+                interimTranscript += transcript;
+            }
+        }
 
-                    // A lógica de chamar addTextToInput que sugeri anteriormente está aqui
-                    // para evitar a duplicação. Vamos testar se ela funciona melhor agora
-                    // que o erro de sintaxe foi resolvido. Se a duplicação voltar,
-                    // podemos ajustar esta parte novamente.
-                    
-                } else {
-                    interimTranscript += transcript;
-                }
-            }
-            
-            updateRecognitionPreview(interimTranscript, finalTranscript.trim());
-            
-            if (finalTranscript) {
-                // Vamos manter a lógica original por enquanto, pois o erro de sintaxe era o problema principal.
-                addTextToInput(finalTranscript.trim());
-            }
-        };
+        // 3. ATUALIZA o campo de texto combinando o texto original com o ditado completo da sessão.
+        // Isso SUBSTITUI o valor antigo, em vez de anexar, evitando a duplicação.
+        const combinedText = originalText ? originalText + ' ' + finalTranscript : finalTranscript;
+        currentTargetInput.value = combinedText.trim();
+        
+        // Atualiza a interface visual para o usuário.
+        updateRecognitionPreview(interimTranscript, finalTranscript);
+    };
     
-    // Inicia a gravação.
     try {
         currentRecognition.start();
     } catch (error) {
-        showToast("❌ Erro ao iniciar reconhecimento: " + error.message, "error");
+        showToast("❌ Erro ao iniciar reconhecimento.", "error");
         stopRecognition(button);
     }
-}
-
-/**
- * Adiciona o texto ao campo de entrada e dispara o evento 'input' para o autosave.
- * Esta função foi aprimorada para evitar que a própria digitação dispare o autosave, 
- * mas ainda notifique o formulário para salvar a alteração no banco de dados.
- */
-function addTextToInput(text) {
-    if (!currentTargetInput || !text) return;
-
-    // Remove a necessidade de disparo manual de evento 'input' 
-    // e simplesmente atualiza o valor.
-    // O evento 'input' será disparado diretamente no listener onresult, 
-    // mas de forma controlada.
-
-    // A lógica de anexação de texto deve ser simples:
-    const currentValue = currentTargetInput.value.trim();
-    // A API de voz geralmente coloca a pontuação no final. 
-    // Vamos garantir que a fala não comece com um espaço desnecessário.
-    const newText = text.trim(); 
-    
-    // Se o campo estiver vazio, apenas insere o novo texto.
-    if (currentValue.length === 0) {
-        currentTargetInput.value = newText;
-    } else {
-        // Se já houver texto, anexa o novo texto com um espaço.
-        // Adiciona um ponto final se o valor atual não terminar em pontuação,
-        // mas o novo texto começar com uma letra (sinalizando uma nova frase).
-        const needsSpace = !/[.,;?!]$/.test(currentValue);
-        currentTargetInput.value = currentValue + (needsSpace ? ' ' : '') + newText;
-    }
-    
-    // Dispara o evento de 'input' APENAS uma vez ao terminar de preencher 
-    // para que o autosave seja acionado após a inserção final, e não a cada letra.
-    currentTargetInput.dispatchEvent(new Event('input', { bubbles: true }));
 }
 
 console.log("✅ Sistema com reconhecimento de voz em TODOS os campos carregado!");
