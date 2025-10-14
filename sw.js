@@ -1,5 +1,6 @@
-// Service Worker Otimizado - Versão Corrigida
-const CACHE_NAME = 'inspecao-riscos-v2-mobile';
+// Service Worker v3.0 - VERSAO CORRIGIDA SEM ERROS
+const APP_VERSION = '3.0.0';
+const CACHE_NAME = 'inspecao-riscos-v3-0-0';
 
 const ESSENTIAL_FILES = [
   '/ns/',
@@ -16,89 +17,75 @@ const OPTIONAL_FILES = [
   'https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js'
 ];
 
-// INSTALAÇÃO
-self.addEventListener('install', (event) => {
-  console.log('📦 Service Worker: Instalando...');
+self.addEventListener('install', function(event) {
+  console.log('Instalando Service Worker v' + APP_VERSION);
   
   event.waitUntil(
     caches.open(CACHE_NAME)
-      .then(async (cache) => {
-        // Cachear essenciais
-        try {
-          await cache.addAll(ESSENTIAL_FILES);
-          console.log('✅ Arquivos essenciais cacheados');
-        } catch (err) {
-          console.warn('⚠️ Erro ao cachear essenciais:', err);
-        }
-        
-        // Cachear opcionais
-        for (const url of OPTIONAL_FILES) {
-          try {
-            const response = await fetch(url, { mode: 'no-cors' });
-            await cache.put(url, response);
-          } catch (err) {
-            console.log('⏭️ Ignorado:', url);
-          }
-        }
+      .then(function(cache) {
+        return cache.addAll(ESSENTIAL_FILES).catch(function(err) {
+          console.warn('Erro ao cachear essenciais:', err);
+        });
       })
-      .then(() => self.skipWaiting())
+      .then(function() {
+        return self.skipWaiting();
+      })
   );
 });
 
-// ATIVAÇÃO
-self.addEventListener('activate', (event) => {
-  console.log('🔄 Service Worker: Ativando...');
+self.addEventListener('activate', function(event) {
+  console.log('Ativando Service Worker v' + APP_VERSION);
   
   event.waitUntil(
     caches.keys()
-      .then((cacheNames) => {
+      .then(function(cacheNames) {
         return Promise.all(
-          cacheNames.map((cache) => {
+          cacheNames.map(function(cache) {
             if (cache !== CACHE_NAME) {
-              console.log('🗑️ Limpando cache antigo:', cache);
+              console.log('Removendo cache antigo:', cache);
               return caches.delete(cache);
             }
           })
         );
       })
-      .then(() => self.clients.claim())
+      .then(function() {
+        return self.clients.claim();
+      })
   );
 });
 
-// FETCH - ESTRATÉGIA: Cache First para arquivos locais, Network Only para dados
-self.addEventListener('fetch', (event) => {
-  const url = new URL(event.request.url);
+self.addEventListener('fetch', function(event) {
+  var url = new URL(event.request.url);
   
-  // Se for IndexedDB ou dados locais, não interceptar
   if (url.protocol === 'chrome-extension:' || url.protocol === 'devtools:') {
     return;
   }
   
-  // Verificar se é arquivo essencial ou opcional
-  const isEssential = ESSENTIAL_FILES.includes(url.pathname);
-  const isOptional = OPTIONAL_FILES.some(file => event.request.url.includes(file));
+  var isEssential = ESSENTIAL_FILES.indexOf(url.pathname) !== -1;
+  var isOptional = OPTIONAL_FILES.some(function(file) {
+    return event.request.url.indexOf(file) !== -1;
+  });
   
-  // Para arquivos estáticos: Cache First
   if (isEssential || isOptional) {
     event.respondWith(
       caches.match(event.request)
-        .then((response) => {
+        .then(function(response) {
           if (response) {
-            console.log('📦 Servindo do cache:', event.request.url);
             return response;
           }
+          
           return fetch(event.request)
-            .then((response) => {
+            .then(function(response) {
               if (response && response.status === 200) {
-                const responseClone = response.clone();
-                caches.open(CACHE_NAME).then((cache) => {
+                var responseClone = response.clone();
+                caches.open(CACHE_NAME).then(function(cache) {
                   cache.put(event.request, responseClone);
                 });
               }
               return response;
             });
         })
-        .catch(() => {
+        .catch(function() {
           if (event.request.mode === 'navigate') {
             return caches.match('/ns/index.html');
           }
@@ -106,9 +93,8 @@ self.addEventListener('fetch', (event) => {
         })
     );
   } else {
-    // Para outros recursos: Network Only (não interferir)
     event.respondWith(fetch(event.request));
   }
 });
 
-console.log('✅ Service Worker carregado!');
+console.log('Service Worker v' + APP_VERSION + ' carregado com sucesso');
