@@ -739,26 +739,46 @@ function deleteFuncionario(index) {
 
 function populateForm(prefix, data) {
     if (!data) return;
-    document.getElementById(`${type}-form`).reset(); // Reset form first
+    
+    // CORREÇÃO APLICADA AQUI:
+    document.getElementById(`${prefix}-form`).reset(); // Resetar o formulário antes de preencher
+
     (data.observacoes || []).forEach(obs => {
         const checkboxId = {
-            "Trabalho em altura": `${prefix}-obs-altura`, "Espaço Confinado": `${prefix}-obs-espaco`, "Operação de Empilhadeira": `${prefix}-obs-empilhadeira`, "Trabalho com Eletricidade": `${prefix}-obs-eletricidade`, "Movimentação manual de cargas": `${prefix}-obs-movimentacao`, "Operação de Talhas": `${prefix}-obs-talhas`, "Operação de paleteiras": `${prefix}-obs-paleteiras`, "Condução de Veículos": `${prefix}-obs-veiculos`
+            "Trabalho em altura": `${prefix}-obs-altura`,
+            "Espaço Confinado": `${prefix}-obs-espaco`,
+            "Operação de Empilhadeira": `${prefix}-obs-empilhadeira`,
+            "Trabalho com Eletricidade": `${prefix}-obs-eletricidade`,
+            "Movimentação manual de cargas": `${prefix}-obs-movimentacao`,
+            "Operação de Talhas": `${prefix}-obs-talhas`,
+            "Operação de paleteiras": `${prefix}-obs-paleteiras`,
+            "Condução de Veículos": `${prefix}-obs-veiculos`
         }[obs];
-        if (checkboxId && document.getElementById(checkboxId)) document.getElementById(checkboxId).checked = true;
+        if (checkboxId && document.getElementById(checkboxId)) {
+            document.getElementById(checkboxId).checked = true;
+        }
     });
+
     document.getElementById(`${prefix}-perfil-exposicao`).value = data.perfilExposicao || '';
     document.getElementById(`${prefix}-descricao-atividade`).value = data.descricaoAtividade || 'Sim';
+
     const req = data.requisitosNR || {};
     document.querySelector(`input[name="${prefix}-req-medida"][value="${req.medida || 'Sim'}"]`).checked = true;
     document.querySelector(`input[name="${prefix}-req-condicao"][value="${req.condicao || 'Sim'}"]`).checked = true;
     document.querySelector(`input[name="${prefix}-req-prazo"][value="${req.prazo || 'Sim'}"]`).checked = true;
     document.querySelector(`input[name="${prefix}-req-periodicidade"][value="${req.periodicidade || 'Sim'}"]`).checked = true;
     document.querySelector(`input[name="${prefix}-req-higienizacao"][value="${req.higienizacao || 'Sim'}"]`).checked = true;
+
     (data.dadosLtcat || []).forEach(dado => {
         const checkboxId = {
-            "Insalubre (NR15)": `${prefix}-insalubre`, "Perigoso (NR16)": `${prefix}-perigoso`, "NHO 01": `${prefix}-nho01`, "DADOS PARA LTCAT": `${prefix}-ltcat`
+            "Insalubre (NR15)": `${prefix}-insalubre`,
+            "Perigoso (NR16)": `${prefix}-perigoso`,
+            "NHO 01": `${prefix}-nho01`,
+            "DADOS PARA LTCAT": `${prefix}-ltcat`
         }[dado];
-        if (checkboxId && document.getElementById(checkboxId)) document.getElementById(checkboxId).checked = true;
+        if (checkboxId && document.getElementById(checkboxId)) {
+            document.getElementById(checkboxId).checked = true;
+        }
     });
 }
 
