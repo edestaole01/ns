@@ -4,11 +4,11 @@ importScripts('version.js');
 const CACHE_NAME = `inspecao-riscos-v${APP_VERSION}`;
 
 const ESSENTIAL_FILES = [
-  './',
-  './index.html',
-  './app.js',
-  './manifest.json',
-  './version.js'
+  '/ns/',
+  '/ns/index.html',
+  '/ns/app.js',
+  '/ns/manifest.json',
+  '/ns/version.js'
 ];
 
 // INSTALAÇÃO
@@ -86,7 +86,7 @@ self.addEventListener('fetch', (event) => {
             
             // Se for navegação e está offline, tentar retornar index.html do cache
             if (event.request.mode === 'navigate') {
-                return caches.match('./index.html'))
+              return caches.match('/ns/index.html')
                 .then((response) => {
                   // CRÍTICO: Se não encontrar, retornar Response válida
                   return response || new Response(
