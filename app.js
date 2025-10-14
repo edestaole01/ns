@@ -57,9 +57,7 @@ const predefinedRisks = [
     { tipo: "ACIDENTE", codigoEsocial: "", perigo: "Contato com partes móveis de equipamentos", danos: "Corte, contusão, esmagamento, morte, Amputações" },
     { tipo: "ACIDENTE", codigoEsocial: "", perigo: "Explosão", danos: "queimadura/morte" },
     { tipo: "ACIDENTE", codigoEsocial: "-", perigo: "Queda de materiais de difente nível", danos: "Escoriações, faturas, entorse, contusões" },
-    { tipo: "ACIDENTE", codigoEsocial: "-", perigo: "Contato com arestas pérf
-
-uro-cortantes", danos: "Lesões, corte contuso, lacerações" },
+    { tipo: "ACIDENTE", codigoEsocial: "-", perigo: "Contato com arestas pérfuro-cortantes", danos: "Lesões, corte contuso, lacerações" },
     { tipo: "ACIDENTE", codigoEsocial: "-", perigo: "Projeção de partículas, partes, peças", danos: "Cortes, Lesão nos olhos" },
     { tipo: "ACIDENTE", codigoEsocial: "-", perigo: "Incêndio", danos: "Perdas materiais, lesões, queimaduras e morte" },
     { tipo: "ACIDENTE", codigoEsocial: "-", perigo: "Ataque de animais peçonhentos ou insetos", danos: "Envenenamento / Ferimento" },
@@ -83,15 +81,17 @@ let activeFuncionarioIndex = -1;
 let autosaveTimer = null;
 let isAutosaving = false;
 
+// Garantir que nenhum reconhecimento de voz inicie automaticamente
 window.addEventListener('DOMContentLoaded', () => {
-    console.log('✅ Aplicação carregada.');
+    console.log('✅ Aplicação carregada. Reconhecimento de voz desativado por padrão.');
 });
 
+// Detectar status de conexão
 let isOnline = navigator.onLine;
 
 window.addEventListener('online', () => {
     isOnline = true;
-    showToast('✅ Conexão restaurada!', 'success');
+    showToast('✅ Conexão restaurada! Salvando dados...', 'success');
     if (currentInspection && currentInspection.id) {
         performAutosave();
     }
@@ -99,7 +99,7 @@ window.addEventListener('online', () => {
 
 window.addEventListener('offline', () => {
     isOnline = false;
-    showToast('⚠️ Modo offline ativo.', 'warning');
+    showToast('⚠️ Modo offline ativo. Dados serão salvos localmente.', 'warning');
 });
 
 const request = indexedDB.open("fluentInspecoesDB", 1);
@@ -129,7 +129,7 @@ function fillRiscoForm(selectedIndex) {
     document.getElementById("risco-perigo").value = risk.perigo || "";
     document.getElementById("risco-danos").value = risk.danos || "";
     
-    showToast("Campos preenchidos.", "success");
+    showToast("Campos preenchidos com base no risco pré-definido.", "success");
 }
 
 function showToast(message, type = 'success') {
@@ -161,11 +161,12 @@ function persistCurrentInspection(callback) {
     const request = store.put(currentInspection);
     request.onsuccess = (event) => {
         if (!currentInspection.id) currentInspection.id = event.target.result;
+        console.log("Inspeção salva com sucesso no DB. ID:", currentInspection.id);
         if (callback) callback(true);
     };
     request.onerror = (event) => {
-        console.error("Erro ao persistir:", event.target.error);
-        showToast("Erro ao salvar!", "error");
+        console.error("Erro ao persistir inspeção:", event.target.error);
+        showToast("Erro ao salvar dados no banco de dados!", "error");
         if (callback) callback(false);
     };
 }
@@ -214,13 +215,6 @@ function updateDashboardStats() {
     });
 }
 
-// [CONTINUA NA PARTE 2 - O código é muito grande, preciso dividir]
-     console.log("Inspeção salva com sucesso no DB. ID:", currentInspection.id);
-        if (callback) callback(true);
-    };
-    request.onerror = (event) => {
-        console.error("Erro ao persistir inspeção:", event.target.error);
-   
 function renderWizardStep() {
     editingIndex = -1;
     editingType = null;
