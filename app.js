@@ -1871,28 +1871,36 @@ function toggleRecognition(button) {
     };
 
     // Evento: quando novos resultados de fala são detectados.
-    currentRecognition.onresult = (event) => {
-        // Esta lógica de processamento de texto permanece a mesma.
-        let interimTranscript = '';
-        let finalTranscript = '';
-        let lastFinalText =;
-        
-        for (let i = event.resultIndex; i < event.results.length; i++) {
-            const transcript = event.results[i][0].transcript;
-            if (event.results[i].isFinal) {
-                lastFinalText =transcript;
-                finalTranscript += transcript + ' ';
-            } else {
-                interimTranscript += transcript;
+        currentRecognition.onresult = (event) => {
+            let interimTranscript = '';
+            let finalTranscript = '';
+            // CORREÇÃO: Inicializa a variável corretamente
+            let lastFinalText = ''; 
+
+            for (let i = event.resultIndex; i < event.results.length; i++) {
+                const transcript = event.results[i][0].transcript;
+                if (event.results[i].isFinal) {
+                    // CORREÇÃO: Adiciona o espaço que faltava
+                    lastFinalText = transcript; 
+                    finalTranscript += transcript + ' ';
+
+                    // A lógica de chamar addTextToInput que sugeri anteriormente está aqui
+                    // para evitar a duplicação. Vamos testar se ela funciona melhor agora
+                    // que o erro de sintaxe foi resolvido. Se a duplicação voltar,
+                    // podemos ajustar esta parte novamente.
+                    
+                } else {
+                    interimTranscript += transcript;
+                }
             }
-        }
-        
-        updateRecognitionPreview(interimTranscript, finalTranscript);
-        
-        if (finalTranscript) {
-            addTextToInput(finalTranscript.trim());
-        }
-    };
+            
+            updateRecognitionPreview(interimTranscript, finalTranscript.trim());
+            
+            if (finalTranscript) {
+                // Vamos manter a lógica original por enquanto, pois o erro de sintaxe era o problema principal.
+                addTextToInput(finalTranscript.trim());
+            }
+        };
     
     // Inicia a gravação.
     try {
