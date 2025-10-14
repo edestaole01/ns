@@ -1455,6 +1455,7 @@ function switchRiskContext(value) {
     renderRiscoStep();
 }
 
+<<<<<<< HEAD
 // ==========================================
 // CONSOLE DE DEBUG VISUAL - VERSÃO SIMPLES
 // ==========================================
@@ -1814,8 +1815,67 @@ function toggleRecognition(button, event) {
                 addLog('Mensagem: ' + error.message, 'red');
                 showToast("❌ Permissão de microfone negada", "error");
                 isProcessing = false;
+=======
+function generateInspectionReport(id) {
+    const request = db.transaction(["inspections"], "readonly").objectStore("inspections").get(id);
+    request.onsuccess = () => {
+        const insp = request.result;
+        if (!insp) {
+            return showToast("Inspeção não encontrada!", "error");
+        }
+        const e = insp.empresa || {};
+        const reportDate = new Date().toLocaleString('pt-BR');
+        let html = `<!DOCTYPE html><html lang="pt-br"><head><meta charset="UTF-8"><title>Relatório - ${e.nome}</title>
+            <style>body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;margin:20px;color:#333;line-height:1.6}.header,.section{border-bottom:2px solid #eee;padding-bottom:15px;margin-bottom:20px;page-break-inside:avoid}h1{color:#1f2937;font-size:2rem}h2{color:#111827;border-bottom:1px solid #ccc;padding-bottom:5px;margin-top:2rem}h3{color:#374151;margin-top:1.5rem}h4{margin:1rem 0 .5rem;color:#4b5563}h5{color:#2563eb;margin:0 0 10px;font-size:1.1rem;padding-bottom:5px;border-bottom:1px solid #dbeafe}table{width:100%;border-collapse:collapse;margin-top:15px;font-size:.9em}th,td{border:1px solid #ccc;padding:8px;text-align:left;vertical-align:top}th{background-color:#f3f4f6;font-weight:600}.details-grid{display:grid;grid-template-columns:150px 1fr;gap:5px 15px;margin:1rem 0}.details-grid strong{color:#4b5563}.no-print{margin-bottom:20px}@media print{.no-print{display:none}body{margin:0}}.cargo-details p{margin:5px 0}.risco-card{background:#f9fafb;border:2px solid #e5e7eb;border-radius:8px;padding:15px;margin:15px 0;page-break-inside:avoid}.risco-card table{margin-bottom:15px}.risco-card th{color:white;font-weight:600}</style>
+        </head><body>
+            <div class="no-print"><button onclick="window.print()" style="padding:10px 20px;background:#2563eb;color:white;border:none;border-radius:5px;cursor:pointer;">🖨️ Imprimir/Salvar PDF</button></div>
+            <div class="header"><h1>📋 Relatório de Inspeção</h1><h2>${e.nome||'N/A'}</h2><div class="details-grid"><strong>CNPJ:</strong><span>${e.cnpj||'N/A'}</span><strong>Data de Inspeção:</strong><span>${formatDateBR(e.data)}</span><strong>Elaborado por:</strong><span>${e.elaborado||'N/A'}</span><strong>Aprovado por:</strong><span>${e.aprovado||'N/A'}</span><strong>Gerado em:</strong><span>${reportDate}</span></div></div>`;
+        (insp.departamentos || []).forEach(depto => {
+            html += `<div class="section"><h2>📂 Departamento: ${depto.nome||'N/A'}</h2><p><strong>Característica:</strong> ${depto.caracteristica||'N/A'}</p><p><strong>Descrição:</strong> ${depto.descricao||'N/A'}</p>`;
+            (depto.grupos || []).forEach(grupo => {
+                const g = { ...grupo, nome: `Grupo: ${grupo.listaDeCargos.join(', ')}` };
+                html += renderCargoReport(g, `👥 ${g.nome}`);
+>>>>>>> parent of 92b562f (debug)
             });
+            (depto.cargos || []).forEach(cargo => {
+                html += renderCargoReport(cargo, `👤 Cargo: ${cargo.nome||'N/A'}`);
+            });
+            (depto.funcionarios || []).forEach(func => {
+                html += renderCargoReport(func, `👨‍💼 Funcionário: ${func.nome||'N/A'}`);
+            });
+            html += `</div>`;
+        });
+        html += `<div class="section" style="page-break-before: always;"><h2>📝 Plano de Ação</h2>`;
+        if (insp.planoDeAcao && insp.planoDeAcao.length > 0) {
+            html += `<table><thead><tr><th style="width:25%">Atividade</th><th>Descrição</th><th style="width:20%">Prazo</th><th style="width:15%">Status</th></tr></thead><tbody>`;
+            insp.planoDeAcao.forEach(item => {
+                const prazo = (item.prazoInicio ? formatDateBR(item.prazoInicio) : 'N/A') + ' a ' + (item.prazoFim ? formatDateBR(item.prazoFim) : 'N/A');
+                html += `<tr><td>${item.atividade||''}</td><td>${item.descricao||''}</td><td>${prazo}</td><td>${item.status||''}</td></tr>`;
+            });
+            html += `</tbody></table>`;
+        } else {
+            html += `<p>Nenhum item no plano de ação.</p>`;
+        }
+        html += `</div>`;
+        html += '</body></html>';
+        const win = window.open('', `Relatório - ${e.nome}`);
+        win.document.write(html);
+        win.document.close();
+        showToast("Relatório gerado!", "success");
+    };
+    request.onerror = (e) => console.error("Erro ao gerar relatório:", e);
+}
+
+// Atualizar indicador visual de rede
+function updateNetworkStatus() {
+    const indicator = document.getElementById('network-status');
+    if (!indicator) return;
+    
+    if (isOnline) {
+        indicator.className = 'network-status online';
+        indicator.textContent = '🌐 Online';
     } else {
+<<<<<<< HEAD
         addLog('💻 Modo desktop: Iniciando direto...', 'cyan');
         
         try {
@@ -1873,6 +1933,79 @@ function stopRecognition(button) {
     addLog('═══════════════════════════════', 'white');
 }
 
+=======
+        indicator.className = 'network-status offline';
+        indicator.textContent = '📴 Offline';
+    }
+}
+
+// Atualizar status ao carregar
+updateNetworkStatus();
+
+// Atualizar quando mudar conexão
+window.addEventListener('online', updateNetworkStatus);
+window.addEventListener('offline', updateNetworkStatus);
+function initializeSortableLists() {
+    const sortableConfig = {
+        animation: 150,
+        ghostClass: 'sortable-ghost',
+        forceFallback: true, // Melhor suporte touch
+        touchStartThreshold: 3, // Sensibilidade touch
+        delay: 100, // Delay para distinguir tap de drag
+        delayOnTouchOnly: true, // Delay apenas no touch
+        onEnd: (evt) => {
+            const { from, oldIndex, newIndex } = evt;
+            const listId = from.id;
+            let targetArray;
+            
+            if (listId === 'departamento-list') {
+                targetArray = currentInspection.departamentos;
+            } else if (listId === 'cargo-list') {
+                targetArray = currentInspection.departamentos[activeDepartamentoIndex].cargos;
+            } else if (listId === 'funcionario-list') {
+                targetArray = currentInspection.departamentos[activeDepartamentoIndex].funcionarios;
+            } else if (listId === 'grupo-list') {
+                targetArray = currentInspection.departamentos[activeDepartamentoIndex].grupos;
+            }
+            
+            if (targetArray) {
+                targetArray.splice(newIndex, 0, targetArray.splice(oldIndex, 1)[0]);
+                persistCurrentInspection(() => {
+                    showToast("✅ Ordem salva!", "success");
+                    // Vibrar no mobile
+                    if ('vibrate' in navigator) {
+                        navigator.vibrate(50);
+                    }
+                });
+            }
+        }
+    };
+    
+    ['departamento-list', 'cargo-list', 'funcionario-list', 'grupo-list'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) Sortable.create(el, sortableConfig);
+    });
+}
+// PWA Install Prompt para Mobile
+let deferredPrompt;
+
+window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    deferredPrompt = e;
+    
+    // Mostrar botão de instalação apenas no mobile
+    const isMobile = /Android|webOS|iPhone|iPad|iPod/i.test(navigator.userAgent);
+    if (isMobile) {
+        showToast("💡 Instale este app na tela inicial!", "success");
+    }
+});
+
+window.addEventListener('appinstalled', () => {
+    console.log('✅ PWA instalado com sucesso!');
+    deferredPrompt = null;
+});
+
+>>>>>>> parent of 92b562f (debug)
 // Botão de teste de voz (adicionar no dashboard)
 function addVoiceTestButton() {
     const dashboardCard = document.querySelector('#dashboard-view .card');
