@@ -57,9 +57,8 @@ const predefinedRisks = [
     { tipo: "ACIDENTE", codigoEsocial: "", perigo: "Contato com partes móveis de equipamentos", danos: "Corte, contusão, esmagamento, morte, Amputações" },
     { tipo: "ACIDENTE", codigoEsocial: "", perigo: "Explosão", danos: "queimadura/morte" },
     { tipo: "ACIDENTE", codigoEsocial: "-", perigo: "Queda de materiais de difente nível", danos: "Escoriações, faturas, entorse, contusões" },
-    { tipo: "ACIDENTE", codigoEsocial: "-", perigo: "Contato com arestas pérf
-
-uro-cortantes", danos: "Lesões, corte contuso, lacerações" },
+    // ✅ CORREÇÃO AQUI - String unificada na mesma linha:
+    { tipo: "ACIDENTE", codigoEsocial: "-", perigo: "Contato com arestas pérfuro-cortantes", danos: "Lesões, corte contuso, lacerações" },
     { tipo: "ACIDENTE", codigoEsocial: "-", perigo: "Projeção de partículas, partes, peças", danos: "Cortes, Lesão nos olhos" },
     { tipo: "ACIDENTE", codigoEsocial: "-", perigo: "Incêndio", danos: "Perdas materiais, lesões, queimaduras e morte" },
     { tipo: "ACIDENTE", codigoEsocial: "-", perigo: "Ataque de animais peçonhentos ou insetos", danos: "Envenenamento / Ferimento" },
@@ -71,6 +70,7 @@ uro-cortantes", danos: "Lesões, corte contuso, lacerações" },
     { tipo: "ACIDENTE", codigoEsocial: "-", perigo: "Queimadura", danos: "Lesões de pele, infecções" }
 ];
 
+// Resto do código continua normal...
 let db;
 let wizardStep = 0;
 let currentInspection = {};
