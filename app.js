@@ -1692,6 +1692,75 @@ function initializeSortableLists() {
 let currentRecognition = null;
 let currentTargetInput = null;
 let isRecording = false;
+let recognitionPreview = null;
+
+function createRecognitionPreview() {
+    if (recognitionPreview) return recognitionPreview;
+    
+    const preview = document.createElement('div');
+    preview.id = 'recognition-preview';
+    preview.style.cssText = `
+        position: fixed;
+        bottom: 6rem;
+        right: 2rem;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 1.5rem;
+        border-radius: 1rem;
+        box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+        z-index: 2001;
+        max-width: 400px;
+        min-width: 300px;
+        animation: slideInUp 0.3s ease-out;
+        border: 2px solid rgba(255,255,255,0.2);
+    `;
+    
+    preview.innerHTML = `
+        <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.75rem; padding-bottom: 0.75rem; border-bottom: 1px solid rgba(255,255,255,0.3);">
+            <i class="bi bi-mic-fill" style="font-size: 1.5rem; animation: pulse 1.5s infinite;"></i>
+            <div>
+                <strong style="display: block; font-size: 1.1rem;">Gravando...</strong>
+                <small style="opacity: 0.9;">Fale claramente no microfone</small>
+            </div>
+        </div>
+        <div id="preview-interim" style="color: rgba(255,255,255,0.7); font-style: italic; min-height: 1.5rem; margin-bottom: 0.5rem; font-size: 0.9rem;"></div>
+        <div id="preview-final" style="font-weight: 500; min-height: 1.5rem; line-height: 1.4; font-size: 0.95rem;"></div>
+        <div style="margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid rgba(255,255,255,0.3); font-size: 0.85rem; opacity: 0.8;">
+            💡 Clique no botão de microfone novamente para parar
+        </div>
+    `;
+    
+    document.body.appendChild(preview);
+    recognitionPreview = preview;
+    return preview;
+}
+
+function updateRecognitionPreview(interimText, finalText) {
+    if (!recognitionPreview) return;
+    
+    const interimEl = document.getElementById('preview-interim');
+    const finalEl = document.getElementById('preview-final');
+    
+    if (interimEl) {
+        interimEl.textContent = interimText || '🎤 Aguardando fala...';
+    }
+    
+    if (finalEl) {
+        finalEl.textContent = finalText || '';
+    }
+}
+
+function removeRecognitionPreview() {
+    if (recognitionPreview) {
+        recognitionPreview.style.animation = 'slideOutDown 0.3s ease-out';
+        setTimeout(() => {
+            if (recognitionPreview && recognitionPreview.parentNode) {
+                recognitionPreview.parentNode.removeChild(recognitionPreview);
+            }
+            recognitionPreview = null;
+        }, 300);
+    }
+}
 
 function toggleRecognition(button) {
     const targetId = button.dataset.target;
@@ -1729,16 +1798,31 @@ function toggleRecognition(button) {
         button.innerHTML = '<i class="bi bi-mic-fill" style="color: red;"></i>';
         button.style.animation = 'pulse 1.5s infinite';
         button.title = 'Clique para parar';
-        showToast("🎤 Gravando... Fale agora! Clique novamente para parar.", "success");
+        
+        // Criar preview visual
+        createRecognitionPreview();
+        updateRecognitionPreview('', '');
+        
+        showToast("🎤 Gravação iniciada! Fale agora.", "success");
     };
 
     recognition.onresult = (event) => {
+        let interimTranscript = '';
         let finalTranscript = '';
+        
         for (let i = event.resultIndex; i < event.results.length; i++) {
+            const transcript = event.results[i][0].transcript;
             if (event.results[i].isFinal) {
-                finalTranscript += event.results[i][0].transcript + ' ';
+                finalTranscript += transcript + ' ';
+            } else {
+                interimTranscript += transcript;
             }
         }
+        
+        // Atualizar preview em tempo real
+        updateRecognitionPreview(interimTranscript, finalTranscript);
+        
+        // Adicionar texto final ao campo
         if (finalTranscript) {
             addTextToInput(finalTranscript.trim());
         }
@@ -1747,10 +1831,12 @@ function toggleRecognition(button) {
     recognition.onerror = (event) => {
         let errorMessage = "Erro no reconhecimento de voz";
         if (event.error === 'no-speech') {
-            showToast("⚠️ Nenhuma fala detectada. Continue falando.", "warning");
+            updateRecognitionPreview('⚠️ Nenhuma fala detectada. Continue falando...', '');
             return; 
         } else if (event.error === 'not-allowed') {
             errorMessage = "❌ Permissão de microfone negada.";
+        } else if (event.error === 'network') {
+            errorMessage = "❌ Erro de rede. Verifique sua conexão.";
         } else {
             errorMessage = `❌ Erro: ${event.error}`;
         }
@@ -1782,6 +1868,10 @@ function stopRecognition(button) {
         currentRecognition = null;
     }
     currentTargetInput = null;
+    
+    // Remover preview
+    removeRecognitionPreview();
+    
     if (button) {
         button.classList.remove('active');
         button.innerHTML = '<i class="bi bi-mic-fill"></i>';
