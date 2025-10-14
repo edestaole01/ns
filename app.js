@@ -93,6 +93,40 @@ const actionPlanView = document.getElementById('action-plan-view');
 document.getElementById('nav-dashboard').onclick = showDashboard;
 
 // ==========================================
+// HELPER: ADICIONAR VOZ EM TODOS OS CAMPOS
+// ==========================================
+
+function escapeHtml(text) {
+    const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
+    return String(text || '').replace(/[&<>"']/g, m => map[m]);
+}
+
+/**
+ * Envolve um input ou textarea com um botão de voz
+ * @param {string} fieldId - ID do campo de entrada
+ * @param {string} placeholder - Placeholder do campo (opcional)
+ * @param {string} value - Valor inicial do campo (opcional)
+ * @param {boolean} required - Se o campo é obrigatório (opcional)
+ * @param {string} type - Tipo do input (text, date, etc)
+ * @returns {string} HTML do campo envolvido com botão de voz
+ */
+function wrapWithVoiceButton(fieldId, placeholder = '', value = '', required = false, type = 'text') {
+    const requiredAttr = required ? 'required' : '';
+    const inputHTML = type === 'textarea' 
+        ? `<textarea id="${fieldId}" ${requiredAttr} rows="3" placeholder="${placeholder}" style="flex-grow: 1;">${value}</textarea>`
+        : `<input type="${type}" id="${fieldId}" ${requiredAttr} value="${escapeHtml(value)}" placeholder="${placeholder}" style="flex-grow: 1;">`;
+    
+    return `
+        <div style="display: flex; gap: 0.5rem; align-items: ${type === 'textarea' ? 'flex-start' : 'center'};">
+            ${inputHTML}
+            <button type="button" class="outline" onclick="toggleRecognition(this)" data-target="${fieldId}" title="Ativar ditado por voz" style="${type === 'textarea' ? 'margin-top: 0.5rem;' : ''}">
+                <i class="bi bi-mic-fill"></i>
+            </button>
+        </div>
+    `;
+}
+
+// ==========================================
 // FUNÇÕES AUXILIARES E GENÉRICAS
 // ==========================================
 
@@ -132,13 +166,6 @@ function showView(viewName) {
     else if (viewName === 'actionPlan') actionPlanView.classList.remove('hidden');
 }
 
-/**
- * Cria um botão com classes e evento de clique.
- * @param {string} innerHTML - O texto ou HTML do botão.
- * @param {string} className - As classes CSS para o botão.
- * @param {Function} onClick - A função a ser executada no clique.
- * @returns {HTMLButtonElement} O elemento do botão criado.
- */
 function createButton(innerHTML, className, onClick) {
     const button = document.createElement('button');
     button.innerHTML = innerHTML;
@@ -147,11 +174,6 @@ function createButton(innerHTML, className, onClick) {
     return button;
 }
 
-/**
- * Deleta um item de uma lista (departamento, cargo, etc.) após confirmação.
- * @param {'departamento'|'cargo'|'funcionario'|'grupo'} type - O tipo de item a ser deletado.
- * @param {number} index - O índice do item na lista.
- */
 function deleteItem(type, index) {
     let list, itemName, listUpdater;
 
@@ -181,11 +203,6 @@ function deleteItem(type, index) {
     }
 }
 
-/**
- * Duplica um item em uma lista.
- * @param {'departamento'|'cargo'|'funcionario'|'grupo'} type - O tipo de item a ser duplicado.
- * @param {number} index - O índice do item na lista.
- */
 function duplicateItem(type, index) {
     let list, originalItem, newItem, listUpdater;
 
@@ -358,7 +375,7 @@ function renderWizardHeader() {
 }
 
 // ==========================================
-// PASSO 1: EMPRESA
+// PASSO 1: EMPRESA - COM VOZ
 // ==========================================
 
 function renderEmpresaStep() {
@@ -370,43 +387,23 @@ function renderEmpresaStep() {
                 <div class="form-grid">
                     <div class="form-group">
                         <label for="nome">Nome da Empresa *</label>
-                        <div style="display: flex; gap: 0.5rem;">
-                            <input type="text" id="nome" required value="${e.nome || ''}" placeholder="Ex: Acme Corporation" style="flex-grow: 1;">
-                            <button type="button" class="outline" onclick="toggleRecognition(this)" data-target="nome" title="Ativar ditado por voz">
-                                <i class="bi bi-mic-fill"></i>
-                            </button>
-                        </div>
+                        ${wrapWithVoiceButton('nome', 'Ex: Acme Corporation', e.nome || '', true)}
                     </div>
                     <div class="form-group">
                         <label for="cnpj">CNPJ</label>
-                        <div style="display: flex; gap: 0.5rem;">
-                            <input type="text" id="cnpj" value="${e.cnpj || ''}" placeholder="00.000.000/0000-00" style="flex-grow: 1;">
-                            <button type="button" class="outline" onclick="toggleRecognition(this)" data-target="cnpj" title="Ativar ditado por voz">
-                                <i class="bi bi-mic-fill"></i>
-                            </button>
-                        </div>
+                        ${wrapWithVoiceButton('cnpj', '00.000.000/0000-00', e.cnpj || '')}
                     </div>
                 </div>
                 <div class="form-grid">
                     <div class="form-group"><label for="data">Data da Inspeção</label><input type="date" id="data" value="${e.data || new Date().toISOString().slice(0,10)}"></div>
                     <div class="form-group">
                         <label for="elaborado">Elaborado por</label>
-                        <div style="display: flex; gap: 0.5rem;">
-                            <input type="text" id="elaborado" value="${e.elaborado || ''}" placeholder="Nome do responsável" style="flex-grow: 1;">
-                            <button type="button" class="outline" onclick="toggleRecognition(this)" data-target="elaborado" title="Ativar ditado por voz">
-                                <i class="bi bi-mic-fill"></i>
-                            </button>
-                        </div>
+                        ${wrapWithVoiceButton('elaborado', 'Nome do responsável', e.elaborado || '')}
                     </div>
                 </div>
                 <div class="form-group">
                     <label for="aprovado">Aprovado por</label>
-                    <div style="display: flex; gap: 0.5rem;">
-                        <input type="text" id="aprovado" value="${e.aprovado || ''}" placeholder="Nome do aprovador" style="flex-grow: 1;">
-                        <button type="button" class="outline" onclick="toggleRecognition(this)" data-target="aprovado" title="Ativar ditado por voz">
-                            <i class="bi bi-mic-fill"></i>
-                        </button>
-                    </div>
+                    ${wrapWithVoiceButton('aprovado', 'Nome do aprovador', e.aprovado || '')}
                 </div>
             </form>
             <div class="wizard-nav"><button class="nav" onclick="showDashboard()">Voltar ao Painel</button><button class="primary" onclick="saveEmpresaAndNext()">Salvar e Próximo</button></div>
@@ -420,20 +417,29 @@ function saveEmpresaAndNext() {
 }
 
 // ==========================================
-// PASSO 2: DEPARTAMENTOS
+// PASSO 2: DEPARTAMENTOS - COM VOZ
 // ==========================================
 
 function renderDepartamentoStep() {
     document.getElementById('wizard-content').innerHTML = `
         <div class="card">
-            <div class="breadcrumb">Empresa: <strong>${currentInspection.empresa.nome}</strong></div>
+            <div class="breadcrumb">Empresa: <strong>${escapeHtml(currentInspection.empresa.nome)}</strong></div>
             <h3>Departamentos Adicionados <small style="font-weight: 400; color: var(--gray-500);">(Arraste para reordenar)</small></h3>
             <ul id="departamento-list" class="item-list"></ul>
             <h3 id="depto-form-title">Novo Departamento</h3>
             <form id="depto-form">
-                <div class="form-group"><label for="depto-nome">Nome do Setor/Departamento *</label><input type="text" id="depto-nome" required placeholder="Ex: Produção, Administrativo"></div>
-                <div class="form-group"><label for="depto-caracteristica">Característica do Setor</label><input type="text" id="depto-caracteristica" placeholder="Ex: Área industrial"></div>
-                <div class="form-group"><label for="depto-descricao">Descrição da Atividade do Setor</label><textarea id="depto-descricao" rows="3" placeholder="Descreva as principais atividades..."></textarea></div>
+                <div class="form-group">
+                    <label for="depto-nome">Nome do Setor/Departamento *</label>
+                    ${wrapWithVoiceButton('depto-nome', 'Ex: Produção, Administrativo', '', true)}
+                </div>
+                <div class="form-group">
+                    <label for="depto-caracteristica">Característica do Setor</label>
+                    ${wrapWithVoiceButton('depto-caracteristica', 'Ex: Área industrial', '')}
+                </div>
+                <div class="form-group">
+                    <label for="depto-descricao">Descrição da Atividade do Setor</label>
+                    ${wrapWithVoiceButton('depto-descricao', 'Descreva as principais atividades...', '', false, 'textarea')}
+                </div>
                 <div class="form-actions">
                     <button type="button" class="primary" id="save-depto-btn" onclick="saveDepartamento()">Adicionar</button>
                     <button type="button" id="cancel-depto-edit-btn" class="nav hidden" onclick="clearDeptoForm()">Cancelar</button>
@@ -445,7 +451,6 @@ function renderDepartamentoStep() {
     setTimeout(() => initializeSortableLists(), 0);
 }
 
-// ### REATORADO para melhor performance do DOM ###
 function updateDepartamentoList() {
     const list = document.getElementById("departamento-list");
     list.innerHTML = "";
@@ -460,7 +465,7 @@ function updateDepartamentoList() {
         
         const itemInfo = document.createElement('div');
         itemInfo.className = 'item-info';
-        itemInfo.innerHTML = `<strong>${depto.nome}</strong><small>${depto.caracteristica || "Sem característica"}</small>`;
+        itemInfo.innerHTML = `<strong>${escapeHtml(depto.nome)}</strong><small>${escapeHtml(depto.caracteristica || "Sem característica")}</small>`;
         
         const itemActions = document.createElement('div');
         itemActions.className = 'item-actions';
@@ -531,7 +536,7 @@ function goToCargos(index) {
 }
 
 // ==========================================
-// PASSO 3: CARGOS/FUNCIONÁRIOS/GRUPOS
+// PASSO 3: CARGOS/FUNCIONÁRIOS/GRUPOS - COM VOZ
 // ==========================================
 
 function getFormFieldsHTML(prefix) {
@@ -548,7 +553,10 @@ function getFormFieldsHTML(prefix) {
                 <label style="display: flex; align-items: center; gap: 0.5rem;"><input type="checkbox" id="${prefix}-obs-veiculos"> Condução de Veículos</label>
             </div>
         </fieldset>
-        <div class="form-group"><label for="${prefix}-perfil-exposicao">Observação específica (Perfil de Exposição)</label><textarea id="${prefix}-perfil-exposicao" rows="2" placeholder="Ex: A soma da exposição ao agente FRD em todos os períodos de acesso é de ___ min..."></textarea></div>
+        <div class="form-group">
+            <label for="${prefix}-perfil-exposicao">Observação específica (Perfil de Exposição)</label>
+            ${wrapWithVoiceButton(`${prefix}-perfil-exposicao`, 'Ex: A soma da exposição ao agente FRD em todos os períodos de acesso é de ___ min...', '', false, 'textarea')}
+        </div>
         <div class="form-group"><label for="${prefix}-descricao-atividade">Descrição Atividade por função</label><select id="${prefix}-descricao-atividade"><option value="Sim">Sim</option><option value="Não">Não</option></select></div>
         <fieldset><legend>Atendimento aos requisitos das NR-06 e NR-01</legend>
             <div class="radio-group-container">
@@ -597,14 +605,18 @@ function renderCargoFuncionarioStep() {
     if (!depto.funcionarios) depto.funcionarios = [];
     document.getElementById('wizard-content').innerHTML = `
         <div class="card">
-            <div class="breadcrumb">${currentInspection.empresa.nome} › <strong>${depto.nome}</strong></div>
+            <div class="breadcrumb">${escapeHtml(currentInspection.empresa.nome)} › <strong>${escapeHtml(depto.nome)}</strong></div>
             <h3>Grupos de Cargos <small style="font-weight: 400; color: var(--gray-500);">(Arraste para reordenar)</small></h3>
             <ul id="grupo-list" class="item-list"></ul>
             <details id="grupo-form-details" class="accordion-section">
                 <summary>Adicionar Novo Grupo</summary>
                 <div>
                     <form id="grupo-form">
-                        <div class="form-group"><label for="grupo-nomes">Nomes dos Cargos do Grupo (um por linha) *</label><textarea id="grupo-nomes" rows="4" placeholder="Motorista A\nMotorista B" required></textarea><small>Cargos em um grupo compartilham os mesmos riscos e detalhes.</small></div>
+                        <div class="form-group">
+                            <label for="grupo-nomes">Nomes dos Cargos do Grupo (um por linha) *</label>
+                            ${wrapWithVoiceButton('grupo-nomes', 'Motorista A\nMotorista B', '', true, 'textarea')}
+                            <small>Cargos em um grupo compartilham os mesmos riscos e detalhes.</small>
+                        </div>
                         ${getFormFieldsHTML('grupo')}
                         <div class="form-actions">
                             <button type="button" class="primary" id="save-grupo-btn" onclick="saveGrupo()">Criar Grupo</button>
@@ -619,7 +631,10 @@ function renderCargoFuncionarioStep() {
                 <summary>Adicionar Novo Cargo Individual</summary>
                 <div>
                     <form id="cargo-form">
-                        <div class="form-group"><label for="cargo-nome">Nome do Cargo *</label><input type="text" id="cargo-nome" required></div>
+                        <div class="form-group">
+                            <label for="cargo-nome">Nome do Cargo *</label>
+                            ${wrapWithVoiceButton('cargo-nome', 'Ex: Operador de Máquina', '', true)}
+                        </div>
                         ${getFormFieldsHTML('cargo')}
                         <div class="form-actions">
                             <button type="button" class="primary" id="save-cargo-btn" onclick="saveCargo()">Adicionar Cargo</button>
@@ -634,7 +649,10 @@ function renderCargoFuncionarioStep() {
                 <summary>Adicionar Novo Funcionário Individual</summary>
                 <div>
                     <form id="funcionario-form">
-                        <div class="form-group"><label for="funcionario-nome">Nome do Funcionário *</label><input type="text" id="funcionario-nome" required></div>
+                        <div class="form-group">
+                            <label for="funcionario-nome">Nome do Funcionário *</label>
+                            ${wrapWithVoiceButton('funcionario-nome', 'Ex: João da Silva', '', true)}
+                        </div>
                          ${getFormFieldsHTML('funcionario')}
                         <div class="form-actions">
                             <button type="button" class="primary" id="save-funcionario-btn" onclick="saveFuncionario()">Adicionar Funcionário</button>
@@ -655,7 +673,6 @@ function updateAllLists() {
     updateFuncionarioList();
 }
 
-// ### REATORADO para melhor performance do DOM ###
 function updateCargoList() {
     const list = document.getElementById("cargo-list");
     const depto = currentInspection.departamentos[activeDepartamentoIndex];
@@ -672,7 +689,7 @@ function updateCargoList() {
         
         const itemInfo = document.createElement('div');
         itemInfo.className = 'item-info';
-        itemInfo.innerHTML = `<strong>${cargo.nome}</strong><small>${(cargo.riscos || []).length} risco(s) | ${obsText}</small>`;
+        itemInfo.innerHTML = `<strong>${escapeHtml(cargo.nome)}</strong><small>${(cargo.riscos || []).length} risco(s) | ${escapeHtml(obsText)}</small>`;
         
         const itemActions = document.createElement('div');
         itemActions.className = 'item-actions';
@@ -688,7 +705,6 @@ function updateCargoList() {
     });
 }
 
-// ### REATORADO para melhor performance do DOM ###
 function updateGrupoList() {
     const list = document.getElementById("grupo-list");
     const depto = currentInspection.departamentos[activeDepartamentoIndex];
@@ -704,7 +720,7 @@ function updateGrupoList() {
         
         const itemInfo = document.createElement('div');
         itemInfo.className = 'item-info';
-        itemInfo.innerHTML = `<strong>Grupo: ${grupo.listaDeCargos.join(', ')}</strong><small>${(grupo.riscos || []).length} risco(s)</small>`;
+        itemInfo.innerHTML = `<strong>Grupo: ${escapeHtml(grupo.listaDeCargos.join(', '))}</strong><small>${(grupo.riscos || []).length} risco(s)</small>`;
 
         const itemActions = document.createElement('div');
         itemActions.className = 'item-actions';
@@ -720,7 +736,6 @@ function updateGrupoList() {
     });
 }
 
-// ### REATORADO para melhor performance do DOM ###
 function updateFuncionarioList() {
     const list = document.getElementById("funcionario-list");
     const depto = currentInspection.departamentos[activeDepartamentoIndex];
@@ -737,7 +752,7 @@ function updateFuncionarioList() {
         
         const itemInfo = document.createElement('div');
         itemInfo.className = 'item-info';
-        itemInfo.innerHTML = `<strong>${func.nome}</strong><small>${(func.riscos || []).length} risco(s) | ${obsText}</small>`;
+        itemInfo.innerHTML = `<strong>${escapeHtml(func.nome)}</strong><small>${(func.riscos || []).length} risco(s) | ${escapeHtml(obsText)}</small>`;
 
         const itemActions = document.createElement('div');
         itemActions.className = 'item-actions';
@@ -926,40 +941,43 @@ function goToRiscos(index, type) {
 }
 
 // ==========================================
-// PASSO 4: RISCOS
+// PASSO 4: RISCOS - COM VOZ
 // ==========================================
 
 function renderRiscoStep() {
     const depto = currentInspection.departamentos[activeDepartamentoIndex];
     let breadcrumbText = '', tituloRiscos = '', infoBox = '', targetObject;
     let currentContextValue = '';
+    
     if (currentGroupId) {
         const grupo = depto.grupos.find(g => g.id === currentGroupId);
         if (!grupo) { showToast("Grupo não encontrado.", "error"); prevStep(); return; }
         const nomesGrupo = grupo.listaDeCargos.join(', ');
-        breadcrumbText = `${currentInspection.empresa.nome} › ${depto.nome} › <strong>Grupo: ${nomesGrupo}</strong>`;
+        breadcrumbText = `${escapeHtml(currentInspection.empresa.nome)} › ${escapeHtml(depto.nome)} › <strong>Grupo: ${escapeHtml(nomesGrupo)}</strong>`;
         tituloRiscos = `Riscos do Grupo (${grupo.listaDeCargos.length} cargos)`;
         infoBox = `<div style="padding:1rem;background:var(--primary-light);border-left:4px solid var(--primary);border-radius:.5rem;margin-bottom:1.5rem;"><strong style="display:block;margin-bottom:.5rem;color:var(--gray-900);">Modo Grupo</strong><p style="margin:0;color:var(--gray-700);font-size:.95rem;">Os riscos aqui serão aplicados a todos os cargos do grupo.</p></div>`;
         currentContextValue = `grupo-${depto.grupos.findIndex(g => g.id === currentGroupId)}`;
     } else if (activeCargoIndex > -1) {
         targetObject = depto.cargos[activeCargoIndex];
         if (!targetObject) { showToast("Cargo não encontrado.", "error"); prevStep(); return; }
-        breadcrumbText = `${currentInspection.empresa.nome} › ${depto.nome} › <strong>Cargo: ${targetObject.nome}</strong>`;
+        breadcrumbText = `${escapeHtml(currentInspection.empresa.nome)} › ${escapeHtml(depto.nome)} › <strong>Cargo: ${escapeHtml(targetObject.nome)}</strong>`;
         tituloRiscos = 'Riscos Identificados';
         currentContextValue = `cargo-${activeCargoIndex}`;
     } else if (activeFuncionarioIndex > -1) {
         targetObject = depto.funcionarios[activeFuncionarioIndex];
         if (!targetObject) { showToast("Funcionário não encontrado.", "error"); prevStep(); return; }
-        breadcrumbText = `${currentInspection.empresa.nome} › ${depto.nome} › <strong>Funcionário: ${targetObject.nome}</strong>`;
+        breadcrumbText = `${escapeHtml(currentInspection.empresa.nome)} › ${escapeHtml(depto.nome)} › <strong>Funcionário: ${escapeHtml(targetObject.nome)}</strong>`;
         tituloRiscos = 'Riscos Identificados';
         currentContextValue = `funcionario-${activeFuncionarioIndex}`;
     } else {
         prevStep(); return;
     }
+    
     const riskTypes = [...new Set(predefinedRisks.map(r => r.tipo.replace(' PSICOSSOCIAIS', '')))];
-    let quickNavOptions = (depto.cargos || []).map((c, i) => `<option value="cargo-${i}" ${currentContextValue === `cargo-${i}` ? 'selected' : ''}>Cargo: ${c.nome}</option>`).join('');
-    quickNavOptions += (depto.funcionarios || []).map((f, i) => `<option value="funcionario-${i}" ${currentContextValue === `funcionario-${i}` ? 'selected' : ''}>Funcionário: ${f.nome}</option>`).join('');
-    quickNavOptions += (depto.grupos || []).map((g, i) => `<option value="grupo-${i}" ${currentContextValue === `grupo-${i}` ? 'selected' : ''}>Grupo: ${g.listaDeCargos.join(', ')}</option>`).join('');
+    let quickNavOptions = (depto.cargos || []).map((c, i) => `<option value="cargo-${i}" ${currentContextValue === `cargo-${i}` ? 'selected' : ''}>Cargo: ${escapeHtml(c.nome)}</option>`).join('');
+    quickNavOptions += (depto.funcionarios || []).map((f, i) => `<option value="funcionario-${i}" ${currentContextValue === `funcionario-${i}` ? 'selected' : ''}>Funcionário: ${escapeHtml(f.nome)}</option>`).join('');
+    quickNavOptions += (depto.grupos || []).map((g, i) => `<option value="grupo-${i}" ${currentContextValue === `grupo-${i}` ? 'selected' : ''}>Grupo: ${escapeHtml(g.listaDeCargos.join(', '))}</option>`).join('');
+    
     document.getElementById('wizard-content').innerHTML = `
         <div class="card">
             <div class="breadcrumb">${breadcrumbText}</div>
@@ -989,19 +1007,43 @@ function renderRiscoStep() {
                 </div>
                 <hr style="margin: 1.5rem 0; border: none; border-top: 2px solid var(--gray-100);">
                 <div class="form-group"><label for="risco-presente">Risco Presente?</label><select id="risco-presente"><option>Sim</option><option>Não</option></select></div>
-                <div class="form-group"><label for="risco-perigo">Descrição (Nome) do Perigo *</label><input type="text" id="risco-perigo" required placeholder="Ex: Ruído contínuo acima de 85 dB"></div>
-                <div class="form-group"><label for="risco-descricao-detalhada">Descrição Detalhada</label><textarea id="risco-descricao-detalhada" rows="2" placeholder="Detalhe o contexto do risco..."></textarea></div>
+                <div class="form-group">
+                    <label for="risco-perigo">Descrição (Nome) do Perigo *</label>
+                    ${wrapWithVoiceButton('risco-perigo', 'Ex: Ruído contínuo acima de 85 dB', '', true)}
+                </div>
+                <div class="form-group">
+                    <label for="risco-descricao-detalhada">Descrição Detalhada</label>
+                    ${wrapWithVoiceButton('risco-descricao-detalhada', 'Detalhe o contexto do risco...', '', false, 'textarea')}
+                </div>
                 <details class="accordion-section">
                     <summary>Fonte, Medição e Exposição</summary>
                     <div class="form-grid">
-                        <div class="form-group"><label for="risco-fonte">Fonte Geradora</label><input type="text" id="risco-fonte" placeholder="Ex: Compressor"></div>
-                        <div class="form-group"><label for="risco-perfil-exposicao">Perfil de exposição</label><input type="text" id="risco-perfil-exposicao" placeholder="Ex: Contínuo"></div>
-                        <div class="form-group"><label for="risco-medicao">Medição</label><input type="text" id="risco-medicao" placeholder="Ex: 92 dB"></div>
-                        <div class="form-group"><label for="risco-tempo-exposicao">Tempo de Exposição</label><input type="text" id="risco-tempo-exposicao" placeholder="Ex: 8h"></div>
+                        <div class="form-group">
+                            <label for="risco-fonte">Fonte Geradora</label>
+                            ${wrapWithVoiceButton('risco-fonte', 'Ex: Compressor', '')}
+                        </div>
+                        <div class="form-group">
+                            <label for="risco-perfil-exposicao">Perfil de exposição</label>
+                            ${wrapWithVoiceButton('risco-perfil-exposicao', 'Ex: Contínuo', '')}
+                        </div>
+                        <div class="form-group">
+                            <label for="risco-medicao">Medição</label>
+                            ${wrapWithVoiceButton('risco-medicao', 'Ex: 92 dB', '')}
+                        </div>
+                        <div class="form-group">
+                            <label for="risco-tempo-exposicao">Tempo de Exposição</label>
+                            ${wrapWithVoiceButton('risco-tempo-exposicao', 'Ex: 8h', '')}
+                        </div>
                         <div class="form-group"><label for="risco-tipo-exposicao">Tipo de Exposição</label><select id="risco-tipo-exposicao"><option>Permanente</option><option>Ocasional</option><option>Intermitente</option></select></div>
-                        <div class="form-group"><label for="risco-esocial">Código E-Social</label><input type="text" id="risco-esocial" placeholder="Ex: 01.01.001"></div>
+                        <div class="form-group">
+                            <label for="risco-esocial">Código E-Social</label>
+                            ${wrapWithVoiceButton('risco-esocial', 'Ex: 01.01.001', '')}
+                        </div>
                     </div>
-                    <div class="form-group"><label for="risco-obs-ambientais">Observações de registros ambientais</label><textarea id="risco-obs-ambientais" rows="2"></textarea></div>
+                    <div class="form-group">
+                        <label for="risco-obs-ambientais">Observações de registros ambientais</label>
+                        ${wrapWithVoiceButton('risco-obs-ambientais', 'Observações...', '', false, 'textarea')}
+                    </div>
                 </details>
                 <details class="accordion-section">
                     <summary>Análise e Avaliação</summary>
@@ -1010,18 +1052,39 @@ function renderRiscoStep() {
                         <div class="form-group"><label for="risco-severidade">Severidade</label><select id="risco-severidade"><option>Baixa</option><option>Média</option><option>Alta</option><option>Crítica</option></select></div>
                         <div class="form-group"><label for="risco-aceitabilidade">Aceitabilidade</label><select id="risco-aceitabilidade"><option>Tolerável</option><option>Não Tolerável</option></select></div>
                     </div>
-                    <div class="form-group"><label for="risco-danos">Danos Potenciais</label><textarea id="risco-danos" rows="2" placeholder="Descreva os possíveis danos..."></textarea></div>
+                    <div class="form-group">
+                        <label for="risco-danos">Danos Potenciais</label>
+                        ${wrapWithVoiceButton('risco-danos', 'Descreva os possíveis danos...', '', false, 'textarea')}
+                    </div>
                 </details>
                 <details class="accordion-section">
                     <summary>Controles e Ações</summary>
                     <div class="form-grid">
-                        <div class="form-group"><label for="risco-epi-utilizado">EPI Utilizado</label><input type="text" id="risco-epi-utilizado" placeholder="Ex: Protetor auricular"></div>
-                        <div class="form-group"><label for="risco-ca">CA (Certificado de Aprovação)</label><input type="text" id="risco-ca" placeholder="Ex: 12345"></div>
-                        <div class="form-group"><label for="risco-epc">EPC Existente</label><input type="text" id="risco-epc" placeholder="Ex: Cabine acústica"></div>
-                        <div class="form-group"><label for="risco-epi-sugerido">EPI Sugerido</label><input type="text" id="risco-epi-sugerido"></div>
+                        <div class="form-group">
+                            <label for="risco-epi-utilizado">EPI Utilizado</label>
+                            ${wrapWithVoiceButton('risco-epi-utilizado', 'Ex: Protetor auricular', '')}
+                        </div>
+                        <div class="form-group">
+                            <label for="risco-ca">CA (Certificado de Aprovação)</label>
+                            ${wrapWithVoiceButton('risco-ca', 'Ex: 12345', '')}
+                        </div>
+                        <div class="form-group">
+                            <label for="risco-epc">EPC Existente</label>
+                            ${wrapWithVoiceButton('risco-epc', 'Ex: Cabine acústica', '')}
+                        </div>
+                        <div class="form-group">
+                            <label for="risco-epi-sugerido">EPI Sugerido</label>
+                            ${wrapWithVoiceButton('risco-epi-sugerido', 'Ex: Protetor tipo concha', '')}
+                        </div>
                     </div>
-                    <div class="form-group"><label for="risco-acoes">Ações Necessárias</label><textarea id="risco-acoes" rows="2" placeholder="Descreva as ações recomendadas..."></textarea></div>
-                    <div class="form-group"><label for="risco-observacoes-gerais">Observações Gerais</label><textarea id="risco-observacoes-gerais" rows="2"></textarea></div>
+                    <div class="form-group">
+                        <label for="risco-acoes">Ações Necessárias</label>
+                        ${wrapWithVoiceButton('risco-acoes', 'Descreva as ações recomendadas...', '', false, 'textarea')}
+                    </div>
+                    <div class="form-group">
+                        <label for="risco-observacoes-gerais">Observações Gerais</label>
+                        ${wrapWithVoiceButton('risco-observacoes-gerais', 'Observações adicionais...', '', false, 'textarea')}
+                    </div>
                 </details>
                 <div class="form-actions"><button type="button" class="primary" id="save-risco-btn" onclick="saveRisco()"><i class="bi bi-plus-lg"></i> Adicionar</button><button type="button" id="cancel-risco-edit-btn" class="nav hidden" onclick="clearRiscoForm()">Cancelar</button></div>
             </form>
@@ -1062,7 +1125,7 @@ function updateRiscoList() {
     list.innerHTML = "";
     riscos.forEach((risco, index) => {
         const li = document.createElement("li");
-        li.innerHTML = `<div class="item-info"><strong>${risco.perigo}</strong><span class="badge">${risco.tipo}</span><small>Fonte: ${risco.fonteGeradora||"N/A"} | Severidade: ${risco.severidade||"N/A"}</small></div><div class="item-actions"><button class="outline" onclick="editRisco(${index})">Editar</button><button class="danger" onclick="deleteRisco(${index})">Excluir</button></div>`;
+        li.innerHTML = `<div class="item-info"><strong>${escapeHtml(risco.perigo)}</strong><span class="badge">${escapeHtml(risco.tipo)}</span><small>Fonte: ${escapeHtml(risco.fonteGeradora||"N/A")} | Severidade: ${escapeHtml(risco.severidade||"N/A")}</small></div><div class="item-actions"><button class="outline" onclick="editRisco(${index})">Editar</button><button class="danger" onclick="deleteRisco(${index})">Excluir</button></div>`;
         list.appendChild(li);
     });
 }
@@ -1099,7 +1162,7 @@ function editRisco(index) {
     if (!risco) return;
     document.getElementById("risco-presente").value = risco.riscoPresente || "Sim";
     document.getElementById("risco-tipo").value = risco.tipo || "Físico";
-    updatePerigoOptions(risco.tipo); // Atualiza as opções de perigo ao editar
+    updatePerigoOptions(risco.tipo);
     document.getElementById("risco-esocial").value = risco.codigoEsocial || "";
     document.getElementById("risco-perigo").value = risco.perigo || "";
     document.getElementById("risco-descricao-detalhada").value = risco.descricaoDetalhada || "";
@@ -1188,7 +1251,7 @@ function loadInspections() {
             return `
                 <li>
                     <div class="item-info">
-                        <strong>${inspection.empresa.nome}</strong>
+                        <strong>${escapeHtml(inspection.empresa.nome)}</strong>
                         <small>Data da Inspeção: ${formatDateBR(inspection.empresa.data)}</small>  
                         <small style="display: block; margin-top: 4px; color: var(--gray-500);">
                             Última alteração: ${lastUpdated}
@@ -1258,30 +1321,45 @@ function getAllInspections(callback) {
 }
 
 // ==========================================
-// PLANO DE AÇÃO
+// PLANO DE AÇÃO - COM VOZ
 // ==========================================
 
 function renderActionPlanView() {
-    if (!currentInspection) return; const e = currentInspection.empresa || {};
+    if (!currentInspection) return; 
+    const e = currentInspection.empresa || {};
     actionPlanView.innerHTML = `
         <div class="card">
             <div class="header">
                 <div>
                     <h1>Plano de Ação</h1>
-                    <p style="color:var(--gray-600)">Inspeção: ${e.nome}</p>
+                    <p style="color:var(--gray-600)">Inspeção: ${escapeHtml(e.nome)}</p>
                 </div>
                 <div style="display: flex; align-items: center; gap: 1rem;">
                     <span id="autosave-status" style="color: var(--gray-600); font-size: 0.85rem; transition: all 0.3s ease; opacity: 0;"></span>
                     <button class="nav" onclick="showDashboard()">Voltar ao Painel</button>
                 </div>
             </div>
-            <h3>Itens de Ação</h3><ul id="action-item-list" class="item-list"></ul><h3 id="action-form-title">Novo Item</h3>
+            <h3>Itens de Ação</h3>
+            <ul id="action-item-list" class="item-list"></ul>
+            <h3 id="action-form-title">Novo Item</h3>
             <form id="action-item-form" oninput="triggerAutosave()">
-                <div class="form-group"><label for="action-atividade">Atividade *</label><input type="text" id="action-atividade" required></div>
-                <div class="form-group"><label for="action-descricao">Descrição</label><textarea id="action-descricao" rows="4"></textarea></div>
-                <div class="form-grid"><div class="form-group"><label for="action-prazo-inicio">Prazo Início</label><input type="date" id="action-prazo-inicio"></div><div class="form-group"><label for="action-prazo-fim">Prazo Fim</label><input type="date" id="action-prazo-fim"></div></div>
+                <div class="form-group">
+                    <label for="action-atividade">Atividade *</label>
+                    ${wrapWithVoiceButton('action-atividade', 'Ex: Implementar treinamento de segurança', '', true)}
+                </div>
+                <div class="form-group">
+                    <label for="action-descricao">Descrição</label>
+                    ${wrapWithVoiceButton('action-descricao', 'Descreva os detalhes da ação...', '', false, 'textarea')}
+                </div>
+                <div class="form-grid">
+                    <div class="form-group"><label for="action-prazo-inicio">Prazo Início</label><input type="date" id="action-prazo-inicio"></div>
+                    <div class="form-group"><label for="action-prazo-fim">Prazo Fim</label><input type="date" id="action-prazo-fim"></div>
+                </div>
                 <div class="form-group"><label for="action-status">Status</label><select id="action-status"><option>Pendente</option><option>Em Andamento</option><option>Concluída</option></select></div>
-                <div class="form-actions"><button type="button" class="primary" id="save-action-btn" onclick="saveActionItem()">Adicionar Item</button><button type="button" class="nav hidden" id="cancel-action-edit-btn" onclick="clearActionForm()">Cancelar</button></div>
+                <div class="form-actions">
+                    <button type="button" class="primary" id="save-action-btn" onclick="saveActionItem()">Adicionar Item</button>
+                    <button type="button" class="nav hidden" id="cancel-action-edit-btn" onclick="clearActionForm()">Cancelar</button>
+                </div>
             </form>
         </div>`;
     updateActionItemList();
@@ -1299,11 +1377,14 @@ function showActionPlanView(inspectionId) {
 
 function updateActionItemList() {
     const list = document.getElementById("action-item-list");
-    if (!currentInspection.planoDeAcao || currentInspection.planoDeAcao.length === 0) { list.innerHTML = '<li class="empty-state">Nenhum item no plano de ação.</li>'; return; }
+    if (!currentInspection.planoDeAcao || currentInspection.planoDeAcao.length === 0) { 
+        list.innerHTML = '<li class="empty-state">Nenhum item no plano de ação.</li>'; 
+        return; 
+    }
     list.innerHTML = "";
     currentInspection.planoDeAcao.forEach((item, index) => {
         const li = document.createElement("li");
-        li.innerHTML = `<div class="item-info"><strong>${item.atividade}</strong><small>Prazo: ${item.prazoInicio||'N/A'} a ${item.prazoFim||'N/A'}</small></div><div class="item-actions"><span class="badge">${item.status||'Pendente'}</span><button class="outline" onclick="editActionItem(${index})">Editar</button><button class="danger" onclick="deleteActionItem(${index})">Excluir</button></div>`;
+        li.innerHTML = `<div class="item-info"><strong>${escapeHtml(item.atividade)}</strong><small>Prazo: ${item.prazoInicio||'N/A'} a ${item.prazoFim||'N/A'}</small></div><div class="item-actions"><span class="badge">${escapeHtml(item.status||'Pendente')}</span><button class="outline" onclick="editActionItem(${index})">Editar</button><button class="danger" onclick="deleteActionItem(${index})">Excluir</button></div>`;
         list.appendChild(li);
     });
 }
@@ -1312,7 +1393,6 @@ function formatDateBR(dateString) {
     if (!dateString) return 'N/A';
     try {
         const date = new Date(dateString);
-        // Adiciona o fuso horário para evitar problemas de um dia a menos
         const userTimezoneOffset = date.getTimezoneOffset() * 60000;
         return new Date(date.getTime() + userTimezoneOffset).toLocaleDateString('pt-BR');
     } catch (e) {
@@ -1321,16 +1401,30 @@ function formatDateBR(dateString) {
 }
 
 function saveActionItem() {
-    const itemData = { atividade: document.getElementById("action-atividade").value, descricao: document.getElementById("action-descricao").value, prazoInicio: document.getElementById("action-prazo-inicio").value, prazoFim: document.getElementById("action-prazo-fim").value, status: document.getElementById("action-status").value, };
+    const itemData = { 
+        atividade: document.getElementById("action-atividade").value, 
+        descricao: document.getElementById("action-descricao").value, 
+        prazoInicio: document.getElementById("action-prazo-inicio").value, 
+        prazoFim: document.getElementById("action-prazo-fim").value, 
+        status: document.getElementById("action-status").value 
+    };
     if (!itemData.atividade) return showToast("A atividade é obrigatória.", "error");
     if (!currentInspection.planoDeAcao) currentInspection.planoDeAcao = [];
-    if (editingIndex > -1) { currentInspection.planoDeAcao[editingIndex] = itemData; showToast("Item atualizado!", "success"); }
-    else { currentInspection.planoDeAcao.push(itemData); showToast("Item adicionado!", "success"); }
-    persistCurrentInspection(); clearActionForm(); updateActionItemList();
+    if (editingIndex > -1) { 
+        currentInspection.planoDeAcao[editingIndex] = itemData; 
+        showToast("Item atualizado!", "success"); 
+    } else { 
+        currentInspection.planoDeAcao.push(itemData); 
+        showToast("Item adicionado!", "success"); 
+    }
+    persistCurrentInspection(); 
+    clearActionForm(); 
+    updateActionItemList();
 }
 
 function editActionItem(index) {
-    editingIndex = index; const item = currentInspection.planoDeAcao[index];
+    editingIndex = index; 
+    const item = currentInspection.planoDeAcao[index];
     document.getElementById("action-atividade").value = item.atividade;
     document.getElementById("action-descricao").value = item.descricao;
     document.getElementById("action-prazo-inicio").value = item.prazoInicio;
@@ -1372,13 +1466,13 @@ function generateInspectionReport(id) {
         }
         const e = insp.empresa || {};
         const reportDate = new Date().toLocaleString('pt-BR');
-        let html = `<!DOCTYPE html><html lang="pt-br"><head><meta charset="UTF-8"><title>Relatório - ${e.nome}</title>
+        let html = `<!DOCTYPE html><html lang="pt-br"><head><meta charset="UTF-8"><title>Relatório - ${escapeHtml(e.nome)}</title>
             <style>body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;margin:20px;color:#333;line-height:1.6}.header,.section{border-bottom:2px solid #eee;padding-bottom:15px;margin-bottom:20px;page-break-inside:avoid}h1{color:#1f2937;font-size:2rem}h2{color:#111827;border-bottom:1px solid #ccc;padding-bottom:5px;margin-top:2rem}h3{color:#374151;margin-top:1.5rem}h4{margin:1rem 0 .5rem;color:#4b5563}h5{color:#2563eb;margin:0 0 10px;font-size:1.1rem;padding-bottom:5px;border-bottom:1px solid #dbeafe}table{width:100%;border-collapse:collapse;margin-top:15px;font-size:.9em}th,td{border:1px solid #ccc;padding:8px;text-align:left;vertical-align:top}th{background-color:#f3f4f6;font-weight:600}.details-grid{display:grid;grid-template-columns:150px 1fr;gap:5px 15px;margin:1rem 0}.details-grid strong{color:#4b5563}.no-print{margin-bottom:20px}@media print{.no-print{display:none}body{margin:0}}.cargo-details p{margin:5px 0}.risco-card{background:#f9fafb;border:2px solid #e5e7eb;border-radius:8px;padding:15px;margin:15px 0;page-break-inside:avoid}.risco-card table{margin-bottom:15px}.risco-card th{color:white;font-weight:600}</style>
         </head><body>
             <div class="no-print"><button onclick="window.print()" style="padding:10px 20px;background:#2563eb;color:white;border:none;border-radius:5px;cursor:pointer;">🖨️ Imprimir/Salvar PDF</button></div>
-            <div class="header"><h1>📋 Relatório de Inspeção</h1><h2>${e.nome||'N/A'}</h2><div class="details-grid"><strong>CNPJ:</strong><span>${e.cnpj||'N/A'}</span><strong>Data de Inspeção:</strong><span>${formatDateBR(e.data)}</span><strong>Elaborado por:</strong><span>${e.elaborado||'N/A'}</span><strong>Aprovado por:</strong><span>${e.aprovado||'N/A'}</span><strong>Gerado em:</strong><span>${reportDate}</span></div></div>`;
+            <div class="header"><h1>📋 Relatório de Inspeção</h1><h2>${escapeHtml(e.nome||'N/A')}</h2><div class="details-grid"><strong>CNPJ:</strong><span>${escapeHtml(e.cnpj||'N/A')}</span><strong>Data de Inspeção:</strong><span>${formatDateBR(e.data)}</span><strong>Elaborado por:</strong><span>${escapeHtml(e.elaborado||'N/A')}</span><strong>Aprovado por:</strong><span>${escapeHtml(e.aprovado||'N/A')}</span><strong>Gerado em:</strong><span>${reportDate}</span></div></div>`;
         (insp.departamentos || []).forEach(depto => {
-            html += `<div class="section"><h2>🏢 Departamento: ${depto.nome||'N/A'}</h2><p><strong>Característica:</strong> ${depto.caracteristica||'N/A'}</p><p><strong>Descrição:</strong> ${depto.descricao||'N/A'}</p>`;
+            html += `<div class="section"><h2>🏢 Departamento: ${escapeHtml(depto.nome||'N/A')}</h2><p><strong>Característica:</strong> ${escapeHtml(depto.caracteristica||'N/A')}</p><p><strong>Descrição:</strong> ${escapeHtml(depto.descricao||'N/A')}</p>`;
             (depto.grupos || []).forEach(grupo => {
                 const g = { ...grupo, nome: `Grupo: ${grupo.listaDeCargos.join(', ')}` };
                 html += renderCargoReport(g, `👥 ${g.nome}`);
@@ -1396,7 +1490,7 @@ function generateInspectionReport(id) {
             html += `<table><thead><tr><th style="width:25%">Atividade</th><th>Descrição</th><th style="width:20%">Prazo</th><th style="width:15%">Status</th></tr></thead><tbody>`;
             insp.planoDeAcao.forEach(item => {
                 const prazo = (item.prazoInicio ? formatDateBR(item.prazoInicio) : 'N/A') + ' a ' + (item.prazoFim ? formatDateBR(item.prazoFim) : 'N/A');
-                html += `<tr><td>${item.atividade||''}</td><td>${item.descricao||''}</td><td>${prazo}</td><td>${item.status||''}</td></tr>`;
+                html += `<tr><td>${escapeHtml(item.atividade||'')}</td><td>${escapeHtml(item.descricao||'')}</td><td>${prazo}</td><td>${escapeHtml(item.status||'')}</td></tr>`;
             });
             html += `</tbody></table>`;
         } else {
@@ -1420,12 +1514,12 @@ function renderCargoReport(cargo, titulo) {
         return `S&nbsp;(&nbsp;${sim}&nbsp;)&nbsp;&nbsp;N&nbsp;(&nbsp;${nao}&nbsp;)`;
     };
     let html = `<div style="border:2px solid #dbeafe;padding:15px;border-radius:8px;margin:20px 0;page-break-inside:avoid">
-        <h3>${titulo}</h3>
+        <h3>${escapeHtml(titulo)}</h3>
         <div class="cargo-details">
-            <p><strong>Observações:</strong> ${(cargo.observacoes||[]).join(', ')||'N/A'}</p>
-            <p><strong>Perfil de Exposição (Observação Específica):</strong> ${cargo.perfilExposicao||'N/A'}</p>
-            <p><strong>Descrição Atividade:</strong> ${cargo.descricaoAtividade||'N/A'}</p>
-            <p><strong>Dados LTCAT:</strong> ${(cargo.dadosLtcat||[]).join(', ')||'N/A'}</p>
+            <p><strong>Observações:</strong> ${escapeHtml((cargo.observacoes||[]).join(', ')||'N/A')}</p>
+            <p><strong>Perfil de Exposição (Observação Específica):</strong> ${escapeHtml(cargo.perfilExposicao||'N/A')}</p>
+            <p><strong>Descrição Atividade:</strong> ${escapeHtml(cargo.descricaoAtividade||'N/A')}</p>
+            <p><strong>Dados LTCAT:</strong> ${escapeHtml((cargo.dadosLtcat||[]).join(', ')||'N/A')}</p>
             <h4>✅ Requisitos NR-06/NR-01:</h4>
             <div class="report-checklist">
                 <span class="report-checklist-item">Medida de Proteção ${formatChecklistItem(req.medida)}</span>
@@ -1438,11 +1532,11 @@ function renderCargoReport(cargo, titulo) {
         <h4>⚠️ Riscos Identificados</h4>`;
     if (cargo.riscos && cargo.riscos.length > 0) {
         cargo.riscos.forEach((risco, idx) => {
-            html += `<div class="risco-card"><h5>Risco ${idx+1}: ${risco.perigo||'N/A'}</h5>
-            <table><thead><tr><th colspan="2" style="background:#2563eb">Informações Básicas</th></tr></thead><tbody><tr><td style="width:200px"><strong>Risco Presente:</strong></td><td>${risco.riscoPresente||'N/A'}</td></tr><tr><td><strong>Tipo:</strong></td><td>${risco.tipo||'N/A'}</td></tr><tr><td><strong>E-Social:</strong></td><td>${risco.codigoEsocial||'N/A'}</td></tr><tr><td><strong>Descrição:</strong></td><td>${risco.descricaoDetalhada||'N/A'}</td></tr></tbody></table>
-            <table><thead><tr><th colspan="2" style="background:#10b981">Fonte e Exposição</th></tr></thead><tbody><tr><td style="width:200px"><strong>Fonte:</strong></td><td>${risco.fonteGeradora||'N/A'}</td></tr><tr><td><strong>Perfil Exposição:</strong></td><td>${risco.perfilExposicao||'N/A'}</td></tr><tr><td><strong>Medição:</strong></td><td>${risco.medicao||'N/A'}</td></tr><tr><td><strong>Tempo Exposição:</strong></td><td>${risco.tempoExposicao||'N/A'}</td></tr><tr><td><strong>Tipo Exposição:</strong></td><td>${risco.tipoExposicao||'N/A'}</td></tr><tr><td><strong>Obs. Ambientais:</strong></td><td>${risco.obsAmbientais||'N/A'}</td></tr></tbody></table>
-            <table><thead><tr><th colspan="2" style="background:#f59e0b">Análise e Avaliação</th></tr></thead><tbody><tr><td style="width:200px"><strong>Probabilidade:</strong></td><td>${risco.probabilidade||'N/A'}</td></tr><tr><td><strong>Severidade:</strong></td><td>${risco.severidade||'N/A'}</td></tr><tr><td><strong>Aceitabilidade:</strong></td><td>${risco.aceitabilidade||'N/A'}</td></tr><tr><td><strong>Danos Potenciais:</strong></td><td>${risco.danos||'N/A'}</td></tr></tbody></table>
-            <table><thead><tr><th colspan="2" style="background:#8b5cf6">Controles e Ações</th></tr></thead><tbody><tr><td style="width:200px"><strong>EPI Utilizado:</strong></td><td>${risco.epiUtilizado||'N/A'}</td></tr><tr><td><strong>CA:</strong></td><td>${risco.ca||'N/A'}</td></tr><tr><td><strong>EPC Existente:</strong></td><td>${risco.epc||'N/A'}</td></tr><tr><td><strong>EPI Sugerido:</strong></td><td>${risco.epiSugerido||'N/A'}</td></tr><tr><td><strong>Ações Necessárias:</strong></td><td>${risco.acoesNecessarias||'N/A'}</td></tr><tr><td><strong>Obs. Gerais:</strong></td><td>${risco.observacoesGerais||'N/A'}</td></tr></tbody></table></div>`;
+            html += `<div class="risco-card"><h5>Risco ${idx+1}: ${escapeHtml(risco.perigo||'N/A')}</h5>
+            <table><thead><tr><th colspan="2" style="background:#2563eb">Informações Básicas</th></tr></thead><tbody><tr><td style="width:200px"><strong>Risco Presente:</strong></td><td>${escapeHtml(risco.riscoPresente||'N/A')}</td></tr><tr><td><strong>Tipo:</strong></td><td>${escapeHtml(risco.tipo||'N/A')}</td></tr><tr><td><strong>E-Social:</strong></td><td>${escapeHtml(risco.codigoEsocial||'N/A')}</td></tr><tr><td><strong>Descrição:</strong></td><td>${escapeHtml(risco.descricaoDetalhada||'N/A')}</td></tr></tbody></table>
+            <table><thead><tr><th colspan="2" style="background:#10b981">Fonte e Exposição</th></tr></thead><tbody><tr><td style="width:200px"><strong>Fonte:</strong></td><td>${escapeHtml(risco.fonteGeradora||'N/A')}</td></tr><tr><td><strong>Perfil Exposição:</strong></td><td>${escapeHtml(risco.perfilExposicao||'N/A')}</td></tr><tr><td><strong>Medição:</strong></td><td>${escapeHtml(risco.medicao||'N/A')}</td></tr><tr><td><strong>Tempo Exposição:</strong></td><td>${escapeHtml(risco.tempoExposicao||'N/A')}</td></tr><tr><td><strong>Tipo Exposição:</strong></td><td>${escapeHtml(risco.tipoExposicao||'N/A')}</td></tr><tr><td><strong>Obs. Ambientais:</strong></td><td>${escapeHtml(risco.obsAmbientais||'N/A')}</td></tr></tbody></table>
+            <table><thead><tr><th colspan="2" style="background:#f59e0b">Análise e Avaliação</th></tr></thead><tbody><tr><td style="width:200px"><strong>Probabilidade:</strong></td><td>${escapeHtml(risco.probabilidade||'N/A')}</td></tr><tr><td><strong>Severidade:</strong></td><td>${escapeHtml(risco.severidade||'N/A')}</td></tr><tr><td><strong>Aceitabilidade:</strong></td><td>${escapeHtml(risco.aceitabilidade||'N/A')}</td></tr><tr><td><strong>Danos Potenciais:</strong></td><td>${escapeHtml(risco.danos||'N/A')}</td></tr></tbody></table>
+            <table><thead><tr><th colspan="2" style="background:#8b5cf6">Controles e Ações</th></tr></thead><tbody><tr><td style="width:200px"><strong>EPI Utilizado:</strong></td><td>${escapeHtml(risco.epiUtilizado||'N/A')}</td></tr><tr><td><strong>CA:</strong></td><td>${escapeHtml(risco.ca||'N/A')}</td></tr><tr><td><strong>EPC Existente:</strong></td><td>${escapeHtml(risco.epc||'N/A')}</td></tr><tr><td><strong>EPI Sugerido:</strong></td><td>${escapeHtml(risco.epiSugerido||'N/A')}</td></tr><tr><td><strong>Ações Necessárias:</strong></td><td>${escapeHtml(risco.acoesNecessarias||'N/A')}</td></tr><tr><td><strong>Obs. Gerais:</strong></td><td>${escapeHtml(risco.observacoesGerais||'N/A')}</td></tr></tbody></table></div>`;
         });
     } else { 
         html += `<p style="color:#999;font-style:italic;padding:20px;background:#f9fafb;border-radius:8px">Nenhum risco adicionado.</p>`; 
@@ -1494,12 +1588,38 @@ function performAutosave() {
     const actionForm = document.getElementById('action-item-form');
     let dataUpdated = false;
     if (empresaForm && !wizardView.classList.contains('hidden')) {
-        currentInspection.empresa = { nome: document.getElementById("nome").value, cnpj: document.getElementById("cnpj").value, data: document.getElementById("data").value, elaborado: document.getElementById("elaborado").value, aprovado: document.getElementById("aprovado").value };
+        currentInspection.empresa = { 
+            nome: document.getElementById("nome").value, 
+            cnpj: document.getElementById("cnpj").value, 
+            data: document.getElementById("data").value, 
+            elaborado: document.getElementById("elaborado").value, 
+            aprovado: document.getElementById("aprovado").value 
+        };
         dataUpdated = true;
     }
     if (riscoForm && !wizardView.classList.contains('hidden') && editingIndex > -1) {
         const riscoData = {
-            riscoPresente: document.getElementById("risco-presente").value, tipo: document.getElementById("risco-tipo").value, codigoEsocial: document.getElementById("risco-esocial").value, perigo: document.getElementById("risco-perigo").value, descricaoDetalhada: document.getElementById("risco-descricao-detalhada").value, fonteGeradora: document.getElementById("risco-fonte").value, perfilExposicao: document.getElementById("risco-perfil-exposicao").value, medicao: document.getElementById("risco-medicao").value, tempoExposicao: document.getElementById("risco-tempo-exposicao").value, tipoExposicao: document.getElementById("risco-tipo-exposicao").value, obsAmbientais: document.getElementById("risco-obs-ambientais").value, probabilidade: document.getElementById("risco-probabilidade").value, severidade: document.getElementById("risco-severidade").value, aceitabilidade: document.getElementById("risco-aceitabilidade").value, danos: document.getElementById("risco-danos").value, epiUtilizado: document.getElementById("risco-epi-utilizado").value, ca: document.getElementById("risco-ca").value, epc: document.getElementById("risco-epc").value, epiSugerido: document.getElementById("risco-epi-sugerido").value, acoesNecessarias: document.getElementById("risco-acoes").value, observacoesGerais: document.getElementById("risco-observacoes-gerais").value
+            riscoPresente: document.getElementById("risco-presente").value, 
+            tipo: document.getElementById("risco-tipo").value, 
+            codigoEsocial: document.getElementById("risco-esocial").value, 
+            perigo: document.getElementById("risco-perigo").value, 
+            descricaoDetalhada: document.getElementById("risco-descricao-detalhada").value, 
+            fonteGeradora: document.getElementById("risco-fonte").value, 
+            perfilExposicao: document.getElementById("risco-perfil-exposicao").value, 
+            medicao: document.getElementById("risco-medicao").value, 
+            tempoExposicao: document.getElementById("risco-tempo-exposicao").value, 
+            tipoExposicao: document.getElementById("risco-tipo-exposicao").value, 
+            obsAmbientais: document.getElementById("risco-obs-ambientais").value, 
+            probabilidade: document.getElementById("risco-probabilidade").value, 
+            severidade: document.getElementById("risco-severidade").value, 
+            aceitabilidade: document.getElementById("risco-aceitabilidade").value, 
+            danos: document.getElementById("risco-danos").value, 
+            epiUtilizado: document.getElementById("risco-epi-utilizado").value, 
+            ca: document.getElementById("risco-ca").value, 
+            epc: document.getElementById("risco-epc").value, 
+            epiSugerido: document.getElementById("risco-epi-sugerido").value, 
+            acoesNecessarias: document.getElementById("risco-acoes").value, 
+            observacoesGerais: document.getElementById("risco-observacoes-gerais").value
         };
         const depto = currentInspection.departamentos[activeDepartamentoIndex];
         let targetArray;
@@ -1512,7 +1632,13 @@ function performAutosave() {
         }
     }
     if (actionForm && !actionPlanView.classList.contains('hidden') && editingIndex > -1) {
-        const itemData = { atividade: document.getElementById("action-atividade").value, descricao: document.getElementById("action-descricao").value, prazoInicio: document.getElementById("action-prazo-inicio").value, prazoFim: document.getElementById("action-prazo-fim").value, status: document.getElementById("action-status").value };
+        const itemData = { 
+            atividade: document.getElementById("action-atividade").value, 
+            descricao: document.getElementById("action-descricao").value, 
+            prazoInicio: document.getElementById("action-prazo-inicio").value, 
+            prazoFim: document.getElementById("action-prazo-fim").value, 
+            status: document.getElementById("action-status").value 
+        };
         if (currentInspection.planoDeAcao && currentInspection.planoDeAcao[editingIndex]) {
             currentInspection.planoDeAcao[editingIndex] = itemData;
             dataUpdated = true;
@@ -1671,5 +1797,4 @@ function addTextToInput(text) {
     currentTargetInput.dispatchEvent(new Event('input', { bubbles: true }));
 }
 
-console.log("✅ Sistema de reconhecimento de voz (Web Speech API) carregado!");
-// --- END OF FILE app.js ---
+console.log("✅ Sistema com reconhecimento de voz em TODOS os campos carregado!");
