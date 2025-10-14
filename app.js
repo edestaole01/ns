@@ -1522,6 +1522,18 @@ setTimeout(() => {
     addLog('👆 Clique no botão de microfone para testar', 'yellow');
 }, 500);
 
+// ==========================================
+// RECONHECIMENTO DE VOZ - VERSÃO DEBUG
+// ==========================================
+
+let currentRecognition = null;
+let currentTargetInput = null;
+let isRecording = false;
+let recognitionTimeout = null;
+
+const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+
 // FUNÇÃO PRINCIPAL
 // ==========================================
 // RECONHECIMENTO DE VOZ - VERSÃO DEBUG PROTEGIDA
