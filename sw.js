@@ -1,5 +1,5 @@
 // Service Worker Otimizado - Versão sem Loop
-const CACHE_NAME = 'inspecao-riscos-v5-mobile';
+const CACHE_NAME = 'inspecao-riscos-v2-mobile';
 
 const ESSENTIAL_FILES = [
   '/ns/',
