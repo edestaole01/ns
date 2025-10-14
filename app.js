@@ -1,3 +1,24 @@
+onst request = indexedDB.open("fluentInspecoesDB", 1);
+
+request.onerror = (e) => {
+    console.error("Erro no DB:", e);
+    showToast("⚠️ Erro ao inicializar banco de dados!", "error");
+};
+
+request.onsuccess = (e) => { 
+    db = e.target.result; 
+    showDashboard(); 
+    updateNetworkStatus();
+    console.log('✅ Banco de dados inicializado com sucesso');
+};
+
+request.onupgradeneeded = (e) => {
+    console.log('📦 Criando estrutura do banco de dados...');
+    e.target.result.createObjectStore("inspections", { 
+        keyPath: "id", 
+        autoIncrement: true 
+    });
+};
 const predefinedRisks = [
     { tipo: "FÍSICO", codigoEsocial: "02.01.001", perigo: "Exposição a ruído contínuo e intermitente", danos: "Diminuição gradual da audição, cansaço, irritação, zumbido, fadiga, surdez" },
     { tipo: "FÍSICO", codigoEsocial: "02.01.002", perigo: "Vibrações localizadas (mão-braço)", danos: "lesões musculares, problemas nas articulações, fadiga muscular." },

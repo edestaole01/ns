@@ -1,4 +1,4 @@
-// Service Worker Otimizado - Versão sem Loop
+// Service Worker Otimizado - Versão Corrigida
 const CACHE_NAME = 'inspecao-riscos-v2-mobile';
 
 const ESSENTIAL_FILES = [
@@ -74,8 +74,12 @@ self.addEventListener('fetch', (event) => {
     return;
   }
   
+  // Verificar se é arquivo essencial ou opcional
+  const isEssential = ESSENTIAL_FILES.includes(url.pathname);
+  const isOptional = OPTIONAL_FILES.some(file => event.request.url.includes(file));
+  
   // Para arquivos estáticos: Cache First
-  if (ESSENTIAL_FILES.includes(url.pathname) || OPTIONAL_FILES.includes(event.request.url)) { // <<< CORREÇÃO AQUI
+  if (isEssential || isOptional) {
     event.respondWith(
       caches.match(event.request)
         .then((response) => {
@@ -107,4 +111,4 @@ self.addEventListener('fetch', (event) => {
   }
 });
 
-console.log('✅ Service Worker carregado!');```
+console.log('✅ Service Worker carregado!');

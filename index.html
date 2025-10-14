@@ -648,6 +648,9 @@
 
     <!-- SCRIPT PRINCIPAL DA APLICAÇÃO -->
     <script src="app.js" defer></script>
+    <footer style="text-align: center; padding: 1rem; color: #94a3b8; font-size: 0.8rem;">
+        Versão <span id="app-version-display"></span>
+    </footer>
 
     <!-- SCRIPT DO SERVICE WORKER (PWA) -->
     <script>
@@ -664,4 +667,12 @@
         }
     </script>
 </body>
+<script>
+    // Exibir versão da aplicação
+    const appVersion = '2.0.0';
+    const versionDisplay = document.getElementById('app-version-display');
+    if (versionDisplay) {
+        versionDisplay.textContent = appVersion;
+    }
+</script>
 </html>
