@@ -614,13 +614,18 @@ function renderCargoFuncionarioStep() {
     if (!depto.grupos) depto.grupos = [];
     if (!depto.cargos) depto.cargos = [];
     if (!depto.funcionarios) depto.funcionarios = [];
+    
+    // Verifica se está no mobile
+    const isMobile = window.innerWidth <= 768;
+    const detailsAttr = isMobile ? 'open' : ''; // No mobile, abre por padrão
+    
     document.getElementById('wizard-content').innerHTML = `
         <div class="card">
             <div class="breadcrumb">${escapeHtml(currentInspection.empresa.nome)} › <strong>${escapeHtml(depto.nome)}</strong></div>
             <h3>Grupos de Cargos <small style="font-weight: 400; color: var(--gray-500);">(Arraste para reordenar)</small></h3>
             <ul id="grupo-list" class="item-list"></ul>
-            <details id="grupo-form-details" class="accordion-section">
-                <summary>Adicionar Novo Grupo</summary>
+            <details id="grupo-form-details" class="accordion-section" ${detailsAttr}>
+                <summary onclick="toggleAccordion(event, 'grupo-form-details')">Adicionar Novo Grupo</summary>
                 <div>
                     <form id="grupo-form">
                         <div class="form-group">
@@ -638,8 +643,8 @@ function renderCargoFuncionarioStep() {
             </details>
             <h3 style="margin-top: 2rem;">Cargos Individuais <small style="font-weight: 400; color: var(--gray-500);">(Arraste para reordenar)</small></h3>
             <ul id="cargo-list" class="item-list"></ul>
-            <details id="cargo-form-details" class="accordion-section">
-                <summary>Adicionar Novo Cargo Individual</summary>
+            <details id="cargo-form-details" class="accordion-section" ${detailsAttr}>
+                <summary onclick="toggleAccordion(event, 'cargo-form-details')">Adicionar Novo Cargo Individual</summary>
                 <div>
                     <form id="cargo-form">
                         <div class="form-group">
@@ -656,8 +661,8 @@ function renderCargoFuncionarioStep() {
             </details>
             <h3 style="margin-top: 2rem;">Funcionários Individuais <small style="font-weight: 400; color: var(--gray-500);">(Arraste para reordenar)</small></h3>
             <ul id="funcionario-list" class="item-list"></ul>
-            <details id="funcionario-form-details" class="accordion-section">
-                <summary>Adicionar Novo Funcionário Individual</summary>
+            <details id="funcionario-form-details" class="accordion-section" ${detailsAttr}>
+                <summary onclick="toggleAccordion(event, 'funcionario-form-details')">Adicionar Novo Funcionário Individual</summary>
                 <div>
                     <form id="funcionario-form">
                         <div class="form-group">
@@ -903,7 +908,10 @@ function editCargo(index) {
     editingIndex = index;
     editingType = 'cargo';
     const cargo = currentInspection.departamentos[activeDepartamentoIndex].cargos[index];
+    
+    forceOpenAccordionOnMobile('cargo-form-details'); // ADICIONE ESTA LINHA
     document.getElementById("cargo-form-details").setAttribute("open", "");
+    
     document.getElementById("cargo-nome").value = cargo.nome || '';
     populateForm('cargo', cargo);
     document.getElementById("save-cargo-btn").innerHTML = "Salvar Alterações";
@@ -915,7 +923,10 @@ function editFuncionario(index) {
     editingIndex = index;
     editingType = 'funcionario';
     const funcionario = currentInspection.departamentos[activeDepartamentoIndex].funcionarios[index];
+    
+    forceOpenAccordionOnMobile('funcionario-form-details'); // ADICIONE ESTA LINHA
     document.getElementById("funcionario-form-details").setAttribute("open", "");
+    
     document.getElementById("funcionario-nome").value = funcionario.nome || '';
     populateForm('funcionario', funcionario);
     document.getElementById("save-funcionario-btn").innerHTML = "Salvar Alterações";
@@ -927,7 +938,10 @@ function editGrupo(index) {
     editingIndex = index;
     editingType = 'grupo';
     const grupo = currentInspection.departamentos[activeDepartamentoIndex].grupos[index];
+    
+    forceOpenAccordionOnMobile('grupo-form-details'); // ADICIONE ESTA LINHA
     document.getElementById("grupo-form-details").setAttribute("open", "");
+    
     document.getElementById("grupo-nomes").value = (grupo.listaDeCargos || []).join('\n');
     populateForm('grupo', grupo);
     document.getElementById("save-grupo-btn").innerHTML = "Salvar Alterações";
@@ -957,6 +971,7 @@ function goToRiscos(index, type) {
 
 function renderRiscoStep() {
     const depto = currentInspection.departamentos[activeDepartamentoIndex];
+    const isMobile = window.innerWidth <= 768;
     let breadcrumbText = '', tituloRiscos = '', infoBox = '', targetObject;
     let currentContextValue = '';
     
@@ -1950,5 +1965,29 @@ renderRiscoStep = function() {
     originalRenderRiscoStep();
     setTimeout(ensureMobileButtonsVisible, 100);
 };
+
+function toggleAccordion(event, detailsId) {
+    if (window.innerWidth <= 768) {
+        event.preventDefault();
+        const details = document.getElementById(detailsId);
+        if (details) {
+            if (details.hasAttribute('open')) {
+                details.removeAttribute('open');
+            } else {
+                details.setAttribute('open', '');
+            }
+        }
+    }
+}
+
+// Força abertura dos accordions no mobile ao editar
+function forceOpenAccordionOnMobile(detailsId) {
+    if (window.innerWidth <= 768) {
+        const details = document.getElementById(detailsId);
+        if (details) {
+            details.setAttribute('open', '');
+        }
+    }
+}
 
 console.log("✅ Sistema com reconhecimento de voz em TODOS os campos carregado!");
