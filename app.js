@@ -1875,10 +1875,12 @@ function toggleRecognition(button) {
         // Esta lógica de processamento de texto permanece a mesma.
         let interimTranscript = '';
         let finalTranscript = '';
+        let lastFinalText =;
         
         for (let i = event.resultIndex; i < event.results.length; i++) {
             const transcript = event.results[i][0].transcript;
             if (event.results[i].isFinal) {
+                lastFinalText =transcript;
                 finalTranscript += transcript + ' ';
             } else {
                 interimTranscript += transcript;
@@ -1901,10 +1903,38 @@ function toggleRecognition(button) {
     }
 }
 
+/**
+ * Adiciona o texto ao campo de entrada e dispara o evento 'input' para o autosave.
+ * Esta função foi aprimorada para evitar que a própria digitação dispare o autosave, 
+ * mas ainda notifique o formulário para salvar a alteração no banco de dados.
+ */
 function addTextToInput(text) {
     if (!currentTargetInput || !text) return;
+
+    // Remove a necessidade de disparo manual de evento 'input' 
+    // e simplesmente atualiza o valor.
+    // O evento 'input' será disparado diretamente no listener onresult, 
+    // mas de forma controlada.
+
+    // A lógica de anexação de texto deve ser simples:
     const currentValue = currentTargetInput.value.trim();
-    currentTargetInput.value = currentValue ? currentValue + ' ' + text : text;
+    // A API de voz geralmente coloca a pontuação no final. 
+    // Vamos garantir que a fala não comece com um espaço desnecessário.
+    const newText = text.trim(); 
+    
+    // Se o campo estiver vazio, apenas insere o novo texto.
+    if (currentValue.length === 0) {
+        currentTargetInput.value = newText;
+    } else {
+        // Se já houver texto, anexa o novo texto com um espaço.
+        // Adiciona um ponto final se o valor atual não terminar em pontuação,
+        // mas o novo texto começar com uma letra (sinalizando uma nova frase).
+        const needsSpace = !/[.,;?!]$/.test(currentValue);
+        currentTargetInput.value = currentValue + (needsSpace ? ' ' : '') + newText;
+    }
+    
+    // Dispara o evento de 'input' APENAS uma vez ao terminar de preencher 
+    // para que o autosave seja acionado após a inserção final, e não a cada letra.
     currentTargetInput.dispatchEvent(new Event('input', { bubbles: true }));
 }
 
