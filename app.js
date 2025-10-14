@@ -50,8 +50,8 @@ const predefinedRisks = [
     { tipo: "ERGONÔMICO", codigoEsocial: "", perigo: "Iluminação inadequada ou deficiente", danos: "Fadiga visual" },
     { tipo: "ERGONÔMICO", codigoEsocial: "-", perigo: "Movimentos repetitivos", danos: "DORT" },
     { tipo: "ERGONÔMICO", codigoEsocial: "-", perigo: "Posturas incômodas ou pouco confortáveis", danos: "Lombalgias, lesões musculares" },
-    { tipo: "ERGONÔMICO PSICOSSOCIAIS", codigoEsocial: "-", perigo: "Estresse", danos: "Fagida, estresse e distúrbos" },
-    { tipo: "ERGONÔMICO PSICOSSOCIAIS", codigoEsocial: "-", perigo: "Carga de trabalho excessiva", danos: "Fagida, estresse e distúrbos" },
+    { tipo: "ERGONÔMICO PSICOSSOCIAIS", codigoEsocial: "-", perigo: "Estresse", danos: "Fagida, estresse e distúrbios" },
+    { tipo: "ERGONÔMICO PSICOSSOCIAIS", codigoEsocial: "-", perigo: "Carga de trabalho excessiva", danos: "Fagida, estresse e distúrbios" },
     { tipo: "ACIDENTE", codigoEsocial: "-", perigo: "Contato com eletricidade", danos: "Choque elétrico, quimaduras, parada cardíaca, morte" },
     { tipo: "ACIDENTE", codigoEsocial: "-", perigo: "Escorregão e queda", danos: "Lesões por quedas / torções" },
     { tipo: "ACIDENTE", codigoEsocial: "", perigo: "Contato com partes móveis de equipamentos", danos: "Corte, contusão, esmagamento, morte, Amputações" },
@@ -89,8 +89,25 @@ window.addEventListener('DOMContentLoaded', () => {
 // Detectar status de conexão
 let isOnline = navigator.onLine;
 
+function updateNetworkStatus() {
+    const indicator = document.getElementById('network-status');
+    if (!indicator) return;
+    
+    if (isOnline) {
+        // Hide online indicator after a few seconds to be less intrusive
+        indicator.className = 'network-status online';
+        indicator.textContent = '🌐 Online';
+        setTimeout(() => { if(indicator.classList.contains('online')) indicator.style.opacity = '0'; }, 3000);
+    } else {
+        indicator.className = 'network-status offline';
+        indicator.textContent = '📴 Offline';
+        indicator.style.opacity = '1';
+    }
+}
+
 window.addEventListener('online', () => {
     isOnline = true;
+    updateNetworkStatus();
     showToast('✅ Conexão restaurada! Salvando dados...', 'success');
     if (currentInspection && currentInspection.id) {
         performAutosave();
@@ -99,12 +116,17 @@ window.addEventListener('online', () => {
 
 window.addEventListener('offline', () => {
     isOnline = false;
+    updateNetworkStatus();
     showToast('⚠️ Modo offline ativo. Dados serão salvos localmente.', 'warning');
 });
 
 const request = indexedDB.open("fluentInspecoesDB", 1);
 request.onerror = (e) => console.error("Erro no DB:", e);
-request.onsuccess = (e) => { db = e.target.result; showDashboard(); };
+request.onsuccess = (e) => { 
+    db = e.target.result; 
+    showDashboard(); 
+    updateNetworkStatus();
+};
 request.onupgradeneeded = (e) => e.target.result.createObjectStore("inspections", { keyPath: "id", autoIncrement: true });
 
 const dashboardView = document.getElementById('dashboard-view');
@@ -141,13 +163,21 @@ function showToast(message, type = 'success') {
 }
 
 function showView(viewName) {
+    // Parar reconhecimento de voz ao trocar de view
+    if (currentRecognition && isRecording) {
+        const activeButton = document.querySelector('button.active[data-target]');
+        stopRecognition(activeButton);
+    }
+    
     dashboardView.classList.add('hidden');
     wizardView.classList.add('hidden');
     actionPlanView.classList.add('hidden');
+    
     if (viewName === 'dashboard') dashboardView.classList.remove('hidden');
     else if (viewName === 'wizard') wizardView.classList.remove('hidden');
     else if (viewName === 'actionPlan') actionPlanView.classList.remove('hidden');
 }
+
 
 function persistCurrentInspection(callback) {
     if (!db || !currentInspection || !currentInspection.empresa) {
@@ -1311,7 +1341,6 @@ function performAutosave() {
         return;
     }
     
-    // ⚠️ CORREÇÃO: Se estiver offline, salvar sem mostrar "salvando..."
     if (!isOnline) {
         console.log('📴 Modo offline: salvando localmente sem feedback visual');
         currentInspection.updatedAt = new Date().toISOString();
@@ -1320,18 +1349,12 @@ function performAutosave() {
         const store = transaction.objectStore("inspections");
         const request = store.put(currentInspection);
         
-        request.onsuccess = () => {
-            console.log('✅ Dados salvos localmente (offline)');
-        };
+        request.onsuccess = () => console.log('✅ Dados salvos localmente (offline)');
+        request.onerror = (event) => console.error('❌ Erro ao salvar offline:', event.target.error);
         
-        request.onerror = (event) => {
-            console.error('❌ Erro ao salvar offline:', event.target.error);
-        };
-        
-        return; // Não executar o resto da função quando offline
+        return;
     }
     
-    // Se estiver online, continuar normalmente
     isAutosaving = true;
     showAutosaveStatus('saving');
     
@@ -1353,27 +1376,7 @@ function performAutosave() {
     
     if (riscoForm && !wizardView.classList.contains('hidden') && editingIndex > -1) {
         const riscoData = {
-            riscoPresente: document.getElementById("risco-presente").value, 
-            tipo: document.getElementById("risco-tipo").value, 
-            codigoEsocial: document.getElementById("risco-esocial").value, 
-            perigo: document.getElementById("risco-perigo").value, 
-            descricaoDetalhada: document.getElementById("risco-descricao-detalhada").value, 
-            fonteGeradora: document.getElementById("risco-fonte").value, 
-            perfilExposicao: document.getElementById("risco-perfil-exposicao").value, 
-            medicao: document.getElementById("risco-medicao").value, 
-            tempoExposicao: document.getElementById("risco-tempo-exposicao").value, 
-            tipoExposicao: document.getElementById("risco-tipo-exposicao").value, 
-            obsAmbientais: document.getElementById("risco-obs-ambientais").value, 
-            probabilidade: document.getElementById("risco-probabilidade").value, 
-            severidade: document.getElementById("risco-severidade").value, 
-            aceitabilidade: document.getElementById("risco-aceitabilidade").value, 
-            danos: document.getElementById("risco-danos").value, 
-            epiUtilizado: document.getElementById("risco-epi-utilizado").value, 
-            ca: document.getElementById("risco-ca").value, 
-            epc: document.getElementById("risco-epc").value, 
-            epiSugerido: document.getElementById("risco-epi-sugerido").value, 
-            acoesNecessarias: document.getElementById("risco-acoes").value, 
-            observacoesGerais: document.getElementById("risco-observacoes-gerais").value
+            riscoPresente: document.getElementById("risco-presente").value, tipo: document.getElementById("risco-tipo").value, codigoEsocial: document.getElementById("risco-esocial").value, perigo: document.getElementById("risco-perigo").value, descricaoDetalhada: document.getElementById("risco-descricao-detalhada").value, fonteGeradora: document.getElementById("risco-fonte").value, perfilExposicao: document.getElementById("risco-perfil-exposicao").value, medicao: document.getElementById("risco-medicao").value, tempoExposicao: document.getElementById("risco-tempo-exposicao").value, tipoExposicao: document.getElementById("risco-tipo-exposicao").value, obsAmbientais: document.getElementById("risco-obs-ambientais").value, probabilidade: document.getElementById("risco-probabilidade").value, severidade: document.getElementById("risco-severidade").value, aceitabilidade: document.getElementById("risco-aceitabilidade").value, danos: document.getElementById("risco-danos").value, epiUtilizado: document.getElementById("risco-epi-utilizado").value, ca: document.getElementById("risco-ca").value, epc: document.getElementById("risco-epc").value, epiSugerido: document.getElementById("risco-epi-sugerido").value, acoesNecessarias: document.getElementById("risco-acoes").value, observacoesGerais: document.getElementById("risco-observacoes-gerais").value
         };
         
         const depto = currentInspection.departamentos[activeDepartamentoIndex];
@@ -1391,11 +1394,7 @@ function performAutosave() {
     
     if (actionForm && !actionPlanView.classList.contains('hidden') && editingIndex > -1) {
         const itemData = { 
-            atividade: document.getElementById("action-atividade").value, 
-            descricao: document.getElementById("action-descricao").value, 
-            prazoInicio: document.getElementById("action-prazo-inicio").value, 
-            prazoFim: document.getElementById("action-prazo-fim").value, 
-            status: document.getElementById("action-status").value 
+            atividade: document.getElementById("action-atividade").value, descricao: document.getElementById("action-descricao").value, prazoInicio: document.getElementById("action-prazo-inicio").value, prazoFim: document.getElementById("action-prazo-fim").value, status: document.getElementById("action-status").value 
         };
         
         if (currentInspection.planoDeAcao && currentInspection.planoDeAcao[editingIndex]) {
@@ -1420,10 +1419,15 @@ function initializeSortableLists() {
     const sortableConfig = {
         animation: 150,
         ghostClass: 'sortable-ghost',
+        forceFallback: true, // Melhor suporte touch
+        touchStartThreshold: 3, // Sensibilidade touch
+        delay: 100, // Delay para distinguir tap de drag
+        delayOnTouchOnly: true, // Delay apenas no touch
         onEnd: (evt) => {
             const { from, oldIndex, newIndex } = evt;
             const listId = from.id;
             let targetArray;
+            
             if (listId === 'departamento-list') {
                 targetArray = currentInspection.departamentos;
             } else if (listId === 'cargo-list') {
@@ -1433,12 +1437,19 @@ function initializeSortableLists() {
             } else if (listId === 'grupo-list') {
                 targetArray = currentInspection.departamentos[activeDepartamentoIndex].grupos;
             }
+            
             if (targetArray) {
                 targetArray.splice(newIndex, 0, targetArray.splice(oldIndex, 1)[0]);
-                persistCurrentInspection(() => showToast("Ordem salva!", "success"));
+                persistCurrentInspection(() => {
+                    showToast("✅ Ordem salva!", "success");
+                    if ('vibrate' in navigator) {
+                        navigator.vibrate(50);
+                    }
+                });
             }
         }
     };
+    
     ['departamento-list', 'cargo-list', 'funcionario-list', 'grupo-list'].forEach(id => {
         const el = document.getElementById(id);
         if (el) Sortable.create(el, sortableConfig);
@@ -1506,16 +1517,10 @@ function generateInspectionReport(id) {
 
 // ==========================================
 // RECONHECIMENTO DE VOZ - WEB SPEECH API
-// Funciona OFFLINE após primeira permissão!
 // ==========================================
-// ==========================================
-// RECONHECIMENTO DE VOZ - WEB SPEECH API
-// ==========================================
-
 let currentRecognition = null;
 let currentTargetInput = null;
 let isRecording = false;
-let recognitionInitialized = false; // NOVO: prevenir inicialização automática
 
 function toggleRecognition(button) {
     const targetId = button.dataset.target;
@@ -1526,48 +1531,34 @@ function toggleRecognition(button) {
         return;
     }
 
-    // Se já está gravando, parar
     if (isRecording) {
         stopRecognition(button);
         return;
     }
 
-    // Verificar suporte do navegador
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    
     if (!SpeechRecognition) {
         showToast("❌ Reconhecimento de voz não disponível neste navegador.", "error");
         return;
     }
 
-    // Detectar se é mobile
     const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-
-    // Criar reconhecedor
     const recognition = new SpeechRecognition();
-
-    // Configurações adaptadas para mobile
     recognition.lang = 'pt-BR';
-    recognition.continuous = !isMobile; // No mobile, usar continuous=false para melhor compatibilidade
+    recognition.continuous = !isMobile;
     recognition.interimResults = true;
     recognition.maxAlternatives = 1;
 
     currentRecognition = recognition;
     currentTargetInput = input;
 
-    // Eventos
     recognition.onstart = () => {
         isRecording = true;
         button.classList.add('active');
         button.innerHTML = '<i class="bi bi-mic-fill" style="color: red;"></i>';
         button.style.animation = 'pulse 1.5s infinite';
         button.title = 'Clique para parar';
-        
-        // Vibrar no mobile (se suportado)
-        if ('vibrate' in navigator) {
-            navigator.vibrate(100);
-        }
-        
+        if ('vibrate' in navigator) navigator.vibrate(100);
         showToast("🎤 Gravando... Fale agora!", "success");
     };
 
@@ -1577,26 +1568,17 @@ function toggleRecognition(button) {
 
         for (let i = event.resultIndex; i < event.results.length; i++) {
             const transcript = event.results[i][0].transcript;
-            
-            if (event.results[i].isFinal) {
-                finalTranscript += transcript + ' ';
-            } else {
-                interimTranscript += transcript;
-            }
+            if (event.results[i].isFinal) finalTranscript += transcript + ' ';
+            else interimTranscript += transcript;
         }
 
         if (finalTranscript) {
             addTextToInput(finalTranscript.trim());
-            
-            // No mobile, reiniciar automaticamente após capturar texto
             if (isMobile && isRecording) {
                 setTimeout(() => {
                     if (isRecording && currentRecognition) {
-                        try {
-                            currentRecognition.start();
-                        } catch (e) {
-                            console.log("Aguardando para reiniciar...");
-                        }
+                        try { currentRecognition.start(); } 
+                        catch (e) { console.log("Aguardando para reiniciar..."); }
                     }
                 }, 300);
             }
@@ -1609,55 +1591,34 @@ function toggleRecognition(button) {
 
     recognition.onerror = (event) => {
         console.error('Erro no reconhecimento:', event.error);
-        
-        // Ignorar erros comuns no mobile
-        if (event.error === 'no-speech' || event.error === 'aborted') {
-            return;
-        }
+        if (event.error === 'no-speech' || event.error === 'aborted') return;
         
         let errorMessage = "Erro no reconhecimento de voz";
-        
         switch(event.error) {
-            case 'audio-capture':
-                errorMessage = "❌ Microfone não disponível.";
-                break;
-            case 'not-allowed':
-                errorMessage = "❌ Permissão negada. Habilite o microfone nas configurações.";
-                break;
-            case 'network':
-                errorMessage = "⚠️ Sem conexão. O reconhecimento pode não funcionar.";
-                break;
-            default:
-                errorMessage = `⚠️ Erro: ${event.error}`;
+            case 'audio-capture': errorMessage = "❌ Microfone não disponível."; break;
+            case 'not-allowed': errorMessage = "❌ Permissão negada. Habilite o microfone."; break;
+            case 'network': errorMessage = "⚠️ Sem conexão. O reconhecimento pode não funcionar."; break;
+            default: errorMessage = `⚠️ Erro: ${event.error}`;
         }
-        
         showToast(errorMessage, "error");
         stopRecognition(button);
     };
 
     recognition.onend = () => {
-        // No mobile, não reiniciar automaticamente quando terminar naturalmente
         if (!isMobile && isRecording && currentRecognition === recognition) {
             console.log("Reiniciando reconhecimento...");
-            try {
-                recognition.start();
-            } catch (e) {
-                console.error("Erro ao reiniciar:", e);
-                stopRecognition(button);
-            }
+            try { recognition.start(); } 
+            catch (e) { console.error("Erro ao reiniciar:", e); stopRecognition(button); }
         } else if (isRecording && isMobile) {
-            // No mobile, manter o botão ativo mas não reiniciar automaticamente
             button.title = 'Clique no microfone novamente para continuar';
         } else {
             stopRecognition(button);
         }
     };
 
-    // Solicitar permissão de microfone antes de iniciar (importante no mobile)
     if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
         navigator.mediaDevices.getUserMedia({ audio: true })
             .then(() => {
-                // Permissão concedida, iniciar reconhecimento
                 try {
                     recognition.start();
                     console.log("✅ Reconhecimento iniciado");
@@ -1672,23 +1633,17 @@ function toggleRecognition(button) {
                 showToast("❌ Permissão de microfone negada", "error");
             });
     } else {
-        // Navegadores mais antigos
-        try {
-            recognition.start();
-        } catch (error) {
-            showToast("❌ Erro ao acessar microfone", "error");
-        }
+        try { recognition.start(); } 
+        catch (error) { showToast("❌ Erro ao acessar microfone", "error"); }
     }
 }
 
 function stopRecognition(button) {
     isRecording = false;
-    recognitionInitialized = false; // RESET da flag
-    
     if (currentRecognition) {
         try {
             currentRecognition.stop();
-            currentRecognition.abort(); // GARANTIR que pare
+            currentRecognition.abort();
             console.log("✅ Reconhecimento de voz parado");
         } catch (e) {
             console.error("Erro ao parar reconhecimento:", e);
@@ -1710,45 +1665,18 @@ function stopRecognition(button) {
 
 function addTextToInput(text) {
     if (!currentTargetInput || !text) return;
-    
     const currentValue = currentTargetInput.value.trim();
-    
-    if (currentValue) {
-        currentTargetInput.value = currentValue + ' ' + text;
-    } else {
-        currentTargetInput.value = text;
-    }
-    
-    // Disparar evento de input para ativar autosave
+    currentTargetInput.value = currentValue ? currentValue + ' ' + text : text;
     currentTargetInput.dispatchEvent(new Event('input', { bubbles: true }));
-    
     console.log("✅ Texto adicionado:", text);
 }
 
-// IMPORTANTE: Parar reconhecimento ao sair da página ou trocar de view
 window.addEventListener('beforeunload', () => {
     if (currentRecognition) {
         stopRecognition(null);
     }
 });
 
-// Parar reconhecimento ao mudar de tela
-function showView(viewName) {
-    // Parar reconhecimento de voz ao trocar de view
-    if (currentRecognition && isRecording) {
-        stopRecognition(null);
-    }
-    
-    dashboardView.classList.add('hidden');
-    wizardView.classList.add('hidden');
-    actionPlanView.classList.add('hidden');
-    
-    if (viewName === 'dashboard') dashboardView.classList.remove('hidden');
-    else if (viewName === 'wizard') wizardView.classList.remove('hidden');
-    else if (viewName === 'actionPlan') actionPlanView.classList.remove('hidden');
-}
-
-// Estilos CSS (adicionar se ainda não existir)
 if (!document.getElementById('voice-styles')) {
     const styleSheet = document.createElement("style");
     styleSheet.id = 'voice-styles';
@@ -1757,12 +1685,10 @@ if (!document.getElementById('voice-styles')) {
             0%, 100% { transform: scale(1); }
             50% { transform: scale(1.1); }
         }
-        
         button.active {
             background-color: #fee2e2 !important;
             border-color: #ef4444 !important;
         }
-        
         .sortable-ghost {
             opacity: 0.4;
             background: var(--primary-light);
@@ -1773,75 +1699,12 @@ if (!document.getElementById('voice-styles')) {
 
 console.log("✅ Sistema de reconhecimento de voz carregado!");
 
-// Atualizar indicador visual de rede
-function updateNetworkStatus() {
-    const indicator = document.getElementById('network-status');
-    if (!indicator) return;
-    
-    if (isOnline) {
-        indicator.className = 'network-status online';
-        indicator.textContent = '🌐 Online';
-    } else {
-        indicator.className = 'network-status offline';
-        indicator.textContent = '📴 Offline';
-    }
-}
-
-// Atualizar status ao carregar
-updateNetworkStatus();
-
-// Atualizar quando mudar conexão
-window.addEventListener('online', updateNetworkStatus);
-window.addEventListener('offline', updateNetworkStatus);
-function initializeSortableLists() {
-    const sortableConfig = {
-        animation: 150,
-        ghostClass: 'sortable-ghost',
-        forceFallback: true, // Melhor suporte touch
-        touchStartThreshold: 3, // Sensibilidade touch
-        delay: 100, // Delay para distinguir tap de drag
-        delayOnTouchOnly: true, // Delay apenas no touch
-        onEnd: (evt) => {
-            const { from, oldIndex, newIndex } = evt;
-            const listId = from.id;
-            let targetArray;
-            
-            if (listId === 'departamento-list') {
-                targetArray = currentInspection.departamentos;
-            } else if (listId === 'cargo-list') {
-                targetArray = currentInspection.departamentos[activeDepartamentoIndex].cargos;
-            } else if (listId === 'funcionario-list') {
-                targetArray = currentInspection.departamentos[activeDepartamentoIndex].funcionarios;
-            } else if (listId === 'grupo-list') {
-                targetArray = currentInspection.departamentos[activeDepartamentoIndex].grupos;
-            }
-            
-            if (targetArray) {
-                targetArray.splice(newIndex, 0, targetArray.splice(oldIndex, 1)[0]);
-                persistCurrentInspection(() => {
-                    showToast("✅ Ordem salva!", "success");
-                    // Vibrar no mobile
-                    if ('vibrate' in navigator) {
-                        navigator.vibrate(50);
-                    }
-                });
-            }
-        }
-    };
-    
-    ['departamento-list', 'cargo-list', 'funcionario-list', 'grupo-list'].forEach(id => {
-        const el = document.getElementById(id);
-        if (el) Sortable.create(el, sortableConfig);
-    });
-}
 // PWA Install Prompt para Mobile
 let deferredPrompt;
 
 window.addEventListener('beforeinstallprompt', (e) => {
     e.preventDefault();
     deferredPrompt = e;
-    
-    // Mostrar botão de instalação apenas no mobile
     const isMobile = /Android|webOS|iPhone|iPad|iPod/i.test(navigator.userAgent);
     if (isMobile) {
         showToast("💡 Instale este app na tela inicial!", "success");
