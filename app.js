@@ -1793,102 +1793,135 @@ function appendTextToInput(text) {
 /**
  * Função stopRecognition - Permanece a mesma, garantindo a limpeza.
  */
-function stopRecognition(button) {
-    if (currentRecognition) {
-        currentRecognition.onstart = null;
-        currentRecognition.onresult = null;
-        currentRecognition.onerror = null;
-        currentRecognition.onend = null;
-        currentRecognition.stop();
+function stopRecognition(button, { autoRestart = false, delayMs = 120 } = {}) {
+    try {
+      // Para com segurança (alguns navegadores exigem abort() após stop())
+      if (currentRecognition) {
+        try { currentRecognition.stop(); } catch (_) {}
+        try { currentRecognition.abort(); } catch (_) {}
+      }
+    } finally {
+      isRecording = false;
+      currentRecognition = null;
     }
-    isRecording = false;
-    currentRecognition = null;
-    currentTargetInput = null;
-    
-    removeRecognitionPreview();
-    
+  
+    // Restaura visual do botão
     if (button) {
-        button.classList.remove('active');
-        button.innerHTML = '<i class="bi bi-mic-fill"></i>';
-        button.style.animation = '';
-        button.title = 'Ativar ditado por voz';
+      button.classList.remove("active");
+      button.innerHTML = '<i class="bi bi-mic-fill"></i>';
+      button.style.animation = "";
+      button.title = "Clique para ditar";
     }
-}
+  
+    // Limpa o preview (use as suas funções se existirem)
+    try { updateRecognitionPreview("", ""); } catch (_) {}
+    const previewEl = document.getElementById("recognition-preview");
+    if (previewEl) {
+      previewEl.textContent = "";
+      previewEl.classList.add("hidden");
+    }
+  
+    // Foco e cursor no fim do campo de destino
+    if (currentTargetInput) {
+      // Normaliza espaços e pontuação comuns de ditado
+      currentTargetInput.value = currentTargetInput.value
+        .replace(/\s{2,}/g, " ")     // múltiplos espaços -> 1
+        .replace(/\s+([,.!?;:])/g, "$1"); // remove espaço antes de pontuação
+  
+      currentTargetInput.focus();
+      const len = currentTargetInput.value.length;
+      currentTargetInput.setSelectionRange(len, len);
+    }
+  
+    // Opcional: reinicia automaticamente o microfone para a próxima frase
+    if (autoRestart) {
+      setTimeout(() => {
+        // Garante que ainda existe o botão e o campo antes de reiniciar
+        if (!isRecording && button && currentTargetInput) {
+          toggleRecognition(button);
+        }
+      }, delayMs);
+    }
+  }
 
 
 /**
  * Função toggleRecognition - Lógica final e corrigida.
  */
+
 function toggleRecognition(button) {
     if (isRecording) {
-        stopRecognition(button);
-        return;
+      stopRecognition(button);
+      return;
     }
-
+  
     const targetId = button.dataset.target;
     currentTargetInput = document.getElementById(targetId);
     if (!currentTargetInput) return;
-
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SpeechRecognition) {
-        showToast("❌ Seu navegador não suporta reconhecimento de voz.", "error");
-        return;
+  
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) {
+      showToast("❌ Seu navegador não suporta reconhecimento de voz.", "error");
+      return;
     }
-
-    currentRecognition = new SpeechRecognition();
-    currentRecognition.lang = 'pt-BR';
-    currentRecognition.continuous = true;
+  
+    currentRecognition = new SR();
+    currentRecognition.lang = "pt-BR";
+    currentRecognition.continuous = false;      // ✅ encerra a cada frase dita
     currentRecognition.interimResults = true;
     currentRecognition.maxAlternatives = 1;
-
+  
+    currentRecognition._lastCommitted = "";
+  
     currentRecognition.onstart = () => {
-        isRecording = true;
-        button.classList.add('active');
-        button.innerHTML = '<i class="bi bi-mic-fill" style="color: red;"></i>';
-        button.style.animation = 'pulse 1.5s infinite';
-        button.title = 'Clique para parar';
-        createRecognitionPreview();
+      isRecording = true;
+      button.classList.add("active");
+      button.innerHTML = '<i class="bi bi-mic-fill" style="color: red;"></i>';
+      button.style.animation = "pulse 1.5s infinite";
+      button.title = "Clique para parar";
+      createRecognitionPreview();
     };
-
+  
     currentRecognition.onerror = (event) => {
-        if (event.error !== 'no-speech') {
-            showToast(`❌ Erro de voz: ${event.error}`, "error");
-        }
-        // O onend será chamado automaticamente, limpando o estado.
+      if (event.error !== "no-speech") {
+        showToast(`❌ Erro de voz: ${event.error}`, "error");
+      }
     };
-
+  
     currentRecognition.onend = () => {
-        stopRecognition(button);
+      stopRecognition(button);
     };
-
+  
     currentRecognition.onresult = (event) => {
-        let interimTranscript = '';
-        
-        // *** A CORREÇÃO CRÍTICA ESTÁ AQUI ***
-        // O loop agora começa em 'event.resultIndex'.
-        // Isso garante que processamos APENAS os novos resultados recebidos neste evento.
-        for (let i = event.resultIndex; i < event.results.length; i++) {
-            const transcript = event.results[i][0].transcript;
-
-            if (event.results[i].isFinal) {
-                // Se o resultado for final, anexa ao campo de texto.
-                appendTextToInput(transcript.trim());
-            } else {
-                // Se for provisório, apenas mostra na tela de preview.
-                interimTranscript += transcript;
-            }
+      let finalTranscript = "";
+      let interimTranscript = "";
+  
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const res = event.results[i];
+        const transcript = (res[0]?.transcript || "").trim();
+  
+        if (!transcript) continue;
+  
+        if (res.isFinal) {
+          // ✅ Garante que só adiciona uma vez
+          if (transcript !== currentRecognition._lastCommitted) {
+            appendTextToInput(transcript);
+            currentRecognition._lastCommitted = transcript;
+          }
+        } else {
+          interimTranscript += transcript + " ";
         }
-        
-        // Atualiza a interface visual com o texto provisório.
-        updateRecognitionPreview(interimTranscript, '');
+      }
+  
+      updateRecognitionPreview(interimTranscript.trim(), "");
     };
-    
+  
     try {
-        currentRecognition.start();
+      currentRecognition.start();
     } catch (error) {
-        showToast("❌ Erro ao iniciar reconhecimento.", "error");
-        stopRecognition(button);
+      showToast("❌ Erro ao iniciar reconhecimento.", "error");
+      stopRecognition(button);
     }
-}
+  }
 
 console.log("✅ Sistema com reconhecimento de voz em TODOS os campos carregado!");
