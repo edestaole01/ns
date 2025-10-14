@@ -517,16 +517,6 @@ function editDepartamento(index) {
     window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
 }
 
-// ### REATORADO para usar a função genérica ###
-function deleteDepartamento(index) {
-    deleteItem('departamento', index);
-}
-
-// ### REATORADO para usar a função genérica ###
-function duplicateDepartamento(index) {
-    duplicateItem('departamento', index);
-}
-
 function clearDeptoForm() {
     editingIndex = -1;
     document.getElementById("depto-form").reset();
@@ -848,37 +838,6 @@ function saveGrupo() {
     updateGrupoList();
     persistCurrentInspection();
 }
-
-// ### REATORADO para usar a função genérica ###
-function deleteCargo(index) {
-    deleteItem('cargo', index);
-}
-
-// ### REATORADO para usar a função genérica ###
-function deleteFuncionario(index) {
-    deleteItem('funcionario', index);
-}
-
-// ### REATORADO para usar a função genérica ###
-function deleteGrupo(index) {
-    deleteItem('grupo', index);
-}
-
-// ### REATORADO para usar a função genérica ###
-function duplicateCargo(index) {
-    duplicateItem('cargo', index);
-}
-
-// ### REATORADO para usar a função genérica ###
-function duplicateFuncionario(index) {
-    duplicateItem('funcionario', index);
-}
-
-// ### REATORADO para usar a função genérica ###
-function duplicateGrupo(index) {
-    duplicateItem('grupo', index);
-}
-
 
 function populateForm(prefix, data) {
     if (!data) return;
