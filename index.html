@@ -10,6 +10,8 @@
 
     <!-- PWA Manifest -->
     <link rel="manifest" href="manifest.json">
+    <link rel="icon" href="icon-192.png" type="image/png"> <!-- <<< ÍCONE ADICIONADO AQUI -->
+
 
     <!-- Fontes e Ícones -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -582,7 +584,7 @@
         .network-status.online {
             background: var(--secondary);
             color: white;
-            opacity: 0;
+            opacity: 0; /* Começa invisível e aparece brevemente */
         }
 
         .network-status.offline {

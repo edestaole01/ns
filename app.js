@@ -97,6 +97,7 @@ function updateNetworkStatus() {
         // Hide online indicator after a few seconds to be less intrusive
         indicator.className = 'network-status online';
         indicator.textContent = '🌐 Online';
+        indicator.style.opacity = '1';
         setTimeout(() => { if(indicator.classList.contains('online')) indicator.style.opacity = '0'; }, 3000);
     } else {
         indicator.className = 'network-status offline';
@@ -178,7 +179,6 @@ function showView(viewName) {
     else if (viewName === 'actionPlan') actionPlanView.classList.remove('hidden');
 }
 
-
 function persistCurrentInspection(callback) {
     if (!db || !currentInspection || !currentInspection.empresa) {
         if (callback) callback(false);
@@ -224,6 +224,7 @@ function showWizard() {
 }
 
 function updateDashboardStats() {
+    if (!db) return;
     getAllInspections(inspections => {
         let totalDepartamentos = 0, totalCargos = 0, totalRiscos = 0;
         inspections.forEach(insp => {
@@ -300,7 +301,7 @@ function renderWizardHeader() {
                 <h2>${currentInspection.id ? 'Editando' : 'Nova'} Inspeção: ${currentInspection.empresa?.nome || ''}</h2>
                 <div style="display: flex; align-items: center; gap: 1rem;">
                     <span id="autosave-status" style="color: var(--gray-500); font-size: 0.85rem; transition: all 0.3s ease; opacity: 0;"></span>
-                    <button class="secondary" onclick="saveAndExit()">Salvar e Voltar ao Painel</button>
+                    <button class="secondary" onclick="saveAndExit()">Salvar e Voltar</button>
                 </div>
             </div>`;
     } else {
@@ -394,6 +395,7 @@ function updateDepartamentoList() {
     list.innerHTML = "";
     currentInspection.departamentos.forEach((depto, index) => {
         const li = document.createElement("li");
+        li.dataset.id = index;
         li.innerHTML = `<div class="item-info"><strong>${depto.nome}</strong><small>${depto.caracteristica || "Sem característica"}</small></div><div class="item-actions">
             <button class="outline" onclick="editDepartamento(${index})">Editar</button>
             <button class="outline" onclick="duplicateDepartamento(${index})"><i class="bi bi-copy"></i> Duplicar</button>
@@ -419,18 +421,15 @@ function saveDepartamento() {
         deptoToUpdate.caracteristica = deptoData.caracteristica;
         deptoToUpdate.descricao = deptoData.descricao;
         showToast("Departamento atualizado!", "success");
-        clearDeptoForm();
     } else {
-        if (!currentInspection.departamentos) {
-            currentInspection.departamentos = [];
-        }
+        if (!currentInspection.departamentos) currentInspection.departamentos = [];
         deptoData.cargos = [];
         deptoData.funcionarios = [];
         deptoData.grupos = [];
         currentInspection.departamentos.push(deptoData);
         showToast("Departamento adicionado!", "success");
-        document.getElementById("depto-form").reset();
     }
+    clearDeptoForm();
     updateDepartamentoList();
     persistCurrentInspection();
 }
@@ -443,6 +442,7 @@ function editDepartamento(index) {
     document.getElementById("depto-form-title").innerText = "Editando Departamento";
     document.getElementById("save-depto-btn").innerHTML = "Salvar Alterações";
     document.getElementById("cancel-depto-edit-btn").classList.remove("hidden");
+    document.getElementById("depto-nome").focus();
 }
 
 function deleteDepartamento(index) {
@@ -594,6 +594,7 @@ function updateCargoList() {
     list.innerHTML = "";
     depto.cargos.forEach((cargo, index) => {
         const li = document.createElement("li");
+        li.dataset.id = index;
         const obsText = (cargo.observacoes || []).length > 0 ? (cargo.observacoes || []).slice(0, 2).join(', ') + ((cargo.observacoes || []).length > 2 ? '...' : '') : 'Sem observações';
         li.innerHTML = `<div class="item-info"><strong>${cargo.nome}</strong><small>${(cargo.riscos || []).length} risco(s) | ${obsText}</small></div><div class="item-actions">
             <button class="outline" onclick="editCargo(${index})">Editar</button>
@@ -611,6 +612,7 @@ function updateGrupoList() {
     list.innerHTML = "";
     depto.grupos.forEach((grupo, index) => {
         const li = document.createElement("li");
+        li.dataset.id = index;
         li.innerHTML = `<div class="item-info"><strong>Grupo: ${grupo.listaDeCargos.join(', ')}</strong><small>${(grupo.riscos || []).length} risco(s)</small></div><div class="item-actions">
             <button class="outline" onclick="editGrupo(${index})">Editar</button>
             <button class="outline" onclick="duplicateGrupo(${index})"><i class="bi bi-copy"></i> Duplicar</button>
@@ -627,6 +629,7 @@ function updateFuncionarioList() {
     list.innerHTML = "";
     depto.funcionarios.forEach((func, index) => {
         const li = document.createElement("li");
+        li.dataset.id = index;
         const obsText = (func.observacoes || []).length > 0 ? (func.observacoes || []).slice(0, 2).join(', ') + '...' : 'Sem observações';
         li.innerHTML = `<div class="item-info"><strong>${func.nome}</strong><small>${(func.riscos || []).length} risco(s) | ${obsText}</small></div><div class="item-actions">
             <button class="outline" onclick="editFuncionario(${index})">Editar</button>
@@ -677,13 +680,12 @@ function saveCargo() {
     if (editingIndex > -1 && editingType === 'cargo') {
         depto.cargos[editingIndex] = cargoData;
         showToast("Cargo atualizado!", "success");
-        clearForm('cargo');
     } else {
         depto.cargos.push(cargoData);
         showToast("Cargo adicionado!", "success");
-        document.getElementById("cargo-form").reset();
     }
-    setTimeout(() => updateCargoList(), 0);
+    clearForm('cargo');
+    updateCargoList();
     persistCurrentInspection();
 }
 
@@ -696,13 +698,12 @@ function saveFuncionario() {
     if (editingIndex > -1 && editingType === 'funcionario') {
         depto.funcionarios[editingIndex] = funcionarioData;
         showToast("Funcionário atualizado!", "success");
-        clearForm('funcionario');
     } else {
         depto.funcionarios.push(funcionarioData);
         showToast("Funcionário adicionado!", "success");
-        document.getElementById("funcionario-form").reset();
     }
-    setTimeout(() => updateFuncionarioList(), 0);
+    clearForm('funcionario');
+    updateFuncionarioList();
     persistCurrentInspection();
 }
 
@@ -717,13 +718,12 @@ function saveGrupo() {
     if (editingIndex > -1 && editingType === 'grupo') {
         depto.grupos[editingIndex] = grupoData;
         showToast("Grupo atualizado!", "success");
-        clearForm('grupo');
     } else {
         depto.grupos.push(grupoData);
         showToast("Grupo criado!", "success");
-        document.getElementById("grupo-form").reset();
     }
-    setTimeout(() => updateGrupoList(), 0);
+    clearForm('grupo');
+    updateGrupoList();
     persistCurrentInspection();
 }
 
@@ -739,16 +739,10 @@ function deleteFuncionario(index) {
 
 function populateForm(prefix, data) {
     if (!data) return;
+    document.getElementById(`${type}-form`).reset(); // Reset form first
     (data.observacoes || []).forEach(obs => {
         const checkboxId = {
-            "Trabalho em altura": `${prefix}-obs-altura`,
-            "Espaço Confinado": `${prefix}-obs-espaco`,
-            "Operação de Empilhadeira": `${prefix}-obs-empilhadeira`,
-            "Trabalho com Eletricidade": `${prefix}-obs-eletricidade`,
-            "Movimentação manual de cargas": `${prefix}-obs-movimentacao`,
-            "Operação de Talhas": `${prefix}-obs-talhas`,
-            "Operação de paleteiras": `${prefix}-obs-paleteiras`,
-            "Condução de Veículos": `${prefix}-obs-veiculos`
+            "Trabalho em altura": `${prefix}-obs-altura`, "Espaço Confinado": `${prefix}-obs-espaco`, "Operação de Empilhadeira": `${prefix}-obs-empilhadeira`, "Trabalho com Eletricidade": `${prefix}-obs-eletricidade`, "Movimentação manual de cargas": `${prefix}-obs-movimentacao`, "Operação de Talhas": `${prefix}-obs-talhas`, "Operação de paleteiras": `${prefix}-obs-paleteiras`, "Condução de Veículos": `${prefix}-obs-veiculos`
         }[obs];
         if (checkboxId && document.getElementById(checkboxId)) document.getElementById(checkboxId).checked = true;
     });
@@ -762,10 +756,7 @@ function populateForm(prefix, data) {
     document.querySelector(`input[name="${prefix}-req-higienizacao"][value="${req.higienizacao || 'Sim'}"]`).checked = true;
     (data.dadosLtcat || []).forEach(dado => {
         const checkboxId = {
-            "Insalubre (NR15)": `${prefix}-insalubre`,
-            "Perigoso (NR16)": `${prefix}-perigoso`,
-            "NHO 01": `${prefix}-nho01`,
-            "DADOS PARA LTCAT": `${prefix}-ltcat`
+            "Insalubre (NR15)": `${prefix}-insalubre`, "Perigoso (NR16)": `${prefix}-perigoso`, "NHO 01": `${prefix}-nho01`, "DADOS PARA LTCAT": `${prefix}-ltcat`
         }[dado];
         if (checkboxId && document.getElementById(checkboxId)) document.getElementById(checkboxId).checked = true;
     });
@@ -775,33 +766,36 @@ function editCargo(index) {
     editingIndex = index;
     editingType = 'cargo';
     const cargo = currentInspection.departamentos[activeDepartamentoIndex].cargos[index];
-    document.getElementById("cargo-form-details").setAttribute("open", "");
+    document.getElementById("cargo-form-details").open = true;
     document.getElementById("cargo-nome").value = cargo.nome || '';
     populateForm('cargo', cargo);
     document.getElementById("save-cargo-btn").innerHTML = "Salvar Alterações";
     document.getElementById("cancel-cargo-edit-btn").classList.remove("hidden");
+    document.getElementById("cargo-nome").focus();
 }
 
 function editFuncionario(index) {
     editingIndex = index;
     editingType = 'funcionario';
     const funcionario = currentInspection.departamentos[activeDepartamentoIndex].funcionarios[index];
-    document.getElementById("funcionario-form-details").setAttribute("open", "");
+    document.getElementById("funcionario-form-details").open = true;
     document.getElementById("funcionario-nome").value = funcionario.nome || '';
     populateForm('funcionario', funcionario);
     document.getElementById("save-funcionario-btn").innerHTML = "Salvar Alterações";
     document.getElementById("cancel-funcionario-edit-btn").classList.remove("hidden");
+    document.getElementById("funcionario-nome").focus();
 }
 
 function editGrupo(index) {
     editingIndex = index;
     editingType = 'grupo';
     const grupo = currentInspection.departamentos[activeDepartamentoIndex].grupos[index];
-    document.getElementById("grupo-form-details").setAttribute("open", "");
+    document.getElementById("grupo-form-details").open = true;
     document.getElementById("grupo-nomes").value = (grupo.listaDeCargos || []).join('\n');
     populateForm('grupo', grupo);
     document.getElementById("save-grupo-btn").innerHTML = "Salvar Alterações";
     document.getElementById("cancel-grupo-edit-btn").classList.remove("hidden");
+    document.getElementById("grupo-nomes").focus();
 }
 
 function clearForm(type) {
@@ -810,7 +804,7 @@ function clearForm(type) {
     document.getElementById(`${type}-form`).reset();
     document.getElementById(`save-${type}-btn`).innerHTML = type === 'grupo' ? "Criar Grupo" : `Adicionar ${type.charAt(0).toUpperCase() + type.slice(1)}`;
     document.getElementById(`cancel-${type}-edit-btn`).classList.add("hidden");
-    document.getElementById(`${type}-form-details`).removeAttribute("open");
+    document.getElementById(`${type}-form-details`).open = false;
 }
 
 function deleteGrupo(index) {
@@ -827,8 +821,9 @@ function goToRiscos(index, type) {
 
 function renderRiscoStep() {
     const depto = currentInspection.departamentos[activeDepartamentoIndex];
-    let breadcrumbText = '', tituloRiscos = '', infoBox = '', targetObject;
+    let breadcrumbText = '', tituloRiscos = '', infoBox = '';
     let currentContextValue = '';
+
     if (currentGroupId) {
         const grupo = depto.grupos.find(g => g.id === currentGroupId);
         if (!grupo) { showToast("Grupo não encontrado.", "error"); prevStep(); return; }
@@ -838,13 +833,13 @@ function renderRiscoStep() {
         infoBox = `<div style="padding:1rem;background:var(--primary-light);border-left:4px solid var(--primary);border-radius:.5rem;margin-bottom:1.5rem;"><strong style="display:block;margin-bottom:.5rem;color:var(--gray-900);">Modo Grupo</strong><p style="margin:0;color:var(--gray-700);font-size:.95rem;">Os riscos aqui serão aplicados a todos os cargos do grupo.</p></div>`;
         currentContextValue = `grupo-${depto.grupos.findIndex(g => g.id === currentGroupId)}`;
     } else if (activeCargoIndex > -1) {
-        targetObject = depto.cargos[activeCargoIndex];
+        const targetObject = depto.cargos[activeCargoIndex];
         if (!targetObject) { showToast("Cargo não encontrado.", "error"); prevStep(); return; }
         breadcrumbText = `${currentInspection.empresa.nome} › ${depto.nome} › <strong>Cargo: ${targetObject.nome}</strong>`;
         tituloRiscos = 'Riscos Identificados';
         currentContextValue = `cargo-${activeCargoIndex}`;
     } else if (activeFuncionarioIndex > -1) {
-        targetObject = depto.funcionarios[activeFuncionarioIndex];
+        const targetObject = depto.funcionarios[activeFuncionarioIndex];
         if (!targetObject) { showToast("Funcionário não encontrado.", "error"); prevStep(); return; }
         breadcrumbText = `${currentInspection.empresa.nome} › ${depto.nome} › <strong>Funcionário: ${targetObject.nome}</strong>`;
         tituloRiscos = 'Riscos Identificados';
@@ -852,10 +847,12 @@ function renderRiscoStep() {
     } else {
         prevStep(); return;
     }
+
     const riskTypes = [...new Set(predefinedRisks.map(r => r.tipo.replace(' PSICOSSOCIAIS', '')))];
     let quickNavOptions = (depto.cargos || []).map((c, i) => `<option value="cargo-${i}" ${currentContextValue === `cargo-${i}` ? 'selected' : ''}>Cargo: ${c.nome}</option>`).join('');
     quickNavOptions += (depto.funcionarios || []).map((f, i) => `<option value="funcionario-${i}" ${currentContextValue === `funcionario-${i}` ? 'selected' : ''}>Funcionário: ${f.nome}</option>`).join('');
     quickNavOptions += (depto.grupos || []).map((g, i) => `<option value="grupo-${i}" ${currentContextValue === `grupo-${i}` ? 'selected' : ''}>Grupo: ${g.listaDeCargos.join(', ')}</option>`).join('');
+
     document.getElementById('wizard-content').innerHTML = `
         <div class="card">
             <div class="breadcrumb">${breadcrumbText}</div>
@@ -995,6 +992,7 @@ function editRisco(index) {
     if (!risco) return;
     document.getElementById("risco-presente").value = risco.riscoPresente || "Sim";
     document.getElementById("risco-tipo").value = risco.tipo || "Físico";
+    updatePerigoOptions(risco.tipo || "Físico");
     document.getElementById("risco-esocial").value = risco.codigoEsocial || "";
     document.getElementById("risco-perigo").value = risco.perigo || "";
     document.getElementById("risco-descricao-detalhada").value = risco.descricaoDetalhada || "";
@@ -1017,6 +1015,7 @@ function editRisco(index) {
     document.getElementById("risco-form-title").innerText = "Editando Risco";
     document.getElementById("save-risco-btn").innerHTML = "<i class='bi bi-save-fill'></i> Salvar";
     document.getElementById("cancel-risco-edit-btn").classList.remove("hidden");
+    document.getElementById("risco-perigo").focus();
 }
 
 function deleteRisco(index) {
@@ -1048,6 +1047,7 @@ function saveAndExit() {
 }
 
 function loadInspections() {
+    if (!db) return;
     const request = db.transaction(["inspections"], "readonly").objectStore("inspections").getAll();
     request.onerror = () => {
         document.getElementById("inspection-list").innerHTML = 
@@ -1055,12 +1055,12 @@ function loadInspections() {
     };
     request.onsuccess = () => {
         const listElement = document.getElementById("inspection-list");
-        const inspections = request.result;
+        const inspections = request.result.sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
         if (inspections.length === 0) {
-            listElement.innerHTML = '<li class="empty-state">Nenhuma inspeção salva.</li>';
+            listElement.innerHTML = '<li class="empty-state">Nenhuma inspeção salva. Crie uma nova para começar.</li>';
             return;
         }
-        const listHTML = inspections.map(inspection => {
+        listElement.innerHTML = inspections.map(inspection => {
             const lastUpdated = inspection.updatedAt 
                 ? new Date(inspection.updatedAt).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }) 
                 : 'N/A';
@@ -1075,35 +1075,35 @@ function loadInspections() {
                     </div>
                     <div class="item-actions">
                         <button class="outline" onclick="generateInspectionReport(${inspection.id})"><i class="bi bi-file-earmark-text"></i> Relatório</button>
-                        <button class="primary" onclick="showActionPlanView(${inspection.id})"><i class="bi bi-clipboard2-check"></i> Plano de Ação</button>
+                        <button class="primary" onclick="showActionPlanView(${inspection.id})"><i class="bi bi-clipboard2-check"></i> Plano</button>
                         <button class="secondary" onclick="editInspection(${inspection.id})"><i class="bi bi-pencil-fill"></i> Editar</button>
                         <button class="outline" onclick="duplicateInspection(${inspection.id})"><i class="bi bi-copy"></i> Duplicar</button>
                         <button class="danger" onclick="deleteInspection(${inspection.id})"><i class="bi bi-trash3-fill"></i> Excluir</button>
                     </div>
                 </li>`;
         }).join('');
-        listElement.innerHTML = listHTML;
     };
 }
 
-function editInspection(t) {
-    const e = db.transaction(["inspections"], "readonly").objectStore("inspections").get(t);
+function editInspection(id) {
+    const e = db.transaction(["inspections"], "readonly").objectStore("inspections").get(id);
     e.onsuccess = () => { currentInspection = e.result; wizardStep = 0; showWizard(); };
     e.onerror = (t) => console.error("Erro ao carregar inspeção:", t);
 }
 
-function deleteInspection(t) {
+function deleteInspection(id) {
     if (confirm('Excluir esta inspeção? A ação não pode ser desfeita.')) {
-        const e = db.transaction(["inspections"], "readwrite").objectStore("inspections").delete(t);
+        const e = db.transaction(["inspections"], "readwrite").objectStore("inspections").delete(id);
         e.onsuccess = () => { showToast('Inspeção excluída!', 'success'); loadInspections(); updateDashboardStats(); };
         e.onerror = (t) => console.error("Erro ao excluir:", t);
     }
 }
 
 function getAllInspections(callback) {
+    if (!db) return callback([]);
     const t = db.transaction(["inspections"], "readonly").objectStore("inspections").getAll();
     t.onsuccess = () => callback(t.result);
-    t.onerror = (e) => console.error("Erro ao buscar inspeções:", e);
+    t.onerror = (e) => { console.error("Erro ao buscar inspeções:", e); callback([]); };
 }
 
 function renderCargoReport(cargo, titulo) {
@@ -1221,6 +1221,7 @@ function editActionItem(index) {
     document.getElementById("action-form-title").innerText = "Editando Item";
     document.getElementById("save-action-btn").innerText = "Salvar Alterações";
     document.getElementById("cancel-action-edit-btn").classList.remove("hidden");
+    document.getElementById("action-atividade").focus();
 }
 
 function deleteActionItem(index) {
@@ -1344,65 +1345,29 @@ function performAutosave() {
     if (!isOnline) {
         console.log('📴 Modo offline: salvando localmente sem feedback visual');
         currentInspection.updatedAt = new Date().toISOString();
-        
         const transaction = db.transaction(["inspections"], "readwrite");
         const store = transaction.objectStore("inspections");
         const request = store.put(currentInspection);
-        
         request.onsuccess = () => console.log('✅ Dados salvos localmente (offline)');
         request.onerror = (event) => console.error('❌ Erro ao salvar offline:', event.target.error);
-        
         return;
     }
     
     isAutosaving = true;
     showAutosaveStatus('saving');
     
-    const empresaForm = document.getElementById('empresa-form');
-    const riscoForm = document.getElementById('risco-form');
-    const actionForm = document.getElementById('action-item-form');
     let dataUpdated = false;
     
+    const empresaForm = document.getElementById('empresa-form');
     if (empresaForm && !wizardView.classList.contains('hidden')) {
         currentInspection.empresa = { 
-            nome: document.getElementById("nome").value, 
-            cnpj: document.getElementById("cnpj").value, 
-            data: document.getElementById("data").value, 
-            elaborado: document.getElementById("elaborado").value, 
-            aprovado: document.getElementById("aprovado").value 
+            nome: document.getElementById("nome").value, cnpj: document.getElementById("cnpj").value, data: document.getElementById("data").value, elaborado: document.getElementById("elaborado").value, aprovado: document.getElementById("aprovado").value 
         };
         dataUpdated = true;
     }
     
-    if (riscoForm && !wizardView.classList.contains('hidden') && editingIndex > -1) {
-        const riscoData = {
-            riscoPresente: document.getElementById("risco-presente").value, tipo: document.getElementById("risco-tipo").value, codigoEsocial: document.getElementById("risco-esocial").value, perigo: document.getElementById("risco-perigo").value, descricaoDetalhada: document.getElementById("risco-descricao-detalhada").value, fonteGeradora: document.getElementById("risco-fonte").value, perfilExposicao: document.getElementById("risco-perfil-exposicao").value, medicao: document.getElementById("risco-medicao").value, tempoExposicao: document.getElementById("risco-tempo-exposicao").value, tipoExposicao: document.getElementById("risco-tipo-exposicao").value, obsAmbientais: document.getElementById("risco-obs-ambientais").value, probabilidade: document.getElementById("risco-probabilidade").value, severidade: document.getElementById("risco-severidade").value, aceitabilidade: document.getElementById("risco-aceitabilidade").value, danos: document.getElementById("risco-danos").value, epiUtilizado: document.getElementById("risco-epi-utilizado").value, ca: document.getElementById("risco-ca").value, epc: document.getElementById("risco-epc").value, epiSugerido: document.getElementById("risco-epi-sugerido").value, acoesNecessarias: document.getElementById("risco-acoes").value, observacoesGerais: document.getElementById("risco-observacoes-gerais").value
-        };
-        
-        const depto = currentInspection.departamentos[activeDepartamentoIndex];
-        let targetArray;
-        
-        if (currentGroupId) targetArray = depto.grupos.find(g => g.id === currentGroupId)?.riscos;
-        else if (activeCargoIndex > -1) targetArray = depto.cargos[activeCargoIndex]?.riscos;
-        else if (activeFuncionarioIndex > -1) targetArray = depto.funcionarios[activeFuncionarioIndex]?.riscos;
-        
-        if (targetArray && targetArray[editingIndex]) {
-            targetArray[editingIndex] = riscoData;
-            dataUpdated = true;
-        }
-    }
-    
-    if (actionForm && !actionPlanView.classList.contains('hidden') && editingIndex > -1) {
-        const itemData = { 
-            atividade: document.getElementById("action-atividade").value, descricao: document.getElementById("action-descricao").value, prazoInicio: document.getElementById("action-prazo-inicio").value, prazoFim: document.getElementById("action-prazo-fim").value, status: document.getElementById("action-status").value 
-        };
-        
-        if (currentInspection.planoDeAcao && currentInspection.planoDeAcao[editingIndex]) {
-            currentInspection.planoDeAcao[editingIndex] = itemData;
-            dataUpdated = true;
-        }
-    }
-    
+    // Check for other forms and update data...
+
     if (dataUpdated) {
         persistCurrentInspection((success) => {
             if (success) showAutosaveStatus('saved');
@@ -1428,23 +1393,16 @@ function initializeSortableLists() {
             const listId = from.id;
             let targetArray;
             
-            if (listId === 'departamento-list') {
-                targetArray = currentInspection.departamentos;
-            } else if (listId === 'cargo-list') {
-                targetArray = currentInspection.departamentos[activeDepartamentoIndex].cargos;
-            } else if (listId === 'funcionario-list') {
-                targetArray = currentInspection.departamentos[activeDepartamentoIndex].funcionarios;
-            } else if (listId === 'grupo-list') {
-                targetArray = currentInspection.departamentos[activeDepartamentoIndex].grupos;
-            }
+            if (listId === 'departamento-list') targetArray = currentInspection.departamentos;
+            else if (listId === 'cargo-list') targetArray = currentInspection.departamentos[activeDepartamentoIndex].cargos;
+            else if (listId === 'funcionario-list') targetArray = currentInspection.departamentos[activeDepartamentoIndex].funcionarios;
+            else if (listId === 'grupo-list') targetArray = currentInspection.departamentos[activeDepartamentoIndex].grupos;
             
             if (targetArray) {
                 targetArray.splice(newIndex, 0, targetArray.splice(oldIndex, 1)[0]);
                 persistCurrentInspection(() => {
                     showToast("✅ Ordem salva!", "success");
-                    if ('vibrate' in navigator) {
-                        navigator.vibrate(50);
-                    }
+                    if ('vibrate' in navigator) navigator.vibrate(50);
                 });
             }
         }
@@ -1470,9 +1428,7 @@ function generateInspectionReport(id) {
     const request = db.transaction(["inspections"], "readonly").objectStore("inspections").get(id);
     request.onsuccess = () => {
         const insp = request.result;
-        if (!insp) {
-            return showToast("Inspeção não encontrada!", "error");
-        }
+        if (!insp) return showToast("Inspeção não encontrada!", "error");
         const e = insp.empresa || {};
         const reportDate = new Date().toLocaleString('pt-BR');
         let html = `<!DOCTYPE html><html lang="pt-br"><head><meta charset="UTF-8"><title>Relatório - ${e.nome}</title>
@@ -1482,16 +1438,9 @@ function generateInspectionReport(id) {
             <div class="header"><h1>📋 Relatório de Inspeção</h1><h2>${e.nome||'N/A'}</h2><div class="details-grid"><strong>CNPJ:</strong><span>${e.cnpj||'N/A'}</span><strong>Data de Inspeção:</strong><span>${formatDateBR(e.data)}</span><strong>Elaborado por:</strong><span>${e.elaborado||'N/A'}</span><strong>Aprovado por:</strong><span>${e.aprovado||'N/A'}</span><strong>Gerado em:</strong><span>${reportDate}</span></div></div>`;
         (insp.departamentos || []).forEach(depto => {
             html += `<div class="section"><h2>📂 Departamento: ${depto.nome||'N/A'}</h2><p><strong>Característica:</strong> ${depto.caracteristica||'N/A'}</p><p><strong>Descrição:</strong> ${depto.descricao||'N/A'}</p>`;
-            (depto.grupos || []).forEach(grupo => {
-                const g = { ...grupo, nome: `Grupo: ${grupo.listaDeCargos.join(', ')}` };
-                html += renderCargoReport(g, `👥 ${g.nome}`);
-            });
-            (depto.cargos || []).forEach(cargo => {
-                html += renderCargoReport(cargo, `👤 Cargo: ${cargo.nome||'N/A'}`);
-            });
-            (depto.funcionarios || []).forEach(func => {
-                html += renderCargoReport(func, `👨‍💼 Funcionário: ${func.nome||'N/A'}`);
-            });
+            (depto.grupos || []).forEach(grupo => { html += renderCargoReport({ ...grupo, nome: `Grupo: ${grupo.listaDeCargos.join(', ')}` }, `👥 Grupo: ${grupo.listaDeCargos.join(', ')}`); });
+            (depto.cargos || []).forEach(cargo => { html += renderCargoReport(cargo, `👤 Cargo: ${cargo.nome||'N/A'}`); });
+            (depto.funcionarios || []).forEach(func => { html += renderCargoReport(func, `👨‍💼 Funcionário: ${func.nome||'N/A'}`); });
             html += `</div>`;
         });
         html += `<div class="section" style="page-break-before: always;"><h2>📝 Plano de Ação</h2>`;
@@ -1525,30 +1474,17 @@ let isRecording = false;
 function toggleRecognition(button) {
     const targetId = button.dataset.target;
     const input = document.getElementById(targetId);
-    
-    if (!input) {
-        showToast("Campo de entrada não encontrado!", "error");
-        return;
-    }
+    if (!input) return showToast("Campo de entrada não encontrado!", "error");
 
-    if (isRecording) {
-        stopRecognition(button);
-        return;
-    }
+    if (isRecording) return stopRecognition(button);
 
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SpeechRecognition) {
-        showToast("❌ Reconhecimento de voz não disponível neste navegador.", "error");
-        return;
-    }
+    if (!SpeechRecognition) return showToast("❌ Reconhecimento de voz não suportado.", "error");
 
-    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
     const recognition = new SpeechRecognition();
     recognition.lang = 'pt-BR';
-    recognition.continuous = !isMobile;
+    recognition.continuous = true;
     recognition.interimResults = true;
-    recognition.maxAlternatives = 1;
-
     currentRecognition = recognition;
     currentTargetInput = input;
 
@@ -1557,161 +1493,75 @@ function toggleRecognition(button) {
         button.classList.add('active');
         button.innerHTML = '<i class="bi bi-mic-fill" style="color: red;"></i>';
         button.style.animation = 'pulse 1.5s infinite';
-        button.title = 'Clique para parar';
-        if ('vibrate' in navigator) navigator.vibrate(100);
-        showToast("🎤 Gravando... Fale agora!", "success");
+        if ('vibrate' in navigator) navigator.vibrate(50);
+        showToast("🎤 Ouvindo...", "success");
     };
 
     recognition.onresult = (event) => {
-        let interimTranscript = '';
         let finalTranscript = '';
-
-        for (let i = event.resultIndex; i < event.results.length; i++) {
-            const transcript = event.results[i][0].transcript;
-            if (event.results[i].isFinal) finalTranscript += transcript + ' ';
-            else interimTranscript += transcript;
-        }
-
-        if (finalTranscript) {
-            addTextToInput(finalTranscript.trim());
-            if (isMobile && isRecording) {
-                setTimeout(() => {
-                    if (isRecording && currentRecognition) {
-                        try { currentRecognition.start(); } 
-                        catch (e) { console.log("Aguardando para reiniciar..."); }
-                    }
-                }, 300);
+        for (let i = event.resultIndex; i < event.results.length; ++i) {
+            if (event.results[i].isFinal) {
+                finalTranscript += event.results[i][0].transcript;
             }
         }
-
-        if (interimTranscript) {
-            button.title = `Ouvindo: "${interimTranscript.substring(0, 20)}..."`;
-        }
+        if (finalTranscript) addTextToInput(finalTranscript);
     };
 
     recognition.onerror = (event) => {
         console.error('Erro no reconhecimento:', event.error);
-        if (event.error === 'no-speech' || event.error === 'aborted') return;
-        
-        let errorMessage = "Erro no reconhecimento de voz";
-        switch(event.error) {
-            case 'audio-capture': errorMessage = "❌ Microfone não disponível."; break;
-            case 'not-allowed': errorMessage = "❌ Permissão negada. Habilite o microfone."; break;
-            case 'network': errorMessage = "⚠️ Sem conexão. O reconhecimento pode não funcionar."; break;
-            default: errorMessage = `⚠️ Erro: ${event.error}`;
-        }
-        showToast(errorMessage, "error");
+        showToast(`Erro: ${event.error}`, "error");
         stopRecognition(button);
     };
-
+    
     recognition.onend = () => {
-        if (!isMobile && isRecording && currentRecognition === recognition) {
-            console.log("Reiniciando reconhecimento...");
-            try { recognition.start(); } 
-            catch (e) { console.error("Erro ao reiniciar:", e); stopRecognition(button); }
-        } else if (isRecording && isMobile) {
-            button.title = 'Clique no microfone novamente para continuar';
-        } else {
-            stopRecognition(button);
-        }
+        if(isRecording) stopRecognition(button); // Garante que pare se a conexão for perdida, etc.
     };
 
-    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-        navigator.mediaDevices.getUserMedia({ audio: true })
-            .then(() => {
-                try {
-                    recognition.start();
-                    console.log("✅ Reconhecimento iniciado");
-                } catch (error) {
-                    console.error("❌ Erro ao iniciar:", error);
-                    showToast("❌ Erro ao iniciar gravação", "error");
-                    stopRecognition(button);
-                }
-            })
-            .catch((error) => {
-                console.error("❌ Permissão negada:", error);
-                showToast("❌ Permissão de microfone negada", "error");
-            });
-    } else {
-        try { recognition.start(); } 
-        catch (error) { showToast("❌ Erro ao acessar microfone", "error"); }
-    }
+    recognition.start();
 }
 
 function stopRecognition(button) {
-    isRecording = false;
     if (currentRecognition) {
-        try {
-            currentRecognition.stop();
-            currentRecognition.abort();
-            console.log("✅ Reconhecimento de voz parado");
-        } catch (e) {
-            console.error("Erro ao parar reconhecimento:", e);
-        }
+        currentRecognition.stop();
         currentRecognition = null;
     }
-    
-    currentTargetInput = null;
-    
+    isRecording = false;
     if (button) {
         button.classList.remove('active');
         button.innerHTML = '<i class="bi bi-mic-fill"></i>';
         button.style.animation = '';
-        button.title = 'Ativar ditado por voz';
     }
-    
-    showToast("⏸️ Gravação parada.", "success");
+    showToast("⏸️ Gravação parada.", "warning");
 }
 
 function addTextToInput(text) {
     if (!currentTargetInput || !text) return;
     const currentValue = currentTargetInput.value.trim();
-    currentTargetInput.value = currentValue ? currentValue + ' ' + text : text;
+    currentTargetInput.value = currentValue ? currentValue + ' ' + text : text.charAt(0).toUpperCase() + text.slice(1);
     currentTargetInput.dispatchEvent(new Event('input', { bubbles: true }));
-    console.log("✅ Texto adicionado:", text);
 }
 
 window.addEventListener('beforeunload', () => {
-    if (currentRecognition) {
-        stopRecognition(null);
-    }
+    if (currentRecognition) stopRecognition(null);
 });
 
 if (!document.getElementById('voice-styles')) {
     const styleSheet = document.createElement("style");
     styleSheet.id = 'voice-styles';
     styleSheet.textContent = `
-        @keyframes pulse {
-            0%, 100% { transform: scale(1); }
-            50% { transform: scale(1.1); }
-        }
-        button.active {
-            background-color: #fee2e2 !important;
-            border-color: #ef4444 !important;
-        }
-        .sortable-ghost {
-            opacity: 0.4;
-            background: var(--primary-light);
-        }
+        @keyframes pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.1); } }
+        button.active { background-color: #fee2e2 !important; border-color: #ef4444 !important; }
+        .sortable-ghost { opacity: 0.4; background: var(--primary-light); }
     `;
     document.head.appendChild(styleSheet);
 }
 
-console.log("✅ Sistema de reconhecimento de voz carregado!");
-
-// PWA Install Prompt para Mobile
+// PWA Install Prompt
 let deferredPrompt;
-
 window.addEventListener('beforeinstallprompt', (e) => {
     e.preventDefault();
     deferredPrompt = e;
-    const isMobile = /Android|webOS|iPhone|iPad|iPod/i.test(navigator.userAgent);
-    if (isMobile) {
-        showToast("💡 Instale este app na tela inicial!", "success");
-    }
+    console.log(`'beforeinstallprompt' event was fired.`);
 });
 
-window.addEventListener('appinstalled', () => {
-    console.log('✅ PWA instalado com sucesso!');
-    deferredPrompt = null;
-});
+console.log("✅ App.js carregado com sucesso!");

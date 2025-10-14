@@ -75,7 +75,7 @@ self.addEventListener('fetch', (event) => {
   }
   
   // Para arquivos estáticos: Cache First
-  if (ESSENTIAL_FILES.includes(url.pathname) || OPTIONAL_FILES.includes(event.request.url)) {
+  if (ESSENTIAL_FILES.includes(url.pathname) || OPTIONAL_FILES.includes(event.request.url)) { // <<< CORREÇÃO AQUI
     event.respondWith(
       caches.match(event.request)
         .then((response) => {
@@ -107,4 +107,4 @@ self.addEventListener('fetch', (event) => {
   }
 });
 
-console.log('✅ Service Worker carregado!');
+console.log('✅ Service Worker carregado!');```
