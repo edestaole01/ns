@@ -1923,5 +1923,32 @@ function toggleRecognition(button) {
       stopRecognition(button);
     }
   }
+// Garante que os botões sejam sempre visíveis no mobile
+function ensureMobileButtonsVisible() {
+    if (window.innerWidth <= 768) {
+        const formActions = document.querySelectorAll('.form-actions');
+        formActions.forEach(container => {
+            if (container) {
+                container.style.display = 'flex';
+                container.style.flexDirection = 'column';
+                container.style.width = '100%';
+                container.style.gap = '0.75rem';
+                
+                const buttons = container.querySelectorAll('button');
+                buttons.forEach(btn => {
+                    btn.style.width = '100%';
+                    btn.style.minHeight = '48px';
+                });
+            }
+        });
+    }
+}
+
+// Chama ao renderizar o step de riscos
+const originalRenderRiscoStep = renderRiscoStep;
+renderRiscoStep = function() {
+    originalRenderRiscoStep();
+    setTimeout(ensureMobileButtonsVisible, 100);
+};
 
 console.log("✅ Sistema com reconhecimento de voz em TODOS os campos carregado!");

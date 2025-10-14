@@ -320,6 +320,37 @@
                 max-width: none !important;
                 min-width: 0 !important;
             }
+            .form-actions {
+                display: flex !important;
+                flex-direction: column;
+                gap: 0.75rem;
+                width: 100%;
+                margin-top: 1.5rem;
+            }
+            
+            .form-actions button {
+                width: 100% !important;
+                min-height: 48px;
+                font-size: 1rem;
+                justify-content: center;
+            }
+            
+            /* Garante que o formulário de risco seja visível */
+            #risco-form {
+                display: block !important;
+                width: 100%;
+            }
+            
+            /* Melhora a visualização dos accordions no mobile */
+            .accordion-section > div {
+                padding: 1rem;
+            }
+            
+            /* Garante que os botões dentro de accordions sejam visíveis */
+            details .form-actions {
+                position: relative;
+                z-index: 1;
+            }
         }
     </style>
 </head>
