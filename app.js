@@ -1773,51 +1773,106 @@ function removeRecognitionPreview() {
     }
 }
 
-function toggleRecognition(button) {
-    const targetId = button.dataset.target;
-    const input = document.getElementById(targetId);
-    
-    if (!input) {
-        showToast("Campo de entrada não encontrado!", "error");
-        return;
+function stopRecognition(button) {
+    if (currentRecognition) {
+        // 1. Desanexa todos os eventos para evitar que eles disparem durante o processo de parada.
+        // Isso é crucial para evitar o reinício automático e eventos "fantasma".
+        currentRecognition.onstart = null;
+        currentRecognition.onresult = null;
+        currentRecognition.onerror = null;
+        currentRecognition.onend = null;
+
+        // 2. Manda o comando para parar.
+        currentRecognition.stop();
     }
 
+    // 3. Limpa o estado global, independentemente de qualquer coisa.
+    isRecording = false;
+    currentRecognition = null;
+    currentTargetInput = null;
+    
+    // 4. Remove a interface visual.
+    removeRecognitionPreview();
+    
+    // 5. Reseta o botão para o estado normal.
+    if (button) {
+        button.classList.remove('active');
+        button.innerHTML = '<i class="bi bi-mic-fill"></i>';
+        button.style.animation = '';
+        button.title = 'Ativar ditado por voz';
+    }
+}
+
+
+/**
+ * Função toggleRecognition Aprimorada
+ * Controla o início e o fim da gravação de forma mais segura.
+ */
+function toggleRecognition(button) {
+    // Se já estiver gravando, a única ação possível é parar.
     if (isRecording) {
         stopRecognition(button);
         return;
     }
 
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    
-    if (!SpeechRecognition) {
-        showToast("❌ Seu navegador não suporta reconhecimento de voz. Use Chrome ou Edge.", "error");
+    // Se não estiver gravando, vamos iniciar um novo processo limpo.
+    const targetId = button.dataset.target;
+    currentTargetInput = document.getElementById(targetId);
+
+    if (!currentTargetInput) {
+        showToast("Campo de entrada não encontrado!", "error");
         return;
     }
 
-    const recognition = new SpeechRecognition();
-    recognition.lang = 'pt-BR';
-    recognition.continuous = true;
-    recognition.interimResults = true;
-    recognition.maxAlternatives = 1;
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+        showToast("❌ Seu navegador não suporta reconhecimento de voz.", "error");
+        return;
+    }
 
-    currentRecognition = recognition;
-    currentTargetInput = input;
+    // Cria uma NOVA instância limpa para cada sessão de gravação.
+    currentRecognition = new SpeechRecognition();
+    currentRecognition.lang = 'pt-BR';
+    currentRecognition.continuous = true; // Continua ouvindo mesmo após pausas
+    currentRecognition.interimResults = true; // Mostra resultados parciais
+    currentRecognition.maxAlternatives = 1;
 
-    recognition.onstart = () => {
+    // Evento: quando a gravação começa com sucesso.
+    currentRecognition.onstart = () => {
         isRecording = true;
         button.classList.add('active');
         button.innerHTML = '<i class="bi bi-mic-fill" style="color: red;"></i>';
         button.style.animation = 'pulse 1.5s infinite';
         button.title = 'Clique para parar';
         
-        // Criar preview visual
         createRecognitionPreview();
         updateRecognitionPreview('', '');
-        
-        showToast("🎤 Gravação iniciada! Fale agora.", "success");
+        showToast("🎤 Gravação iniciada!", "success");
     };
 
-    recognition.onresult = (event) => {
+    // Evento: quando um erro ocorre.
+    currentRecognition.onerror = (event) => {
+        let errorMessage = "Erro no reconhecimento de voz";
+        if (event.error === 'no-speech') {
+            updateRecognitionPreview('⚠️ Nenhuma fala detectada. Tente novamente.', '');
+            return;
+        } else if (event.error === 'not-allowed') {
+            errorMessage = "❌ Permissão de microfone negada.";
+        }
+        showToast(errorMessage, "error");
+        // O evento 'onend' será chamado automaticamente após um erro, limpando o estado.
+    };
+
+    // Evento: quando a gravação termina (por qualquer motivo: erro, parada manual, etc.).
+    currentRecognition.onend = () => {
+        // A única responsabilidade do 'onend' agora é garantir que tudo seja limpo.
+        // REMOVEMOS a lógica de reinício automático, que causava os problemas.
+        stopRecognition(button);
+    };
+
+    // Evento: quando novos resultados de fala são detectados.
+    currentRecognition.onresult = (event) => {
+        // Esta lógica de processamento de texto permanece a mesma.
         let interimTranscript = '';
         let finalTranscript = '';
         
@@ -1830,64 +1885,19 @@ function toggleRecognition(button) {
             }
         }
         
-        // Atualizar preview em tempo real
         updateRecognitionPreview(interimTranscript, finalTranscript);
         
-        // Adicionar texto final ao campo
         if (finalTranscript) {
             addTextToInput(finalTranscript.trim());
         }
     };
-
-    recognition.onerror = (event) => {
-        let errorMessage = "Erro no reconhecimento de voz";
-        if (event.error === 'no-speech') {
-            updateRecognitionPreview('⚠️ Nenhuma fala detectada. Continue falando...', '');
-            return; 
-        } else if (event.error === 'not-allowed') {
-            errorMessage = "❌ Permissão de microfone negada.";
-        } else if (event.error === 'network') {
-            errorMessage = "❌ Erro de rede. Verifique sua conexão.";
-        } else {
-            errorMessage = `❌ Erro: ${event.error}`;
-        }
-        showToast(errorMessage, "error");
-        stopRecognition(button);
-    };
-
-    recognition.onend = () => {
-        if (isRecording && currentRecognition === recognition) {
-            console.log("Reiniciando reconhecimento...");
-            try { recognition.start(); } catch (e) { stopRecognition(button); }
-        } else {
-            stopRecognition(button);
-        }
-    };
-
+    
+    // Inicia a gravação.
     try {
-        recognition.start();
+        currentRecognition.start();
     } catch (error) {
         showToast("❌ Erro ao iniciar reconhecimento: " + error.message, "error");
         stopRecognition(button);
-    }
-}
-
-function stopRecognition(button) {
-    isRecording = false;
-    if (currentRecognition) {
-        currentRecognition.stop();
-        currentRecognition = null;
-    }
-    currentTargetInput = null;
-    
-    // Remover preview
-    removeRecognitionPreview();
-    
-    if (button) {
-        button.classList.remove('active');
-        button.innerHTML = '<i class="bi bi-mic-fill"></i>';
-        button.style.animation = '';
-        button.title = 'Ativar ditado por voz';
     }
 }
 
