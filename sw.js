@@ -1,11 +1,16 @@
-// Define um nome e versão para o cache
-const CACHE_NAME = 'inspecao-riscos-cache-v1.1'; // Mudei a versão para garantir que o navegador atualize
+// Importa a versão do aplicativo
+importScripts('version.js');
+
+// Usa a versão do APP_VERSION para o cache
+const CACHE_NAME = `inspecao-riscos-cache-v${APP_VERSION}`;
 
 // Lista de arquivos essenciais para a aplicação funcionar offline
 const URLS_TO_CACHE = [
   '/',
   'index.html',
-  'app.js', // Agora ele vai salvar o seu app.js de 1800 linhas
+  'app.js',
+  'risks-data.js',
+  'version.js',
   'manifest.json',
   'icon-192.png',
   'icon-512.png',
@@ -16,10 +21,11 @@ const URLS_TO_CACHE = [
 
 // Evento 'install': é disparado quando o Service Worker é instalado
 self.addEventListener('install', (event) => {
+  console.log(`[Service Worker] Instalando versão ${APP_VERSION}`);
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then((cache) => {
-        console.log('Cache aberto. Adicionando arquivos essenciais para modo offline.');
+        console.log('[Service Worker] Cache aberto. Adicionando arquivos essenciais.');
         return cache.addAll(URLS_TO_CACHE);
       })
   );
@@ -28,11 +34,8 @@ self.addEventListener('install', (event) => {
 // Evento 'fetch': é disparado para cada requisição que a página faz
 self.addEventListener('fetch', (event) => {
   event.respondWith(
-    // Tenta encontrar a requisição no cache primeiro
     caches.match(event.request)
       .then((response) => {
-        // Se a resposta for encontrada no cache, retorna ela.
-        // Se não, busca na rede.
         return response || fetch(event.request);
       })
   );
@@ -40,12 +43,13 @@ self.addEventListener('fetch', (event) => {
 
 // Evento 'activate': limpa caches antigos para evitar conflitos
 self.addEventListener('activate', (event) => {
+  console.log(`[Service Worker] Ativando versão ${APP_VERSION}`);
   event.waitUntil(
     caches.keys().then((cacheNames) => {
       return Promise.all(
         cacheNames.map((cacheName) => {
           if (cacheName !== CACHE_NAME) {
-            console.log('Deletando cache antigo:', cacheName);
+            console.log('[Service Worker] Deletando cache antigo:', cacheName);
             return caches.delete(cacheName);
           }
         })
