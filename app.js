@@ -9,7 +9,7 @@ document.addEventListener('DOMContentLoaded', () => {
       versionElement.textContent = 'v' + APP_VERSION;
     }
   });
-  
+
 // O array predefinedRisks agora está em risks-data.js
 // Ele será carregado automaticamente quando o index.html incluir o arquivo
 
@@ -1643,9 +1643,9 @@ function initializeSortableLists() {
         if (el) Sortable.create(el, sortableConfig);
     });
 }
-
 // ==========================================
 // RECONHECIMENTO DE VOZ - WEB SPEECH API
+// Versão Melhorada com Feedback Detalhado
 // ==========================================
 
 let currentRecognition = null;
@@ -1653,6 +1653,9 @@ let currentTargetInput = null;
 let isRecording = false;
 let recognitionPreview = null;
 
+/**
+ * Cria o preview visual da gravação
+ */
 function createRecognitionPreview() {
     if (recognitionPreview) return recognitionPreview;
     
@@ -1694,6 +1697,9 @@ function createRecognitionPreview() {
     return preview;
 }
 
+/**
+ * Atualiza o preview com o texto reconhecido
+ */
 function updateRecognitionPreview(interimText, finalText) {
     if (!recognitionPreview) return;
     
@@ -1709,6 +1715,9 @@ function updateRecognitionPreview(interimText, finalText) {
     }
 }
 
+/**
+ * Remove o preview da tela
+ */
 function removeRecognitionPreview() {
     if (recognitionPreview) {
         recognitionPreview.style.animation = 'slideOutDown 0.3s ease-out';
@@ -1722,156 +1731,301 @@ function removeRecognitionPreview() {
 }
 
 /**
- * Função APENAS para anexar texto ao campo de forma inteligente.
+ * Adiciona texto ao campo de forma inteligente
+ * @param {string} text - Texto a ser adicionado
  */
 function appendTextToInput(text) {
     if (!currentTargetInput || !text) return;
 
     const currentValue = currentTargetInput.value;
-    // Adiciona um espaço apenas se o campo não estiver vazio e não terminar com um espaço.
+    // Adiciona espaço apenas se necessário
     const space = (currentValue.length > 0 && !currentValue.endsWith(' ')) ? ' ' : '';
     
     currentTargetInput.value += space + text;
 
-    // Dispara o evento para acionar o autosave.
+    // Dispara evento para acionar autosave
     currentTargetInput.dispatchEvent(new Event('input', { bubbles: true }));
 }
 
-
 /**
- * Função stopRecognition - Permanece a mesma, garantindo a limpeza.
+ * Para o reconhecimento de voz e limpa recursos
+ * @param {HTMLElement} button - Botão do microfone
+ * @param {Object} options - Opções de reinício
  */
 function stopRecognition(button, { autoRestart = false, delayMs = 120 } = {}) {
     try {
-      // Para com segurança (alguns navegadores exigem abort() após stop())
-      if (currentRecognition) {
-        try { currentRecognition.stop(); } catch (_) {}
-        try { currentRecognition.abort(); } catch (_) {}
-      }
+        // Para com segurança
+        if (currentRecognition) {
+            try { currentRecognition.stop(); } catch (_) {}
+            try { currentRecognition.abort(); } catch (_) {}
+        }
     } finally {
-      isRecording = false;
-      currentRecognition = null;
+        isRecording = false;
+        currentRecognition = null;
     }
-  
+
     // Restaura visual do botão
     if (button) {
-      button.classList.remove("active");
-      button.innerHTML = '<i class="bi bi-mic-fill"></i>';
-      button.style.animation = "";
-      button.title = "Clique para ditar";
+        button.classList.remove("active");
+        button.innerHTML = '<i class="bi bi-mic-fill"></i>';
+        button.style.animation = "";
+        button.title = "Clique para ditar por voz";
     }
-  
-    // Limpa o preview (use as suas funções se existirem)
-    try { updateRecognitionPreview("", ""); } catch (_) {}
-    const previewEl = document.getElementById("recognition-preview");
-    if (previewEl) {
-      previewEl.textContent = "";
-      previewEl.classList.add("hidden");
-    }
-  
-    // Foco e cursor no fim do campo de destino
-    if (currentTargetInput) {
-      // Normaliza espaços e pontuação comuns de ditado
-      currentTargetInput.value = currentTargetInput.value
-        .replace(/\s{2,}/g, " ")     // múltiplos espaços -> 1
-        .replace(/\s+([,.!?;:])/g, "$1"); // remove espaço antes de pontuação
-  
-      currentTargetInput.focus();
-      const len = currentTargetInput.value.length;
-      currentTargetInput.setSelectionRange(len, len);
-    }
-  
-    // Opcional: reinicia automaticamente o microfone para a próxima frase
-    if (autoRestart) {
-      setTimeout(() => {
-        // Garante que ainda existe o botão e o campo antes de reiniciar
-        if (!isRecording && button && currentTargetInput) {
-          toggleRecognition(button);
-        }
-      }, delayMs);
-    }
-  }
 
+    // Limpa o preview
+    try { 
+        updateRecognitionPreview("", ""); 
+        removeRecognitionPreview();
+    } catch (_) {}
+
+    // Foco e cursor no fim do campo
+    if (currentTargetInput) {
+        // Normaliza espaços e pontuação
+        currentTargetInput.value = currentTargetInput.value
+            .replace(/\s{2,}/g, " ")              // múltiplos espaços -> 1
+            .replace(/\s+([,.!?;:])/g, "$1");     // remove espaço antes de pontuação
+
+        currentTargetInput.focus();
+        const len = currentTargetInput.value.length;
+        currentTargetInput.setSelectionRange(len, len);
+    }
+
+    // Reinício automático (opcional)
+    if (autoRestart) {
+        setTimeout(() => {
+            if (!isRecording && button && currentTargetInput) {
+                toggleRecognition(button);
+            }
+        }, delayMs);
+    }
+}
 
 /**
- * Função toggleRecognition - Lógica final e corrigida.
+ * Verifica se o navegador suporta reconhecimento de voz
+ * @returns {boolean}
  */
+function checkSpeechRecognitionSupport() {
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    return !!SR;
+}
 
-function toggleRecognition(button) {
-    if (isRecording) {
-      stopRecognition(button);
-      return;
+/**
+ * Verifica se está em ambiente seguro (HTTPS ou localhost)
+ * @returns {boolean}
+ */
+function isSecureContext() {
+    return window.location.protocol === 'https:' || 
+           window.location.hostname === 'localhost' || 
+           window.location.hostname === '127.0.0.1';
+}
+
+/**
+ * Mostra instruções detalhadas sobre como permitir o microfone
+ */
+function showMicrophoneInstructions() {
+    const isChrome = /Chrome/.test(navigator.userAgent) && /Google Inc/.test(navigator.vendor);
+    const isFirefox = /Firefox/.test(navigator.userAgent);
+    const isSafari = /Safari/.test(navigator.userAgent) && !/Chrome/.test(navigator.userAgent);
+    
+    let instructions = "📋 COMO PERMITIR O MICROFONE:\n\n";
+    
+    if (isChrome || (!isFirefox && !isSafari)) {
+        instructions += "CHROME/EDGE:\n";
+        instructions += "1. Clique no cadeado 🔒 ao lado da URL\n";
+        instructions += "2. Procure 'Microfone'\n";
+        instructions += "3. Selecione 'Permitir'\n";
+        instructions += "4. Recarregue a página (F5)\n";
+    } else if (isFirefox) {
+        instructions += "FIREFOX:\n";
+        instructions += "1. Clique no ícone à esquerda da URL\n";
+        instructions += "2. Vá em 'Conexão Segura' > 'Mais informações'\n";
+        instructions += "3. Aba 'Permissões' > 'Usar o microfone'\n";
+        instructions += "4. Desmarque 'Usar padrão' e marque 'Permitir'\n";
+        instructions += "5. Recarregue a página (F5)\n";
+    } else if (isSafari) {
+        instructions += "SAFARI:\n";
+        instructions += "1. Menu Safari > Preferências\n";
+        instructions += "2. Aba 'Sites' > 'Microfone'\n";
+        instructions += "3. Encontre este site e selecione 'Permitir'\n";
+        instructions += "4. Recarregue a página\n";
     }
-  
+    
+    return instructions;
+}
+
+/**
+ * Trata erros do reconhecimento de voz
+ * @param {SpeechRecognitionErrorEvent} event - Evento de erro
+ * @param {HTMLElement} button - Botão do microfone
+ */
+function handleRecognitionError(event, button) {
+    console.error("Erro no reconhecimento de voz:", event.error);
+    
+    let errorMessage = "";
+    let showInstructions = false;
+    
+    switch(event.error) {
+        case "not-allowed":
+        case "permission-denied":
+            errorMessage = "🚫 Permissão de microfone negada!";
+            showInstructions = true;
+            
+            showToast(errorMessage, "error");
+            
+            if (confirm(errorMessage + "\n\nDeseja ver como permitir o microfone?")) {
+                alert(showMicrophoneInstructions());
+            }
+            break;
+            
+        case "no-speech":
+            errorMessage = "🔇 Nenhuma fala detectada. Tente falar mais alto e mais perto do microfone.";
+            showToast(errorMessage, "warning");
+            break;
+            
+        case "audio-capture":
+            errorMessage = "🎙️ Microfone não encontrado ou está sendo usado por outro aplicativo.\n\nVerifique:\n• Se o microfone está conectado\n• Se está selecionado como padrão\n• Se outro programa não está usando";
+            showToast(errorMessage, "error");
+            break;
+            
+        case "network":
+            errorMessage = "📡 Erro de rede. Verifique sua conexão com a internet.";
+            showToast(errorMessage, "error");
+            break;
+            
+        case "aborted":
+            // Ignorar - é quando o usuário para manualmente
+            return;
+            
+        case "service-not-allowed":
+            errorMessage = "⚠️ Serviço de reconhecimento não disponível. Tente novamente.";
+            showToast(errorMessage, "error");
+            break;
+            
+        default:
+            errorMessage = `❌ Erro: ${event.error}`;
+            showToast(errorMessage, "error");
+    }
+    
+    stopRecognition(button);
+}
+
+/**
+ * Função principal - Liga/desliga o reconhecimento de voz
+ * @param {HTMLElement} button - Botão do microfone clicado
+ */
+function toggleRecognition(button) {
+    // Se já está gravando, para
+    if (isRecording) {
+        stopRecognition(button);
+        return;
+    }
+
+    // Identifica o campo de destino
     const targetId = button.dataset.target;
     currentTargetInput = document.getElementById(targetId);
-    if (!currentTargetInput) return;
-  
-    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SR) {
-      showToast("❌ Seu navegador não suporta reconhecimento de voz.", "error");
-      return;
+    if (!currentTargetInput) {
+        console.error("Campo de destino não encontrado:", targetId);
+        return;
     }
-  
+
+    // Verifica suporte do navegador
+    if (!checkSpeechRecognitionSupport()) {
+        showToast("❌ Seu navegador não suporta reconhecimento de voz.", "error");
+        
+        if (confirm("❌ Navegador Incompatível\n\nO reconhecimento de voz não é suportado neste navegador.\n\nNavegadores compatíveis:\n• Google Chrome\n• Microsoft Edge\n• Safari (Mac/iOS)\n\nDeseja saber mais?")) {
+            window.open("https://caniuse.com/speech-recognition", "_blank");
+        }
+        return;
+    }
+
+    // Verifica contexto seguro (HTTPS)
+    if (!isSecureContext()) {
+        showToast("⚠️ A gravação de voz requer conexão segura (HTTPS) ou localhost", "warning");
+        return;
+    }
+
+    // Cria instância do reconhecimento
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
     currentRecognition = new SR();
     currentRecognition.lang = "pt-BR";
-    currentRecognition.continuous = false;      // ✅ encerra a cada frase dita
-    currentRecognition.interimResults = true;
+    currentRecognition.continuous = false;      // Encerra após cada frase
+    currentRecognition.interimResults = true;   // Mostra resultados parciais
     currentRecognition.maxAlternatives = 1;
-  
+
     currentRecognition._lastCommitted = "";
-  
+
+    // Evento: Gravação iniciada
     currentRecognition.onstart = () => {
-      isRecording = true;
-      button.classList.add("active");
-      button.innerHTML = '<i class="bi bi-mic-fill" style="color: red;"></i>';
-      button.style.animation = "pulse 1.5s infinite";
-      button.title = "Clique para parar";
-      createRecognitionPreview();
+        isRecording = true;
+        button.classList.add("active");
+        button.innerHTML = '<i class="bi bi-mic-fill" style="color: red;"></i>';
+        button.style.animation = "pulse 1.5s infinite";
+        button.title = "Clique para parar a gravação";
+        createRecognitionPreview();
+        showToast("🎤 Microfone ativado! Pode falar.", "success");
     };
-  
+
+    // Evento: Erro na gravação
     currentRecognition.onerror = (event) => {
-      if (event.error !== "no-speech") {
-        showToast(`❌ Erro de voz: ${event.error}`, "error");
-      }
+        handleRecognitionError(event, button);
     };
-  
+
+    // Evento: Gravação encerrada
     currentRecognition.onend = () => {
-      stopRecognition(button);
-    };
-  
-    currentRecognition.onresult = (event) => {
-      let finalTranscript = "";
-      let interimTranscript = "";
-  
-      for (let i = event.resultIndex; i < event.results.length; i++) {
-        const res = event.results[i];
-        const transcript = (res[0]?.transcript || "").trim();
-  
-        if (!transcript) continue;
-  
-        if (res.isFinal) {
-          // ✅ Garante que só adiciona uma vez
-          if (transcript !== currentRecognition._lastCommitted) {
-            appendTextToInput(transcript);
-            currentRecognition._lastCommitted = transcript;
-          }
-        } else {
-          interimTranscript += transcript + " ";
+        if (isRecording) {
+            console.log("Reconhecimento de voz encerrado");
         }
-      }
-  
-      updateRecognitionPreview(interimTranscript.trim(), "");
+        stopRecognition(button);
     };
-  
+
+    // Evento: Resultados do reconhecimento
+    currentRecognition.onresult = (event) => {
+        let interimTranscript = "";
+
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+            const res = event.results[i];
+            const transcript = (res[0]?.transcript || "").trim();
+
+            if (!transcript) continue;
+
+            if (res.isFinal) {
+                // Resultado final - adiciona ao campo
+                if (transcript !== currentRecognition._lastCommitted) {
+                    appendTextToInput(transcript);
+                    currentRecognition._lastCommitted = transcript;
+                }
+            } else {
+                // Resultado parcial - mostra no preview
+                interimTranscript += transcript + " ";
+            }
+        }
+
+        updateRecognitionPreview(interimTranscript.trim(), "");
+    };
+
+    // Inicia o reconhecimento
     try {
-      currentRecognition.start();
+        currentRecognition.start();
     } catch (error) {
-      showToast("❌ Erro ao iniciar reconhecimento.", "error");
-      stopRecognition(button);
+        console.error("Erro ao iniciar reconhecimento:", error);
+        
+        if (error.name === "InvalidStateError") {
+            showToast("⚠️ Já existe uma gravação em andamento. Aguarde ou pare a anterior.", "warning");
+        } else {
+            showToast("❌ Erro ao iniciar gravação: " + error.message, "error");
+        }
+        
+        stopRecognition(button);
     }
-  }
-// Garante que os botões sejam sempre visíveis no mobile
+}
+
+// ==========================================
+// AJUSTES MOBILE E ACCORDION
+// ==========================================
+
+/**
+ * Garante que os botões sejam sempre visíveis no mobile
+ */
 function ensureMobileButtonsVisible() {
     if (window.innerWidth <= 768) {
         const formActions = document.querySelectorAll('.form-actions');
@@ -1892,13 +2046,18 @@ function ensureMobileButtonsVisible() {
     }
 }
 
-// Chama ao renderizar o step de riscos
+/**
+ * Aplica ajustes mobile ao renderizar step de riscos
+ */
 const originalRenderRiscoStep = renderRiscoStep;
 renderRiscoStep = function() {
     originalRenderRiscoStep();
     setTimeout(ensureMobileButtonsVisible, 100);
 };
 
+/**
+ * Controla abertura/fechamento de accordions no mobile
+ */
 function toggleAccordion(event, detailsId) {
     if (window.innerWidth <= 768) {
         event.preventDefault();
@@ -1913,7 +2072,9 @@ function toggleAccordion(event, detailsId) {
     }
 }
 
-// Força abertura dos accordions no mobile ao editar
+/**
+ * Força abertura dos accordions no mobile ao editar
+ */
 function forceOpenAccordionOnMobile(detailsId) {
     if (window.innerWidth <= 768) {
         const details = document.getElementById(detailsId);
@@ -1923,4 +2084,38 @@ function forceOpenAccordionOnMobile(detailsId) {
     }
 }
 
-console.log("✅ Sistema com reconhecimento de voz em TODOS os campos carregado!");
+// ==========================================
+// LOGS E INFORMAÇÕES DE DEBUG
+// ==========================================
+
+console.log("✅ Sistema com reconhecimento de voz carregado!");
+console.log(`
+🎤 DICAS PARA USAR O DITADO POR VOZ:
+
+1️⃣ PRIMEIRA VEZ:
+   • Clique no botão de microfone 🎤
+   • Permita o acesso quando o navegador pedir
+   • Comece a falar claramente
+
+2️⃣ NÃO FUNCIONA?
+   • Clique no cadeado 🔒 ao lado da URL
+   • Verifique se permitiu o microfone
+   • Recarregue a página (F5)
+   • Teste em outro navegador se persistir
+
+3️⃣ NAVEGADORES COMPATÍVEIS:
+   ✅ Google Chrome (Recomendado)
+   ✅ Microsoft Edge
+   ✅ Safari (Mac/iOS)
+   ⚠️ Firefox (Suporte limitado)
+   ❌ Internet Explorer (Não suporta)
+
+4️⃣ DICAS DE USO:
+   • Fale claramente e pausadamente
+   • Mantenha-se a 15-30cm do microfone
+   • Evite ruídos de fundo
+   • Pause entre frases longas
+   • Use em ambiente silencioso
+
+📞 Suporte: Se tiver problemas, pressione F12 e veja as mensagens no Console.
+`);
