@@ -1104,7 +1104,8 @@ function saveRisco() {
     };
     if (!riscoData.perigo) return showToast("A descrição do perigo é obrigatória.", "error");
     
-    // LINHA CORRIGIDA: Atribui a lista de exames editada ao objeto do risco
+    // ===== CORREÇÃO PRINCIPAL =====
+    // Atribui a lista de exames que o usuário editou ao objeto do risco
     riscoData.exames = [...examesTemporarios]; 
 
     const depto = currentInspection.departamentos[activeDepartamentoIndex];
@@ -2269,15 +2270,17 @@ function renderCampoExamesCustomizados() {
         <details class="accordion-section" open style="margin-top: 1.5rem;">
             <summary>🏥 Exames Médicos Ocupacionais</summary>
             
-            <!-- Lista de exames editável -->
+            <!-- Texto de ajuda adicionado -->
+            <p style="font-size: 0.9rem; color: var(--gray-600); margin: 1rem 0; padding: 1rem; background: var(--gray-50); border-radius: 0.5rem;">
+                Abaixo estão os exames <strong>sugeridos</strong> para este risco. Você pode remover itens clicando no <i class="bi bi-trash3-fill"></i> ou adicionar novos exames manualmente no formulário abaixo.
+            </p>
+
             <div id="exames-editaveis-container">
-                 <h4 style="font-size: 1rem; margin-top:0;">Exames Vinculados a este Risco</h4>
+                 <h4 style="font-size: 1rem; margin-top:0;">Exames Vinculados</h4>
                  <ul id="exames-editaveis-list" class="item-list" style="margin-top: 1rem;">
                     <!-- Os exames serão inseridos aqui via JavaScript -->
                  </ul>
             </div>
-
-            <!-- Formulário para adicionar novos exames -->
             <div id="add-exame-form" style="margin-top: 1.5rem; padding-top: 1.5rem; border-top: 1px solid var(--gray-200);">
                 <h4 style="font-size: 1rem;">Adicionar Novo Exame</h4>
                 <div class="form-grid">
