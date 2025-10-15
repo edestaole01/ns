@@ -1089,11 +1089,33 @@ function updateRiscoList() {
     if (currentGroupId) { const grupo = depto.grupos.find(g => g.id === currentGroupId); riscos = grupo?.riscos || []; }
     else if (activeCargoIndex > -1) { riscos = depto.cargos[activeCargoIndex]?.riscos || []; }
     else if (activeFuncionarioIndex > -1) { riscos = depto.funcionarios[activeFuncionarioIndex]?.riscos || []; }
-    if (riscos.length === 0) { list.innerHTML = '<li class="empty-state">Nenhum risco identificado.</li>'; return; }
+    
+    if (riscos.length === 0) { 
+        list.innerHTML = '<li class="empty-state">Nenhum risco identificado.</li>'; 
+        return; 
+    }
+    
     list.innerHTML = "";
     riscos.forEach((risco, index) => {
         const li = document.createElement("li");
-        li.innerHTML = `<div class="item-info"><strong>${escapeHtml(risco.perigo)}</strong><span class="badge">${escapeHtml(risco.tipo)}</span><small>Fonte: ${escapeHtml(risco.fonteGeradora||"N/A")} | Severidade: ${escapeHtml(risco.severidade||"N/A")}</small></div><div class="item-actions"><button class="outline" onclick="editRisco(${index})">Editar</button><button class="danger" onclick="deleteRisco(${index})">Excluir</button></div>`;
+
+        // ===== LÓGICA ADICIONADA =====
+        // Se o índice deste item for o mesmo que está sendo editado, adiciona a classe 'editing'
+        if (index === editingIndex) {
+            li.classList.add('editing');
+        }
+        // =============================
+
+        li.innerHTML = `
+            <div class="item-info">
+                <strong>${escapeHtml(risco.perigo)}</strong>
+                <span class="badge">${escapeHtml(risco.tipo)}</span>
+                <small>Fonte: ${escapeHtml(risco.fonteGeradora||"N/A")} | Severidade: ${escapeHtml(risco.severidade||"N/A")}</small>
+            </div>
+            <div class="item-actions">
+                <button class="outline" onclick="editRisco(${index})">Editar</button>
+                <button class="danger" onclick="deleteRisco(${index})">Excluir</button>
+            </div>`;
         list.appendChild(li);
     });
 }
@@ -1104,8 +1126,6 @@ function saveRisco() {
     };
     if (!riscoData.perigo) return showToast("A descrição do perigo é obrigatória.", "error");
     
-    // ===== CORREÇÃO PRINCIPAL =====
-    // Atribui a lista de exames que o usuário editou ao objeto do risco
     riscoData.exames = [...examesTemporarios]; 
 
     const depto = currentInspection.departamentos[activeDepartamentoIndex];
@@ -1132,6 +1152,10 @@ function saveRisco() {
     clearRiscoForm(); 
     updateRiscoList(); 
     persistCurrentInspection();
+    
+    // ===== LINHA ADICIONADA =====
+    // Rola a tela de volta para a lista de riscos
+    document.getElementById('risco-list').scrollIntoView({ behavior: 'smooth' });
 }
 
 function editRisco(index) {
@@ -1226,14 +1250,18 @@ function adicionarExamesSugeridos(riscoData) {
 
 
 function clearRiscoForm() {
-    editingIndex = -1;
+    editingIndex = -1; // Limpa o índice de edição
     document.getElementById("risco-form").reset();
     updatePerigoOptions('');
     document.getElementById("risco-form-title").innerText = "Novo Risco";
     document.getElementById("save-risco-btn").innerHTML = "<i class='bi bi-plus-lg'></i> Adicionar";
     document.getElementById("cancel-risco-edit-btn").classList.add("hidden");
-    examesTemporarios = []; // Limpa os dados dos exames temporários
-    renderExamesEditaveis(); // Atualiza a tela para mostrar a lista de exames vazia
+    examesTemporarios = []; 
+    renderExamesEditaveis(); 
+    
+    // ===== LÓGICA ADICIONADA =====
+    updateRiscoList(); // Re-renderiza a lista para remover o destaque
+    document.getElementById('risco-list').scrollIntoView({ behavior: 'smooth' });
 }
 
 function switchRiskContext(value) {
