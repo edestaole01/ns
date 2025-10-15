@@ -24,6 +24,7 @@ let currentGroupId = null;
 let activeFuncionarioIndex = -1;
 let autosaveTimer = null;
 let isAutosaving = false;
+let examesTemporarios = [];
 
 const request = indexedDB.open("fluentInspecoesDB", 1);
 request.onerror = (e) => console.error("Erro no DB:", e);
@@ -91,7 +92,7 @@ function fillRiscoForm(selectedIndex) {
     document.getElementById("risco-danos").value = risk.danos || "";
     
     showToast("Campos preenchidos com base no risco pré-definido.", "success");
-    atualizarPreviewExames();
+    atualizarListaDeExames();
 }
 
 function showToast(message, type = 'success') {
@@ -908,13 +909,15 @@ function goToRiscos(index, type) {
 
 function renderRiscoStep() {
     const depto = currentInspection.departamentos[activeDepartamentoIndex];
-    const isMobile = window.innerWidth <= 768;
     let breadcrumbText = '', tituloRiscos = '', infoBox = '', targetObject;
     let currentContextValue = '';
     
+    // 1. Identifica o alvo (cargo, grupo ou funcionário)
     if (currentGroupId) {
         const grupo = depto.grupos.find(g => g.id === currentGroupId);
         if (!grupo) { showToast("Grupo não encontrado.", "error"); prevStep(); return; }
+        targetObject = grupo; // Define o grupo como o alvo
+        targetObject.nome = `Grupo: ${grupo.listaDeCargos.join(', ')}`;
         const nomesGrupo = grupo.listaDeCargos.join(', ');
         breadcrumbText = `${escapeHtml(currentInspection.empresa.nome)} › ${escapeHtml(depto.nome)} › <strong>Grupo: ${escapeHtml(nomesGrupo)}</strong>`;
         tituloRiscos = `Riscos do Grupo (${grupo.listaDeCargos.length} cargos)`;
@@ -935,12 +938,41 @@ function renderRiscoStep() {
     } else {
         prevStep(); return;
     }
+
+    // 2. LÓGICA DE SUGESTÃO DE RISCOS
+    let sugestoesHTML = '';
+    // Usa o nome real do cargo/funcionário para buscar sugestões
+    const nomeAlvo = (depto.cargos[activeCargoIndex]?.nome || depto.funcionarios[activeFuncionarioIndex]?.nome || '').toLowerCase();
     
+    if (nomeAlvo && sugestoesPorCargo[nomeAlvo]) {
+        const sugestoes = sugestoesPorCargo[nomeAlvo];
+        
+        // Filtra sugestões que já foram adicionadas
+        const sugestoesFiltradas = sugestoes.filter(sugestao => 
+            !(targetObject.riscos || []).some(r => r.perigo === sugestao)
+        );
+
+        if (sugestoesFiltradas.length > 0) {
+            sugestoesHTML = `
+                <div id="risk-suggestions" style="margin-bottom: 2rem; padding: 1.5rem; border: 2px dashed var(--primary); border-radius: 0.75rem; background: var(--primary-light);">
+                    <h4 style="margin-top: 0; color: var(--primary-hover);"><i class="bi bi-lightbulb-fill"></i> Sugestões de Risco para ${escapeHtml(targetObject.nome)}</h4>
+                    <p style="font-size: 0.9rem; color: var(--gray-600); margin-bottom: 1rem;">Clique para adicionar rapidamente os riscos mais comuns para esta função.</p>
+                    <div style="display: flex; flex-wrap: wrap; gap: 0.5rem;">
+            `;
+            sugestoesFiltradas.forEach(sugestao => {
+                sugestoesHTML += `<button class="outline" type="button" onclick='addSuggestedRisk("${sugestao.replace(/"/g, '&quot;')}")'>+ ${escapeHtml(sugestao)}</button>`;
+            });
+            sugestoesHTML += `</div></div>`;
+        }
+    }
+
+    // 3. Lógica para navegação rápida entre cargos/grupos
     const riskTypes = [...new Set(predefinedRisks.map(r => r.tipo.replace(' PSICOSSOCIAIS', '')))];
     let quickNavOptions = (depto.cargos || []).map((c, i) => `<option value="cargo-${i}" ${currentContextValue === `cargo-${i}` ? 'selected' : ''}>Cargo: ${escapeHtml(c.nome)}</option>`).join('');
     quickNavOptions += (depto.funcionarios || []).map((f, i) => `<option value="funcionario-${i}" ${currentContextValue === `funcionario-${i}` ? 'selected' : ''}>Funcionário: ${escapeHtml(f.nome)}</option>`).join('');
     quickNavOptions += (depto.grupos || []).map((g, i) => `<option value="grupo-${i}" ${currentContextValue === `grupo-${i}` ? 'selected' : ''}>Grupo: ${escapeHtml(g.listaDeCargos.join(', '))}</option>`).join('');
     
+    // 4. Montagem do HTML final da tela
     document.getElementById('wizard-content').innerHTML = `
         <div class="card">
             <div class="breadcrumb">${breadcrumbText}</div>
@@ -949,11 +981,12 @@ function renderRiscoStep() {
                 <select id="quick-nav-select" onchange="switchRiskContext(this.value)">${quickNavOptions}</select>
             </div>
             ${infoBox}
+            ${sugestoesHTML}
             <h3>${tituloRiscos}</h3>
             <ul id="risco-list" class="item-list"></ul>
             <h3 id="risco-form-title">Novo Risco</h3>
             <form id="risco-form" oninput="triggerAutosave()">
-                 <div class="form-grid">
+                <div class="form-grid">
                     <div class="form-group">
                         <label for="risco-tipo">Tipo de Risco</label>
                         <select id="risco-tipo" onchange="updatePerigoOptions(this.value)">
@@ -961,7 +994,7 @@ function renderRiscoStep() {
                             ${riskTypes.map(type => `<option value="${type}">${type.charAt(0) + type.slice(1).toLowerCase()}</option>`).join('')}
                         </select>
                     </div>
-                     <div class="form-group">
+                    <div class="form-group">
                         <label for="risk-perigo-select">Selecionar Perigo Pré-definido</label>
                         <select id="risk-perigo-select" onchange="fillRiscoForm(this.value)">
                             <option value="">-- Aguardando seleção do tipo --</option>
@@ -972,41 +1005,25 @@ function renderRiscoStep() {
                 <div class="form-group"><label for="risco-presente">Risco Presente?</label><select id="risco-presente"><option>Sim</option><option>Não</option></select></div>
                 <div class="form-group">
                     <label for="risco-perigo">Descrição (Nome) do Perigo *</label>
-                    ${wrapWithVoiceButton('risco-perigo', 'Ex: Ruído contínuo acima de 85 dB', '', true).replace('id="risco-perigo"', 'id="risco-perigo" oninput="atualizarPreviewExames()"')}
+                    ${wrapWithVoiceButton('risco-perigo', 'Ex: Ruído contínuo acima de 85 dB', '', true).replace('id="risco-perigo"', 'id="risco-perigo" oninput="atualizarListaDeExames()"')}
                 </div>
                 <div class="form-group">
                     <label for="risco-descricao-detalhada">Descrição Detalhada</label>
                     ${wrapWithVoiceButton('risco-descricao-detalhada', 'Detalhe o contexto do risco...', '', false, 'textarea')}
                 </div>
+                
+                <!-- CONTEÚDO RESTAURADO ABAIXO -->
                 <details class="accordion-section">
                     <summary>Fonte, Medição e Exposição</summary>
                     <div class="form-grid">
-                        <div class="form-group">
-                            <label for="risco-fonte">Fonte Geradora</label>
-                            ${wrapWithVoiceButton('risco-fonte', 'Ex: Compressor', '')}
-                        </div>
-                        <div class="form-group">
-                            <label for="risco-perfil-exposicao">Perfil de exposição</label>
-                            ${wrapWithVoiceButton('risco-perfil-exposicao', 'Ex: Contínuo', '')}
-                        </div>
-                        <div class="form-group">
-                            <label for="risco-medicao">Medição</label>
-                            ${wrapWithVoiceButton('risco-medicao', 'Ex: 92 dB', '')}
-                        </div>
-                        <div class="form-group">
-                            <label for="risco-tempo-exposicao">Tempo de Exposição</label>
-                            ${wrapWithVoiceButton('risco-tempo-exposicao', 'Ex: 8h', '')}
-                        </div>
+                        <div class="form-group"><label for="risco-fonte">Fonte Geradora</label>${wrapWithVoiceButton('risco-fonte', 'Ex: Compressor', '')}</div>
+                        <div class="form-group"><label for="risco-perfil-exposicao">Perfil de exposição</label>${wrapWithVoiceButton('risco-perfil-exposicao', 'Ex: Contínuo', '')}</div>
+                        <div class="form-group"><label for="risco-medicao">Medição</label>${wrapWithVoiceButton('risco-medicao', 'Ex: 92 dB', '')}</div>
+                        <div class="form-group"><label for="risco-tempo-exposicao">Tempo de Exposição</label>${wrapWithVoiceButton('risco-tempo-exposicao', 'Ex: 8h', '')}</div>
                         <div class="form-group"><label for="risco-tipo-exposicao">Tipo de Exposição</label><select id="risco-tipo-exposicao"><option>Permanente</option><option>Ocasional</option><option>Intermitente</option></select></div>
-                        <div class="form-group">
-                            <label for="risco-esocial">Código E-Social</label>
-                            ${wrapWithVoiceButton('risco-esocial', 'Ex: 01.01.001', '')}
-                        </div>
+                        <div class="form-group"><label for="risco-esocial">Código E-Social</label>${wrapWithVoiceButton('risco-esocial', 'Ex: 01.01.001', '')}</div>
                     </div>
-                    <div class="form-group">
-                        <label for="risco-obs-ambientais">Observações de registros ambientais</label>
-                        ${wrapWithVoiceButton('risco-obs-ambientais', 'Observações...', '', false, 'textarea')}
-                    </div>
+                    <div class="form-group"><label for="risco-obs-ambientais">Observações de registros ambientais</label>${wrapWithVoiceButton('risco-obs-ambientais', 'Observações...', '', false, 'textarea')}</div>
                 </details>
                 <details class="accordion-section">
                     <summary>Análise e Avaliação</summary>
@@ -1015,45 +1032,33 @@ function renderRiscoStep() {
                         <div class="form-group"><label for="risco-severidade">Severidade</label><select id="risco-severidade"><option>Baixa</option><option>Média</option><option>Alta</option><option>Crítica</option></select></div>
                         <div class="form-group"><label for="risco-aceitabilidade">Aceitabilidade</label><select id="risco-aceitabilidade"><option>Tolerável</option><option>Não Tolerável</option></select></div>
                     </div>
-                    <div class="form-group">
-                        <label for="risco-danos">Danos Potenciais</label>
-                        ${wrapWithVoiceButton('risco-danos', 'Descreva os possíveis danos...', '', false, 'textarea')}
-                    </div>
+                    <div class="form-group"><label for="risco-danos">Danos Potenciais</label>${wrapWithVoiceButton('risco-danos', 'Descreva os possíveis danos...', '', false, 'textarea')}</div>
                 </details>
                 <details class="accordion-section">
                     <summary>Controles e Ações</summary>
                     <div class="form-grid">
-                        <div class="form-group">
-                            <label for="risco-epi-utilizado">EPI Utilizado</label>
-                            ${wrapWithVoiceButton('risco-epi-utilizado', 'Ex: Protetor auricular', '')}
-                        </div>
-                        <div class="form-group">
-                            <label for="risco-ca">CA (Certificado de Aprovação)</label>
-                            ${wrapWithVoiceButton('risco-ca', 'Ex: 12345', '')}
-                        </div>
-                        <div class="form-group">
-                            <label for="risco-epc">EPC Existente</label>
-                            ${wrapWithVoiceButton('risco-epc', 'Ex: Cabine acústica', '')}
-                        </div>
-                        <div class="form-group">
-                            <label for="risco-epi-sugerido">EPI Sugerido</label>
-                            ${wrapWithVoiceButton('risco-epi-sugerido', 'Ex: Protetor tipo concha', '')}
-                        </div>
+                        <div class="form-group"><label for="risco-epi-utilizado">EPI Utilizado</label>${wrapWithVoiceButton('risco-epi-utilizado', 'Ex: Protetor auricular', '')}</div>
+                        <div class="form-group"><label for="risco-ca">CA (Certificado de Aprovação)</label>${wrapWithVoiceButton('risco-ca', 'Ex: 12345', '')}</div>
+                        <div class="form-group"><label for="risco-epc">EPC Existente</label>${wrapWithVoiceButton('risco-epc', 'Ex: Cabine acústica', '')}</div>
+                        <div class="form-group"><label for="risco-epi-sugerido">EPI Sugerido</label>${wrapWithVoiceButton('risco-epi-sugerido', 'Ex: Protetor tipo concha', '')}</div>
                     </div>
-                    <div class="form-group">
-                        <label for="risco-acoes">Ações Necessárias</label>
-                        ${wrapWithVoiceButton('risco-acoes', 'Descreva as ações recomendadas...', '', false, 'textarea')}
-                    </div>
-                    <div class="form-group">
-                        <label for="risco-observacoes-gerais">Observações Gerais</label>
-                        ${wrapWithVoiceButton('risco-observacoes-gerais', 'Observações adicionais...', '', false, 'textarea')}
-                    </div>
+                    <div class="form-group"><label for="risco-acoes">Ações Necessárias</label>${wrapWithVoiceButton('risco-acoes', 'Descreva as ações recomendadas...', '', false, 'textarea')}</div>
+                    <div class="form-group"><label for="risco-observacoes-gerais">Observações Gerais</label>${wrapWithVoiceButton('risco-observacoes-gerais', 'Observações adicionais...', '', false, 'textarea')}</div>
                 </details>
-                <div class="form-actions"><button type="button" class="primary" id="save-risco-btn" onclick="saveRisco()"><i class="bi bi-plus-lg"></i> Adicionar</button><button type="button" id="cancel-risco-edit-btn" class="nav hidden" onclick="clearRiscoForm()">Cancelar</button></div>
+                <!-- FIM DO CONTEÚDO RESTAURADO -->
+
+                ${renderCampoExamesCustomizados()}
+                <div class="form-actions">
+                    <button type="button" class="primary" id="save-risco-btn" onclick="saveRisco()"><i class="bi bi-plus-lg"></i> Adicionar</button>
+                    <button type="button" id="cancel-risco-edit-btn" class="nav hidden" onclick="clearRiscoForm()">Cancelar</button>
+                </div>
             </form>
             <div class="wizard-nav"><button class="nav" onclick="voltarDosRiscos()">Voltar</button></div>
-        </div>`;
+        </div>
+    `;
+    // 5. Renderiza as listas após o HTML ser inserido na página
     updateRiscoList();
+    atualizarListaDeExames(); // Chama a nova função para popular os exames
 }
 
 function voltarDosRiscos() { 
@@ -1098,6 +1103,10 @@ function saveRisco() {
         riscoPresente: document.getElementById("risco-presente").value, tipo: document.getElementById("risco-tipo").value, codigoEsocial: document.getElementById("risco-esocial").value, perigo: document.getElementById("risco-perigo").value, descricaoDetalhada: document.getElementById("risco-descricao-detalhada").value, fonteGeradora: document.getElementById("risco-fonte").value, perfilExposicao: document.getElementById("risco-perfil-exposicao").value, medicao: document.getElementById("risco-medicao").value, tempoExposicao: document.getElementById("risco-tempo-exposicao").value, tipoExposicao: document.getElementById("risco-tipo-exposicao").value, obsAmbientais: document.getElementById("risco-obs-ambientais").value, probabilidade: document.getElementById("risco-probabilidade").value, severidade: document.getElementById("risco-severidade").value, aceitabilidade: document.getElementById("risco-aceitabilidade").value, danos: document.getElementById("risco-danos").value, epiUtilizado: document.getElementById("risco-epi-utilizado").value, ca: document.getElementById("risco-ca").value, epc: document.getElementById("risco-epc").value, epiSugerido: document.getElementById("risco-epi-sugerido").value, acoesNecessarias: document.getElementById("risco-acoes").value, observacoesGerais: document.getElementById("risco-observacoes-gerais").value
     };
     if (!riscoData.perigo) return showToast("A descrição do perigo é obrigatória.", "error");
+    
+    // LINHA CORRIGIDA: Atribui a lista de exames editada ao objeto do risco
+    riscoData.exames = [...examesTemporarios]; 
+
     const depto = currentInspection.departamentos[activeDepartamentoIndex];
     let targetArray;
     let message = `Risco ${editingIndex > -1 ? 'atualizado' : 'adicionado'}`;
@@ -1111,10 +1120,17 @@ function saveRisco() {
         const funcionario = depto.funcionarios[activeFuncionarioIndex]; if (!funcionario.riscos) funcionario.riscos = [];
         targetArray = funcionario.riscos; message += '!';
     }
-    if (editingIndex > -1) targetArray[editingIndex] = riscoData; else targetArray.push(riscoData);
+    
+    if (editingIndex > -1) {
+        targetArray[editingIndex] = riscoData;
+    } else {
+        targetArray.push(riscoData);
+    }
+    
     showToast(message, "success");
-    adicionarExamesAoRisco(riscoData);
-    clearRiscoForm(); updateRiscoList(); persistCurrentInspection();
+    clearRiscoForm(); 
+    updateRiscoList(); 
+    persistCurrentInspection();
 }
 
 function editRisco(index) {
@@ -1150,6 +1166,7 @@ function editRisco(index) {
     document.getElementById("save-risco-btn").innerHTML = "<i class='bi bi-save-fill'></i> Salvar";
     document.getElementById("cancel-risco-edit-btn").classList.remove("hidden");
     window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+    atualizarListaDeExames();
 }
 
 function deleteRisco(index) {
@@ -1165,6 +1182,48 @@ function deleteRisco(index) {
     persistCurrentInspection();
 }
 
+function addSuggestedRisk(perigoDescricao) {
+    const riscoParaAdicionar = predefinedRisks.find(r => r.perigo === perigoDescricao);
+
+    if (!riscoParaAdicionar) {
+        return showToast("Erro: Risco sugerido não encontrado na base de dados.", "error");
+    }
+
+    // Identifica onde adicionar o risco (cargo, grupo ou funcionário)
+    const depto = currentInspection.departamentos[activeDepartamentoIndex];
+    let targetObject;
+    if (currentGroupId) { targetObject = depto.grupos.find(g => g.id === currentGroupId); }
+    else if (activeCargoIndex > -1) { targetObject = depto.cargos[activeCargoIndex]; }
+    else if (activeFuncionarioIndex > -1) { targetObject = depto.funcionarios[activeFuncionarioIndex]; }
+
+    if (!targetObject) return;
+    if (!targetObject.riscos) targetObject.riscos = [];
+
+    // Clona o objeto para evitar alterações na base de dados original
+    const novoRisco = JSON.parse(JSON.stringify(riscoParaAdicionar));
+    
+    // Adiciona os exames recomendados automaticamente
+    adicionarExamesSugeridos(novoRisco);
+
+    targetObject.riscos.push(novoRisco);
+
+    showToast(`Risco "${novoRisco.perigo}" adicionado!`, "success");
+    
+    // Re-renderiza a tela para atualizar a lista e remover a sugestão
+    renderRiscoStep();
+    persistCurrentInspection();
+}
+
+// Função auxiliar para popular os exames automaticamente
+function adicionarExamesSugeridos(riscoData) {
+    const examData = getExamesPorRisco(riscoData.perigo);
+    if (examData && examData.exames) {
+        riscoData.exames = [...examData.exames];
+    }
+    return riscoData;
+}
+
+
 function clearRiscoForm() {
     editingIndex = -1;
     document.getElementById("risco-form").reset();
@@ -1172,6 +1231,8 @@ function clearRiscoForm() {
     document.getElementById("risco-form-title").innerText = "Novo Risco";
     document.getElementById("save-risco-btn").innerHTML = "<i class='bi bi-plus-lg'></i> Adicionar";
     document.getElementById("cancel-risco-edit-btn").classList.add("hidden");
+    examesTemporarios = []; // Limpa os dados dos exames temporários
+    renderExamesEditaveis(); // Atualiza a tela para mostrar a lista de exames vazia
 }
 
 function switchRiskContext(value) {
@@ -2205,110 +2266,34 @@ function mostrarExamesRecomendados(perigoDescricao) {
  */
 function renderCampoExamesCustomizados() {
     return `
-        <details class="accordion-section" style="margin-top: 1.5rem;">
+        <details class="accordion-section" open style="margin-top: 1.5rem;">
             <summary>🏥 Exames Médicos Ocupacionais</summary>
-            <div id="exames-recomendados-container"></div>
-            <div class="form-group">
-                <label for="risco-exames-customizados">Exames Customizados (um por linha)</label>
-                <textarea id="risco-exames-customizados" rows="4" placeholder="Ex:
-HEMOGRAMA COMPLETO - Admissional, 12 meses
-ESPIROMETRIA - Admissional, Demissional
-AUDIOMETRIA - Admissional, 6 meses, Demissional"></textarea>
-                <small>📝 Formato: NOME DO EXAME - Quando realizar (Admissional, Periódico, etc)</small>
+            
+            <!-- Lista de exames editável -->
+            <div id="exames-editaveis-container">
+                 <h4 style="font-size: 1rem; margin-top:0;">Exames Vinculados a este Risco</h4>
+                 <ul id="exames-editaveis-list" class="item-list" style="margin-top: 1rem;">
+                    <!-- Os exames serão inseridos aqui via JavaScript -->
+                 </ul>
             </div>
-            <div class="form-group">
-                <label style="display: flex; align-items: center; gap: 0.5rem;">
-                    <input type="checkbox" id="risco-usar-exames-recomendados">
-                    <span>Adicionar automaticamente os exames recomendados</span>
-                </label>
+
+            <!-- Formulário para adicionar novos exames -->
+            <div id="add-exame-form" style="margin-top: 1.5rem; padding-top: 1.5rem; border-top: 1px solid var(--gray-200);">
+                <h4 style="font-size: 1rem;">Adicionar Novo Exame</h4>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="novo-exame-nome">Nome do Exame</label>
+                        <input type="text" id="novo-exame-nome" placeholder="Ex: Hemograma Completo">
+                    </div>
+                    <div class="form-group">
+                        <label for="novo-exame-periodicidade">Periodicidade / Observações</label>
+                        <input type="text" id="novo-exame-periodicidade" placeholder="Ex: Admissional, 12 meses">
+                    </div>
+                </div>
+                <button type="button" class="secondary" onclick="adicionarExameManual()"><i class="bi bi-plus-lg"></i> Adicionar Exame à Lista</button>
             </div>
         </details>`;
 }
-
-/**
- * Atualiza o preview de exames quando o usuário seleciona um perigo
- */
-function atualizarPreviewExames() {
-    const perigoInput = document.getElementById('risco-perigo');
-    const container = document.getElementById('exames-recomendados-container');
-    
-    if (!perigoInput || !container) return;
-    
-    const perigo = perigoInput.value.trim();
-    
-    if (perigo) {
-        container.innerHTML = mostrarExamesRecomendados(perigo);
-    } else {
-        container.innerHTML = '';
-    }
-}
-
-/**
- * Salva os exames junto com o risco
- * @param {Object} riscoData - Dados do risco sendo salvo
- */
-function adicionarExamesAoRisco(riscoData) {
-    const usarRecomendados = document.getElementById('risco-usar-exames-recomendados')?.checked;
-    const examesCustom = document.getElementById('risco-exames-customizados')?.value || '';
-    
-    riscoData.exames = [];
-    
-    // Adiciona exames recomendados se solicitado
-    if (usarRecomendados) {
-        const examData = getExamesPorRisco(riscoData.perigo);
-        if (examData && examData.exames) {
-            riscoData.exames = [...examData.exames];
-        }
-    }
-    
-    // Adiciona exames customizados
-    if (examesCustom.trim()) {
-        const linhas = examesCustom.split('\n').filter(l => l.trim());
-        linhas.forEach(linha => {
-            const partes = linha.split('-').map(p => p.trim());
-            if (partes.length >= 2) {
-                riscoData.exames.push({
-                    nome: partes[0],
-                    periodicidade: partes[1],
-                    customizado: true
-                });
-            }
-        });
-    }
-    
-    return riscoData;
-}
-
-/**
- * Carrega os exames salvos ao editar um risco
- * @param {Object} risco - Objeto do risco com exames
- */
-function carregarExamesDoRisco(risco) {
-    if (!risco.exames || risco.exames.length === 0) return;
-    
-    // Separa exames customizados dos recomendados
-    const examesCustom = risco.exames.filter(e => e.customizado);
-    const temRecomendados = risco.exames.some(e => !e.customizado);
-    
-    // Marca checkbox se tem exames recomendados
-    const checkbox = document.getElementById('risco-usar-exames-recomendados');
-    if (checkbox && temRecomendados) {
-        checkbox.checked = true;
-    }
-    
-    // Preenche textarea com exames customizados
-    const textarea = document.getElementById('risco-exames-customizados');
-    if (textarea && examesCustom.length > 0) {
-        const texto = examesCustom.map(e => `${e.nome} - ${e.periodicidade}`).join('\n');
-        textarea.value = texto;
-    }
-    // Carrega exames salvos
-    carregarExamesDoRisco(risco);
-    
-    // Atualiza preview
-    atualizarPreviewExames();
-}
-
 /**
  * Gera relatório consolidado de exames por cargo/funcionário
  * @param {Object} cargo - Cargo ou funcionário com riscos
@@ -2489,3 +2474,94 @@ function mostrarModalExames(index, tipo) {
 }
 
 console.log("✅ Funções de gerenciamento de exames médicos carregadas!");
+
+
+function atualizarListaDeExames() {
+    const perigoInput = document.getElementById('risco-perigo');
+    const riscoAtual = perigoInput ? perigoInput.value.trim() : '';
+
+    examesTemporarios = []; // Limpa a lista
+    
+    // Se estiver editando um risco, carrega os exames já salvos
+    if (editingIndex > -1) {
+        const depto = currentInspection.departamentos[activeDepartamentoIndex];
+        let risco;
+        if (currentGroupId) { risco = depto.grupos.find(g => g.id === currentGroupId)?.riscos[editingIndex]; }
+        else if (activeCargoIndex > -1) { risco = depto.cargos[activeCargoIndex].riscos[editingIndex]; }
+        else if (activeFuncionarioIndex > -1) { risco = depto.funcionarios[activeFuncionarioIndex].riscos[editingIndex]; }
+        
+        if (risco && risco.exames) {
+            examesTemporarios = JSON.parse(JSON.stringify(risco.exames)); // Carrega os exames salvos
+        }
+    } 
+    // Se for um risco novo ou sem exames salvos, busca sugestões
+    else if (riscoAtual) {
+        const examData = getExamesPorRisco(riscoAtual);
+        if (examData && examData.exames) {
+            examesTemporarios = JSON.parse(JSON.stringify(examData.exames)); // Carrega sugestões
+        }
+    }
+    
+    renderExamesEditaveis(); // Renderiza a lista na tela
+}
+
+// 2. RENDERIZA a lista de exames na tela
+function renderExamesEditaveis() {
+    const listContainer = document.getElementById('exames-editaveis-list');
+    if (!listContainer) return;
+    
+    listContainer.innerHTML = ''; // Limpa a lista visual
+    
+    if (examesTemporarios.length === 0) {
+        listContainer.innerHTML = '<li class="empty-state">Nenhum exame vinculado a este risco.</li>';
+        return;
+    }
+    
+    examesTemporarios.forEach((exame, index) => {
+        const li = document.createElement('li');
+        li.style.padding = "0.75rem";
+        const periodicidade = exame.observacoes || exame.periodicidade || 'Não especificado';
+        
+        li.innerHTML = `
+            <div class="item-info">
+                <strong>${escapeHtml(exame.nome)}</strong>
+                <small>${escapeHtml(periodicidade)}</small>
+            </div>
+            <div class="item-actions">
+                <button type="button" class="danger" onclick="removerExame(${index})"><i class="bi bi-trash3-fill"></i></button>
+            </div>
+        `;
+        listContainer.appendChild(li);
+    });
+}
+
+// 3. REMOVE um exame da lista temporária
+function removerExame(index) {
+    examesTemporarios.splice(index, 1);
+    showToast("Exame removido da lista.", "warning");
+    renderExamesEditaveis(); // Re-renderiza a lista atualizada
+}
+
+// 4. ADICIONA um exame manual à lista temporária
+function adicionarExameManual() {
+    const nomeInput = document.getElementById('novo-exame-nome');
+    const periodicidadeInput = document.getElementById('novo-exame-periodicidade');
+    
+    const nome = nomeInput.value.trim();
+    const periodicidade = periodicidadeInput.value.trim();
+    
+    if (!nome) {
+        return showToast("O nome do exame é obrigatório.", "error");
+    }
+    
+    examesTemporarios.push({
+        nome: nome,
+        periodicidade: periodicidade,
+        customizado: true // Marca como um exame adicionado manualmente
+    });
+    
+    showToast("Exame adicionado à lista!", "success");
+    nomeInput.value = '';
+    periodicidadeInput.value = '';
+    renderExamesEditaveis(); // Re-renderiza
+}
