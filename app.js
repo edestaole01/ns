@@ -91,6 +91,7 @@ function fillRiscoForm(selectedIndex) {
     document.getElementById("risco-danos").value = risk.danos || "";
     
     showToast("Campos preenchidos com base no risco pré-definido.", "success");
+    atualizarPreviewExames();
 }
 
 function showToast(message, type = 'success') {
@@ -646,6 +647,7 @@ function updateCargoList() {
         itemActions.appendChild(createButton('Editar', 'outline', () => editCargo(index)));
         itemActions.appendChild(createButton('<i class="bi bi-copy"></i> Duplicar', 'outline', () => duplicateItem('cargo', index)));
         itemActions.appendChild(createButton('Excluir', 'danger', () => deleteItem('cargo', index)));
+        itemActions.appendChild(createButton('<i class="bi bi-clipboard2-pulse"></i> Exames', 'outline', () => mostrarModalExames(index, 'cargo')));
         itemActions.appendChild(createButton('Riscos', 'primary', () => goToRiscos(index, 'cargo')));
 
         li.appendChild(itemInfo);
@@ -677,6 +679,7 @@ function updateGrupoList() {
         itemActions.appendChild(createButton('Editar', 'outline', () => editGrupo(index)));
         itemActions.appendChild(createButton('<i class="bi bi-copy"></i> Duplicar', 'outline', () => duplicateItem('grupo', index)));
         itemActions.appendChild(createButton('Excluir', 'danger', () => deleteItem('grupo', index)));
+        itemActions.appendChild(createButton('<i class="bi bi-clipboard2-pulse"></i> Exames', 'outline', () => mostrarModalExames(index, 'grupo')));
         itemActions.appendChild(createButton('Riscos', 'primary', () => goToRiscos(index, 'grupo')));
 
         li.appendChild(itemInfo);
@@ -709,6 +712,7 @@ function updateFuncionarioList() {
         itemActions.appendChild(createButton('Editar', 'outline', () => editFuncionario(index)));
         itemActions.appendChild(createButton('<i class="bi bi-copy"></i> Duplicar', 'outline', () => duplicateItem('funcionario', index)));
         itemActions.appendChild(createButton('Excluir', 'danger', () => deleteItem('funcionario', index)));
+        itemActions.appendChild(createButton('<i class="bi bi-clipboard2-pulse"></i> Exames', 'outline', () => mostrarModalExames(index, 'funcionario')));
         itemActions.appendChild(createButton('Riscos', 'primary', () => goToRiscos(index, 'funcionario')));
         
         li.appendChild(itemInfo);
@@ -968,7 +972,7 @@ function renderRiscoStep() {
                 <div class="form-group"><label for="risco-presente">Risco Presente?</label><select id="risco-presente"><option>Sim</option><option>Não</option></select></div>
                 <div class="form-group">
                     <label for="risco-perigo">Descrição (Nome) do Perigo *</label>
-                    ${wrapWithVoiceButton('risco-perigo', 'Ex: Ruído contínuo acima de 85 dB', '', true)}
+                    ${wrapWithVoiceButton('risco-perigo', 'Ex: Ruído contínuo acima de 85 dB', '', true).replace('id="risco-perigo"', 'id="risco-perigo" oninput="atualizarPreviewExames()"')}
                 </div>
                 <div class="form-group">
                     <label for="risco-descricao-detalhada">Descrição Detalhada</label>
@@ -1109,6 +1113,7 @@ function saveRisco() {
     }
     if (editingIndex > -1) targetArray[editingIndex] = riscoData; else targetArray.push(riscoData);
     showToast(message, "success");
+    adicionarExamesAoRisco(riscoData);
     clearRiscoForm(); updateRiscoList(); persistCurrentInspection();
 }
 
@@ -2119,3 +2124,368 @@ console.log(`
 
 📞 Suporte: Se tiver problemas, pressione F12 e veja as mensagens no Console.
 `);
+// ==========================================
+// GERENCIAMENTO DE EXAMES MÉDICOS
+// Adicionar estas funções no app.js
+// ==========================================
+
+/**
+ * Mostra os exames recomendados para um risco específico
+ * @param {string} perigoDescricao - Descrição do perigo/risco
+ */
+function mostrarExamesRecomendados(perigoDescricao) {
+    const examData = getExamesPorRisco(perigoDescricao);
+    
+    if (!examData || !examData.exames || examData.exames.length === 0) {
+        return `<div style="padding: 1rem; background: var(--gray-50); border-radius: 0.5rem; margin: 1rem 0;">
+            <p style="color: var(--gray-600); margin: 0;">
+                ℹ️ Não há exames pré-definidos para este risco. Você pode adicionar exames customizados no campo abaixo.
+            </p>
+        </div>`;
+    }
+    
+    let html = `
+        <div style="background: #ecfdf5; border: 2px solid #10b981; border-radius: 0.75rem; padding: 1.5rem; margin: 1.5rem 0;">
+            <h4 style="color: #047857; margin: 0 0 1rem 0; display: flex; align-items: center; gap: 0.5rem;">
+                <i class="bi bi-heart-pulse-fill"></i> Exames Recomendados
+            </h4>
+            <table style="width: 100%; border-collapse: collapse; background: white; border-radius: 0.5rem; overflow: hidden;">
+                <thead>
+                    <tr style="background: #d1fae5;">
+                        <th style="padding: 0.75rem; text-align: left; border-bottom: 2px solid #10b981;">Exame</th>
+                        <th style="padding: 0.75rem; text-align: center; border-bottom: 2px solid #10b981; font-size: 0.85rem;">Admissional</th>
+                        <th style="padding: 0.75rem; text-align: center; border-bottom: 2px solid #10b981; font-size: 0.85rem;">Periódico</th>
+                        <th style="padding: 0.75rem; text-align: center; border-bottom: 2px solid #10b981; font-size: 0.85rem;">Mudança</th>
+                        <th style="padding: 0.75rem; text-align: center; border-bottom: 2px solid #10b981; font-size: 0.85rem;">Retorno</th>
+                        <th style="padding: 0.75rem; text-align: center; border-bottom: 2px solid #10b981; font-size: 0.85rem;">Demissional</th>
+                    </tr>
+                </thead>
+                <tbody>`;
+    
+    examData.exames.forEach((exame, idx) => {
+        const bgColor = idx % 2 === 0 ? 'white' : '#f9fafb';
+        html += `
+            <tr style="background: ${bgColor};">
+                <td style="padding: 0.75rem; border-bottom: 1px solid #e5e7eb;">
+                    <strong>${exame.nome}</strong>
+                    ${exame.observacoes ? `<br><small style="color: var(--gray-600);">${exame.observacoes}</small>` : ''}
+                </td>
+                <td style="padding: 0.75rem; text-align: center; border-bottom: 1px solid #e5e7eb;">
+                    ${exame.admissional ? '✓' : '-'}
+                </td>
+                <td style="padding: 0.75rem; text-align: center; border-bottom: 1px solid #e5e7eb; font-size: 0.85rem;">
+                    ${exame.periodico || '-'}
+                </td>
+                <td style="padding: 0.75rem; text-align: center; border-bottom: 1px solid #e5e7eb;">
+                    ${exame.mudancaRisco ? '✓' : '-'}
+                </td>
+                <td style="padding: 0.75rem; text-align: center; border-bottom: 1px solid #e5e7eb;">
+                    ${exame.retornoTrabalho ? '✓' : '-'}
+                </td>
+                <td style="padding: 0.75rem; text-align: center; border-bottom: 1px solid #e5e7eb;">
+                    ${exame.demissional ? '✓' : '-'}
+                </td>
+            </tr>`;
+    });
+    
+    html += `
+                </tbody>
+            </table>
+            <p style="margin: 1rem 0 0 0; font-size: 0.85rem; color: var(--gray-600);">
+                💡 <strong>Dica:</strong> Estes exames podem ser adicionados automaticamente ao salvar o risco, ou você pode customizá-los abaixo.
+            </p>
+        </div>`;
+    
+    return html;
+}
+
+/**
+ * Adiciona campo de exames customizados ao formulário de risco
+ * @returns {string} HTML do campo de exames
+ */
+function renderCampoExamesCustomizados() {
+    return `
+        <details class="accordion-section" style="margin-top: 1.5rem;">
+            <summary>🏥 Exames Médicos Ocupacionais</summary>
+            <div id="exames-recomendados-container"></div>
+            <div class="form-group">
+                <label for="risco-exames-customizados">Exames Customizados (um por linha)</label>
+                <textarea id="risco-exames-customizados" rows="4" placeholder="Ex:
+HEMOGRAMA COMPLETO - Admissional, 12 meses
+ESPIROMETRIA - Admissional, Demissional
+AUDIOMETRIA - Admissional, 6 meses, Demissional"></textarea>
+                <small>📝 Formato: NOME DO EXAME - Quando realizar (Admissional, Periódico, etc)</small>
+            </div>
+            <div class="form-group">
+                <label style="display: flex; align-items: center; gap: 0.5rem;">
+                    <input type="checkbox" id="risco-usar-exames-recomendados">
+                    <span>Adicionar automaticamente os exames recomendados</span>
+                </label>
+            </div>
+        </details>`;
+}
+
+/**
+ * Atualiza o preview de exames quando o usuário seleciona um perigo
+ */
+function atualizarPreviewExames() {
+    const perigoInput = document.getElementById('risco-perigo');
+    const container = document.getElementById('exames-recomendados-container');
+    
+    if (!perigoInput || !container) return;
+    
+    const perigo = perigoInput.value.trim();
+    
+    if (perigo) {
+        container.innerHTML = mostrarExamesRecomendados(perigo);
+    } else {
+        container.innerHTML = '';
+    }
+}
+
+/**
+ * Salva os exames junto com o risco
+ * @param {Object} riscoData - Dados do risco sendo salvo
+ */
+function adicionarExamesAoRisco(riscoData) {
+    const usarRecomendados = document.getElementById('risco-usar-exames-recomendados')?.checked;
+    const examesCustom = document.getElementById('risco-exames-customizados')?.value || '';
+    
+    riscoData.exames = [];
+    
+    // Adiciona exames recomendados se solicitado
+    if (usarRecomendados) {
+        const examData = getExamesPorRisco(riscoData.perigo);
+        if (examData && examData.exames) {
+            riscoData.exames = [...examData.exames];
+        }
+    }
+    
+    // Adiciona exames customizados
+    if (examesCustom.trim()) {
+        const linhas = examesCustom.split('\n').filter(l => l.trim());
+        linhas.forEach(linha => {
+            const partes = linha.split('-').map(p => p.trim());
+            if (partes.length >= 2) {
+                riscoData.exames.push({
+                    nome: partes[0],
+                    periodicidade: partes[1],
+                    customizado: true
+                });
+            }
+        });
+    }
+    
+    return riscoData;
+}
+
+/**
+ * Carrega os exames salvos ao editar um risco
+ * @param {Object} risco - Objeto do risco com exames
+ */
+function carregarExamesDoRisco(risco) {
+    if (!risco.exames || risco.exames.length === 0) return;
+    
+    // Separa exames customizados dos recomendados
+    const examesCustom = risco.exames.filter(e => e.customizado);
+    const temRecomendados = risco.exames.some(e => !e.customizado);
+    
+    // Marca checkbox se tem exames recomendados
+    const checkbox = document.getElementById('risco-usar-exames-recomendados');
+    if (checkbox && temRecomendados) {
+        checkbox.checked = true;
+    }
+    
+    // Preenche textarea com exames customizados
+    const textarea = document.getElementById('risco-exames-customizados');
+    if (textarea && examesCustom.length > 0) {
+        const texto = examesCustom.map(e => `${e.nome} - ${e.periodicidade}`).join('\n');
+        textarea.value = texto;
+    }
+    // Carrega exames salvos
+    carregarExamesDoRisco(risco);
+    
+    // Atualiza preview
+    atualizarPreviewExames();
+}
+
+/**
+ * Gera relatório consolidado de exames por cargo/funcionário
+ * @param {Object} cargo - Cargo ou funcionário com riscos
+ * @returns {string} HTML do relatório de exames
+ */
+function gerarRelatorioExames(cargo) {
+    if (!cargo.riscos || cargo.riscos.length === 0) {
+        return '<p style="color: var(--gray-500); font-style: italic;">Nenhum risco cadastrado, portanto não há exames a realizar.</p>';
+    }
+    
+    // Consolida todos os exames de todos os riscos
+    const examesConsolidados = new Map();
+    
+    cargo.riscos.forEach(risco => {
+        if (risco.exames && risco.exames.length > 0) {
+            risco.exames.forEach(exame => {
+                const key = exame.nome;
+                if (!examesConsolidados.has(key)) {
+                    examesConsolidados.set(key, {
+                        nome: exame.nome,
+                        riscos: [],
+                        admissional: exame.admissional || false,
+                        periodico: exame.periodico || false,
+                        mudancaRisco: exame.mudancaRisco || false,
+                        retornoTrabalho: exame.retornoTrabalho || false,
+                        demissional: exame.demissional || false,
+                        observacoes: exame.observacoes || exame.periodicidade || ''
+                    });
+                }
+                examesConsolidados.get(key).riscos.push(risco.perigo);
+            });
+        }
+    });
+    
+    if (examesConsolidados.size === 0) {
+        return '<p style="color: var(--gray-500); font-style: italic;">Não há exames definidos para os riscos deste cargo.</p>';
+    }
+    
+    let html = `
+        <div style="background: white; border: 2px solid var(--primary); border-radius: 0.75rem; padding: 1.5rem; margin: 1rem 0;">
+            <h4 style="color: var(--primary); margin: 0 0 1rem 0;">
+                <i class="bi bi-clipboard2-pulse"></i> Exames Necessários - ${escapeHtml(cargo.nome)}
+            </h4>
+            <table style="width: 100%; border-collapse: collapse;">
+                <thead>
+                    <tr style="background: var(--primary-light);">
+                        <th style="padding: 0.75rem; text-align: left; border-bottom: 2px solid var(--primary);">Exame</th>
+                        <th style="padding: 0.75rem; text-align: center; border-bottom: 2px solid var(--primary); font-size: 0.85rem;">Adm.</th>
+                        <th style="padding: 0.75rem; text-align: center; border-bottom: 2px solid var(--primary); font-size: 0.85rem;">Periódico</th>
+                        <th style="padding: 0.75rem; text-align: center; border-bottom: 2px solid var(--primary); font-size: 0.85rem;">Mud.</th>
+                        <th style="padding: 0.75rem; text-align: center; border-bottom: 2px solid var(--primary); font-size: 0.85rem;">Ret.</th>
+                        <th style="padding: 0.75rem; text-align: center; border-bottom: 2px solid var(--primary); font-size: 0.85rem;">Dem.</th>
+                    </tr>
+                </thead>
+                <tbody>`;
+    
+    let idx = 0;
+    examesConsolidados.forEach((exame) => {
+        const bgColor = idx % 2 === 0 ? 'white' : 'var(--gray-50)';
+        html += `
+            <tr style="background: ${bgColor};">
+                <td style="padding: 0.75rem; border-bottom: 1px solid var(--gray-200);">
+                    <strong>${escapeHtml(exame.nome)}</strong>
+                    <br><small style="color: var(--gray-600);">Riscos: ${escapeHtml(exame.riscos.slice(0, 2).join(', '))}${exame.riscos.length > 2 ? '...' : ''}</small>
+                    ${exame.observacoes ? `<br><small style="color: var(--gray-500);">${escapeHtml(exame.observacoes)}</small>` : ''}
+                </td>
+                <td style="padding: 0.75rem; text-align: center; border-bottom: 1px solid var(--gray-200);">
+                    ${exame.admissional ? '✓' : '-'}
+                </td>
+                <td style="padding: 0.75rem; text-align: center; border-bottom: 1px solid var(--gray-200); font-size: 0.85rem;">
+                    ${exame.periodico || '-'}
+                </td>
+                <td style="padding: 0.75rem; text-align: center; border-bottom: 1px solid var(--gray-200);">
+                    ${exame.mudancaRisco ? '✓' : '-'}
+                </td>
+                <td style="padding: 0.75rem; text-align: center; border-bottom: 1px solid var(--gray-200);">
+                    ${exame.retornoTrabalho ? '✓' : '-'}
+                </td>
+                <td style="padding: 0.75rem; text-align: center; border-bottom: 1px solid var(--gray-200);">
+                    ${exame.demissional ? '✓' : '-'}
+                </td>
+            </tr>`;
+        idx++;
+    });
+    
+    html += `
+                </tbody>
+            </table>
+            <p style="margin: 1rem 0 0 0; font-size: 0.85rem; color: var(--gray-600);">
+                📋 Total de exames: <strong>${examesConsolidados.size}</strong>
+            </p>
+        </div>`;
+    
+    return html;
+}
+// ==========================================
+// ADICIONAR BOTÃO DE RELATÓRIO DE EXAMES
+// ==========================================
+
+/**
+ * Adiciona botão para ver relatório de exames no card do cargo
+ * Chame esta função após renderizar a lista de cargos
+ */
+function adicionarBotaoRelatorioExames() {
+    // Esta função pode ser integrada diretamente nos botões de ação
+    // Exemplo de uso no updateCargoList():
+    /*
+    itemActions.appendChild(createButton(
+        '<i class="bi bi-clipboard2-pulse"></i> Exames', 
+        'outline', 
+        () => mostrarModalExames(index, 'cargo')
+    ));
+    */
+}
+
+/**
+ * Mostra modal com relatório de exames
+ */
+function mostrarModalExames(index, tipo) {
+    const depto = currentInspection.departamentos[activeDepartamentoIndex];
+    let item;
+    
+    if (tipo === 'cargo') {
+        item = depto.cargos[index];
+    } else if (tipo === 'funcionario') {
+        item = depto.funcionarios[index];
+    } else if (tipo === 'grupo') {
+        item = depto.grupos[index];
+        item.nome = `Grupo: ${item.listaDeCargos.join(', ')}`;
+    }
+    
+    if (!item) return;
+    
+    const relatorio = gerarRelatorioExames(item);
+    
+    // Cria modal
+    const modal = document.createElement('div');
+    modal.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0,0,0,0.5);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 9999;
+        padding: 2rem;
+    `;
+    
+    modal.innerHTML = `
+        <div style="background: white; border-radius: 1rem; max-width: 900px; width: 100%; max-height: 90vh; overflow-y: auto; padding: 2rem; position: relative;">
+            <button onclick="this.closest('div').parentElement.remove()" style="position: absolute; top: 1rem; right: 1rem; background: var(--gray-200); border: none; width: 32px; height: 32px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center;">
+                <i class="bi bi-x-lg"></i>
+            </button>
+            <h2 style="margin-top: 0;">📋 Relatório de Exames Médicos</h2>
+            ${relatorio}
+            <div style="margin-top: 2rem; display: flex; gap: 1rem; justify-content: flex-end;">
+                <button class="outline" onclick="window.print()">
+                    <i class="bi bi-printer"></i> Imprimir
+                </button>
+                <button class="primary" onclick="this.closest('div').parentElement.parentElement.remove()">
+                    Fechar
+                </button>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
+    
+    // Fecha ao clicar fora
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) {
+            modal.remove();
+        }
+    });
+}
+
+console.log("✅ Funções de gerenciamento de exames médicos carregadas!");

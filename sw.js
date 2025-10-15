@@ -10,6 +10,7 @@ const URLS_TO_CACHE = [
   'index.html',
   'app.js',
   'risks-data.js',
+  'exames-data.js', // LINHA ADICIONADA
   'version.js',
   'manifest.json',
   'icon-192.png',
