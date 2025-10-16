@@ -910,44 +910,46 @@ function goToRiscos(index, type) {
 function renderRiscoStep() {
     const depto = currentInspection.departamentos[activeDepartamentoIndex];
     let breadcrumbText = '', tituloRiscos = '', infoBox = '', targetObject;
-    let currentContextValue = '';
-    
-    // 1. Identifica o alvo (cargo, grupo ou funcionário)
+    let currentContextValue = '', nomeParaSugestoes = null; // A MUDANÇA MAIS IMPORTANTE: variável unificada
+
+    // 1. Identifica o alvo (cargo, grupo ou funcionário) e define as variáveis de forma segura
     if (currentGroupId) {
-        const grupo = depto.grupos.find(g => g.id === currentGroupId);
-        if (!grupo) { showToast("Grupo não encontrado.", "error"); prevStep(); return; }
-        targetObject = grupo; // Define o grupo como o alvo
-        targetObject.nome = `Grupo: ${grupo.listaDeCargos.join(', ')}`;
-        const nomesGrupo = grupo.listaDeCargos.join(', ');
+        targetObject = depto.grupos.find(g => g.id === currentGroupId);
+        if (!targetObject) { showToast("Grupo não encontrado.", "error"); prevStep(); return; }
+        
+        const nomesGrupo = targetObject.listaDeCargos.join(', ');
         breadcrumbText = `${escapeHtml(currentInspection.empresa.nome)} › ${escapeHtml(depto.nome)} › <strong>Grupo: ${escapeHtml(nomesGrupo)}</strong>`;
-        tituloRiscos = `Riscos do Grupo (${grupo.listaDeCargos.length} cargos)`;
+        tituloRiscos = `Riscos do Grupo (${targetObject.listaDeCargos.length} cargos)`;
         infoBox = `<div style="padding:1rem;background:var(--primary-light);border-left:4px solid var(--primary);border-radius:.5rem;margin-bottom:1.5rem;"><strong style="display:block;margin-bottom:.5rem;color:var(--gray-900);">Modo Grupo</strong><p style="margin:0;color:var(--gray-700);font-size:.95rem;">Os riscos aqui serão aplicados a todos os cargos do grupo.</p></div>`;
         currentContextValue = `grupo-${depto.grupos.findIndex(g => g.id === currentGroupId)}`;
+        // Sugestões de risco não se aplicam a grupos, então `nomeParaSugestoes` permanece null.
+
     } else if (activeCargoIndex > -1) {
         targetObject = depto.cargos[activeCargoIndex];
         if (!targetObject) { showToast("Cargo não encontrado.", "error"); prevStep(); return; }
+
         breadcrumbText = `${escapeHtml(currentInspection.empresa.nome)} › ${escapeHtml(depto.nome)} › <strong>Cargo: ${escapeHtml(targetObject.nome)}</strong>`;
         tituloRiscos = 'Riscos Identificados';
         currentContextValue = `cargo-${activeCargoIndex}`;
+        nomeParaSugestoes = targetObject.nome.toLowerCase(); // Define o nome para buscar sugestões
+
     } else if (activeFuncionarioIndex > -1) {
         targetObject = depto.funcionarios[activeFuncionarioIndex];
         if (!targetObject) { showToast("Funcionário não encontrado.", "error"); prevStep(); return; }
+
         breadcrumbText = `${escapeHtml(currentInspection.empresa.nome)} › ${escapeHtml(depto.nome)} › <strong>Funcionário: ${escapeHtml(targetObject.nome)}</strong>`;
         tituloRiscos = 'Riscos Identificados';
         currentContextValue = `funcionario-${activeFuncionarioIndex}`;
+        nomeParaSugestoes = targetObject.nome.toLowerCase(); // Define o nome para buscar sugestões
+        
     } else {
-        prevStep(); return;
+        prevStep(); return; // Se nenhum alvo for encontrado, volta para a tela anterior
     }
 
-    // 2. LÓGICA DE SUGESTÃO DE RISCOS
+    // 2. LÓGICA DE SUGESTÃO DE RISCOS CORRIGIDA E SIMPLIFICADA
     let sugestoesHTML = '';
-    // Usa o nome real do cargo/funcionário para buscar sugestões
-    const nomeAlvo = (depto.cargos[activeCargoIndex]?.nome || depto.funcionarios[activeFuncionarioIndex]?.nome || '').toLowerCase();
-    
-    if (nomeAlvo && sugestoesPorCargo[nomeAlvo]) {
-        const sugestoes = sugestoesPorCargo[nomeAlvo];
-        
-        // Filtra sugestões que já foram adicionadas
+    if (nomeParaSugestoes && sugestoesPorCargo[nomeParaSugestoes]) {
+        const sugestoes = sugestoesPorCargo[nomeParaSugestoes];
         const sugestoesFiltradas = sugestoes.filter(sugestao => 
             !(targetObject.riscos || []).some(r => r.perigo === sugestao)
         );
@@ -958,21 +960,18 @@ function renderRiscoStep() {
                     <h4 style="margin-top: 0; color: var(--primary-hover);"><i class="bi bi-lightbulb-fill"></i> Sugestões de Risco para ${escapeHtml(targetObject.nome)}</h4>
                     <p style="font-size: 0.9rem; color: var(--gray-600); margin-bottom: 1rem;">Clique para adicionar rapidamente os riscos mais comuns para esta função.</p>
                     <div style="display: flex; flex-wrap: wrap; gap: 0.5rem;">
-            `;
-            sugestoesFiltradas.forEach(sugestao => {
-                sugestoesHTML += `<button class="outline" type="button" onclick='addSuggestedRisk("${sugestao.replace(/"/g, '&quot;')}")'>+ ${escapeHtml(sugestao)}</button>`;
-            });
-            sugestoesHTML += `</div></div>`;
+                        ${sugestoesFiltradas.map(sugestao => `<button class="outline" type="button" onclick='addSuggestedRisk("${sugestao.replace(/"/g, '&quot;')}")'>+ ${escapeHtml(sugestao)}</button>`).join('')}
+                    </div>
+                </div>`;
         }
     }
 
-    // 3. Lógica para navegação rápida entre cargos/grupos
+    // 3. O resto da função continua como antes...
     const riskTypes = [...new Set(predefinedRisks.map(r => r.tipo.replace(' PSICOSSOCIAIS', '')))];
     let quickNavOptions = (depto.cargos || []).map((c, i) => `<option value="cargo-${i}" ${currentContextValue === `cargo-${i}` ? 'selected' : ''}>Cargo: ${escapeHtml(c.nome)}</option>`).join('');
     quickNavOptions += (depto.funcionarios || []).map((f, i) => `<option value="funcionario-${i}" ${currentContextValue === `funcionario-${i}` ? 'selected' : ''}>Funcionário: ${escapeHtml(f.nome)}</option>`).join('');
     quickNavOptions += (depto.grupos || []).map((g, i) => `<option value="grupo-${i}" ${currentContextValue === `grupo-${i}` ? 'selected' : ''}>Grupo: ${escapeHtml(g.listaDeCargos.join(', '))}</option>`).join('');
     
-    // 4. Montagem do HTML final da tela
     document.getElementById('wizard-content').innerHTML = `
         <div class="card">
             <div class="breadcrumb">${breadcrumbText}</div>
@@ -986,7 +985,7 @@ function renderRiscoStep() {
             <ul id="risco-list" class="item-list"></ul>
             <h3 id="risco-form-title">Novo Risco</h3>
             <form id="risco-form" oninput="triggerAutosave()">
-                <div class="form-grid">
+                 <div class="form-grid">
                     <div class="form-group">
                         <label for="risco-tipo">Tipo de Risco</label>
                         <select id="risco-tipo" onchange="updatePerigoOptions(this.value)">
@@ -994,7 +993,7 @@ function renderRiscoStep() {
                             ${riskTypes.map(type => `<option value="${type}">${type.charAt(0) + type.slice(1).toLowerCase()}</option>`).join('')}
                         </select>
                     </div>
-                    <div class="form-group">
+                     <div class="form-group">
                         <label for="risk-perigo-select">Selecionar Perigo Pré-definido</label>
                         <select id="risk-perigo-select" onchange="fillRiscoForm(this.value)">
                             <option value="">-- Aguardando seleção do tipo --</option>
@@ -1011,54 +1010,17 @@ function renderRiscoStep() {
                     <label for="risco-descricao-detalhada">Descrição Detalhada</label>
                     ${wrapWithVoiceButton('risco-descricao-detalhada', 'Detalhe o contexto do risco...', '', false, 'textarea')}
                 </div>
-                
-                <!-- CONTEÚDO RESTAURADO ABAIXO -->
-                <details class="accordion-section">
-                    <summary>Fonte, Medição e Exposição</summary>
-                    <div class="form-grid">
-                        <div class="form-group"><label for="risco-fonte">Fonte Geradora</label>${wrapWithVoiceButton('risco-fonte', 'Ex: Compressor', '')}</div>
-                        <div class="form-group"><label for="risco-perfil-exposicao">Perfil de exposição</label>${wrapWithVoiceButton('risco-perfil-exposicao', 'Ex: Contínuo', '')}</div>
-                        <div class="form-group"><label for="risco-medicao">Medição</label>${wrapWithVoiceButton('risco-medicao', 'Ex: 92 dB', '')}</div>
-                        <div class="form-group"><label for="risco-tempo-exposicao">Tempo de Exposição</label>${wrapWithVoiceButton('risco-tempo-exposicao', 'Ex: 8h', '')}</div>
-                        <div class="form-group"><label for="risco-tipo-exposicao">Tipo de Exposição</label><select id="risco-tipo-exposicao"><option>Permanente</option><option>Ocasional</option><option>Intermitente</option></select></div>
-                        <div class="form-group"><label for="risco-esocial">Código E-Social</label>${wrapWithVoiceButton('risco-esocial', 'Ex: 01.01.001', '')}</div>
-                    </div>
-                    <div class="form-group"><label for="risco-obs-ambientais">Observações de registros ambientais</label>${wrapWithVoiceButton('risco-obs-ambientais', 'Observações...', '', false, 'textarea')}</div>
-                </details>
-                <details class="accordion-section">
-                    <summary>Análise e Avaliação</summary>
-                    <div class="form-grid">
-                        <div class="form-group"><label for="risco-probabilidade">Probabilidade</label><select id="risco-probabilidade"><option>Improvável</option><option>Provável</option><option>Remota</option><option>Frequente</option></select></div>
-                        <div class="form-group"><label for="risco-severidade">Severidade</label><select id="risco-severidade"><option>Baixa</option><option>Média</option><option>Alta</option><option>Crítica</option></select></div>
-                        <div class="form-group"><label for="risco-aceitabilidade">Aceitabilidade</label><select id="risco-aceitabilidade"><option>Tolerável</option><option>Não Tolerável</option></select></div>
-                    </div>
-                    <div class="form-group"><label for="risco-danos">Danos Potenciais</label>${wrapWithVoiceButton('risco-danos', 'Descreva os possíveis danos...', '', false, 'textarea')}</div>
-                </details>
-                <details class="accordion-section">
-                    <summary>Controles e Ações</summary>
-                    <div class="form-grid">
-                        <div class="form-group"><label for="risco-epi-utilizado">EPI Utilizado</label>${wrapWithVoiceButton('risco-epi-utilizado', 'Ex: Protetor auricular', '')}</div>
-                        <div class="form-group"><label for="risco-ca">CA (Certificado de Aprovação)</label>${wrapWithVoiceButton('risco-ca', 'Ex: 12345', '')}</div>
-                        <div class="form-group"><label for="risco-epc">EPC Existente</label>${wrapWithVoiceButton('risco-epc', 'Ex: Cabine acústica', '')}</div>
-                        <div class="form-group"><label for="risco-epi-sugerido">EPI Sugerido</label>${wrapWithVoiceButton('risco-epi-sugerido', 'Ex: Protetor tipo concha', '')}</div>
-                    </div>
-                    <div class="form-group"><label for="risco-acoes">Ações Necessárias</label>${wrapWithVoiceButton('risco-acoes', 'Descreva as ações recomendadas...', '', false, 'textarea')}</div>
-                    <div class="form-group"><label for="risco-observacoes-gerais">Observações Gerais</label>${wrapWithVoiceButton('risco-observacoes-gerais', 'Observações adicionais...', '', false, 'textarea')}</div>
-                </details>
-                <!-- FIM DO CONTEÚDO RESTAURADO -->
-
+                <details class="accordion-section"><summary>Fonte, Medição e Exposição</summary><div class="form-grid"><div class="form-group"><label for="risco-fonte">Fonte Geradora</label>${wrapWithVoiceButton('risco-fonte', 'Ex: Compressor', '')}</div><div class="form-group"><label for="risco-perfil-exposicao">Perfil de exposição</label>${wrapWithVoiceButton('risco-perfil-exposicao', 'Ex: Contínuo', '')}</div><div class="form-group"><label for="risco-medicao">Medição</label>${wrapWithVoiceButton('risco-medicao', 'Ex: 92 dB', '')}</div><div class="form-group"><label for="risco-tempo-exposicao">Tempo de Exposição</label>${wrapWithVoiceButton('risco-tempo-exposicao', 'Ex: 8h', '')}</div><div class="form-group"><label for="risco-tipo-exposicao">Tipo de Exposição</label><select id="risco-tipo-exposicao"><option>Permanente</option><option>Ocasional</option><option>Intermitente</option></select></div><div class="form-group"><label for="risco-esocial">Código E-Social</label>${wrapWithVoiceButton('risco-esocial', 'Ex: 01.01.001', '')}</div></div><div class="form-group"><label for="risco-obs-ambientais">Observações de registros ambientais</label>${wrapWithVoiceButton('risco-obs-ambientais', 'Observações...', '', false, 'textarea')}</div></details>
+                <details class="accordion-section"><summary>Análise e Avaliação</summary><div class="form-grid"><div class="form-group"><label for="risco-probabilidade">Probabilidade</label><select id="risco-probabilidade"><option>Improvável</option><option>Provável</option><option>Remota</option><option>Frequente</option></select></div><div class="form-group"><label for="risco-severidade">Severidade</label><select id="risco-severidade"><option>Baixa</option><option>Média</option><option>Alta</option><option>Crítica</option></select></div><div class="form-group"><label for="risco-aceitabilidade">Aceitabilidade</label><select id="risco-aceitabilidade"><option>Tolerável</option><option>Não Tolerável</option></select></div></div><div class="form-group"><label for="risco-danos">Danos Potenciais</label>${wrapWithVoiceButton('risco-danos', 'Descreva os possíveis danos...', '', false, 'textarea')}</div></details>
+                <details class="accordion-section"><summary>Controles e Ações</summary><div class="form-grid"><div class="form-group"><label for="risco-epi-utilizado">EPI Utilizado</label>${wrapWithVoiceButton('risco-epi-utilizado', 'Ex: Protetor auricular', '')}</div><div class="form-group"><label for="risco-ca">CA (Certificado de Aprovação)</label>${wrapWithVoiceButton('risco-ca', 'Ex: 12345', '')}</div><div class="form-group"><label for="risco-epc">EPC Existente</label>${wrapWithVoiceButton('risco-epc', 'Ex: Cabine acústica', '')}</div><div class="form-group"><label for="risco-epi-sugerido">EPI Sugerido</label>${wrapWithVoiceButton('risco-epi-sugerido', 'Ex: Protetor tipo concha', '')}</div></div><div class="form-group"><label for="risco-acoes">Ações Necessárias</label>${wrapWithVoiceButton('risco-acoes', 'Descreva as ações recomendadas...', '', false, 'textarea')}</div><div class="form-group"><label for="risco-observacoes-gerais">Observações Gerais</label>${wrapWithVoiceButton('risco-observacoes-gerais', 'Observações adicionais...', '', false, 'textarea')}</div></details>
                 ${renderCampoExamesCustomizados()}
-                <div class="form-actions">
-                    <button type="button" class="primary" id="save-risco-btn" onclick="saveRisco()"><i class="bi bi-plus-lg"></i> Adicionar</button>
-                    <button type="button" id="cancel-risco-edit-btn" class="nav hidden" onclick="clearRiscoForm()">Cancelar</button>
-                </div>
+                <div class="form-actions"><button type="button" class="primary" id="save-risco-btn" onclick="saveRisco()"><i class="bi bi-plus-lg"></i> Adicionar</button><button type="button" id="cancel-risco-edit-btn" class="nav hidden" onclick="clearRiscoForm()">Cancelar</button></div>
             </form>
             <div class="wizard-nav"><button class="nav" onclick="voltarDosRiscos()">Voltar</button></div>
-        </div>
-    `;
-    // 5. Renderiza as listas após o HTML ser inserido na página
+        </div>`;
+
     updateRiscoList();
-    atualizarListaDeExames(); // Chama a nova função para popular os exames
+    atualizarListaDeExames();
 }
 
 function voltarDosRiscos() { 
