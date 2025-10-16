@@ -648,8 +648,8 @@ function updateCargoList() {
         itemActions.appendChild(createButton('Editar', 'outline', () => editCargo(index)));
         itemActions.appendChild(createButton('<i class="bi bi-copy"></i> Duplicar', 'outline', () => duplicateItem('cargo', index)));
         itemActions.appendChild(createButton('Excluir', 'danger', () => deleteItem('cargo', index)));
-        itemActions.appendChild(createButton('<i class="bi bi-clipboard2-pulse"></i> Exames', 'outline', () => mostrarModalExames(index, 'cargo')));
         itemActions.appendChild(createButton('Riscos', 'primary', () => goToRiscos(index, 'cargo')));
+        itemActions.appendChild(createButton('<i class="bi bi-clipboard2-pulse"></i> Exames', 'outline', () => mostrarModalExames(index, 'cargo')));
 
         li.appendChild(itemInfo);
         li.appendChild(itemActions);
@@ -680,8 +680,9 @@ function updateGrupoList() {
         itemActions.appendChild(createButton('Editar', 'outline', () => editGrupo(index)));
         itemActions.appendChild(createButton('<i class="bi bi-copy"></i> Duplicar', 'outline', () => duplicateItem('grupo', index)));
         itemActions.appendChild(createButton('Excluir', 'danger', () => deleteItem('grupo', index)));
-        itemActions.appendChild(createButton('<i class="bi bi-clipboard2-pulse"></i> Exames', 'outline', () => mostrarModalExames(index, 'grupo')));
         itemActions.appendChild(createButton('Riscos', 'primary', () => goToRiscos(index, 'grupo')));
+        // A linha abaixo foi movida para ser a última
+        itemActions.appendChild(createButton('<i class="bi bi-clipboard2-pulse"></i> Exames', 'outline', () => mostrarModalExames(index, 'grupo')));
 
         li.appendChild(itemInfo);
         li.appendChild(itemActions);
@@ -713,8 +714,8 @@ function updateFuncionarioList() {
         itemActions.appendChild(createButton('Editar', 'outline', () => editFuncionario(index)));
         itemActions.appendChild(createButton('<i class="bi bi-copy"></i> Duplicar', 'outline', () => duplicateItem('funcionario', index)));
         itemActions.appendChild(createButton('Excluir', 'danger', () => deleteItem('funcionario', index)));
-        itemActions.appendChild(createButton('<i class="bi bi-clipboard2-pulse"></i> Exames', 'outline', () => mostrarModalExames(index, 'funcionario')));
         itemActions.appendChild(createButton('Riscos', 'primary', () => goToRiscos(index, 'funcionario')));
+        itemActions.appendChild(createButton('<i class="bi bi-clipboard2-pulse"></i> Exames', 'outline', () => mostrarModalExames(index, 'funcionario')));
         
         li.appendChild(itemInfo);
         li.appendChild(itemActions);
@@ -1061,18 +1062,36 @@ function updateRiscoList() {
     riscos.forEach((risco, index) => {
         const li = document.createElement("li");
 
-        // ===== LÓGICA ADICIONADA =====
-        // Se o índice deste item for o mesmo que está sendo editado, adiciona a classe 'editing'
         if (index === editingIndex) {
             li.classList.add('editing');
         }
-        // =============================
 
+        // Bloco que cria a lista de exames para exibição
+        let examesHTML = '';
+        if (risco.exames && risco.exames.length > 0) {
+            const examesList = risco.exames
+                .map(exame => `<span class="badge" style="background-color: var(--primary-light); color: var(--primary-hover); font-weight: 500;">${escapeHtml(exame.nome)}</span>`)
+                .join('');
+            
+            examesHTML = `
+                <div style="margin-top: 1rem; padding-top: 0.75rem; border-top: 1px solid var(--gray-200);">
+                    <strong style="font-size: 0.85rem; color: var(--gray-700); display: block; margin-bottom: 0.5rem;">
+                        <i class="bi bi-clipboard2-pulse"></i> Exames Vinculados:
+                    </strong>
+                    <div style="display: flex; flex-wrap: wrap; gap: 0.5rem;">
+                        ${examesList}
+                    </div>
+                </div>
+            `;
+        }
+
+        // Insere a lista de exames (examesHTML) dentro do card
         li.innerHTML = `
             <div class="item-info">
                 <strong>${escapeHtml(risco.perigo)}</strong>
                 <span class="badge">${escapeHtml(risco.tipo)}</span>
                 <small>Fonte: ${escapeHtml(risco.fonteGeradora||"N/A")} | Severidade: ${escapeHtml(risco.severidade||"N/A")}</small>
+                ${examesHTML}
             </div>
             <div class="item-actions">
                 <button class="outline" onclick="editRisco(${index})">Editar</button>
