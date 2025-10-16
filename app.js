@@ -38,6 +38,70 @@ const actionPlanView = document.getElementById('action-plan-view');
 document.getElementById('nav-dashboard').onclick = showDashboard;
 
 // ==========================================
+// ★ NOVO: NAVEGAÇÃO CENTRALIZADA
+// ==========================================
+
+/**
+ * Função central para navegar entre os passos do wizard.
+ * @param {number} step - O índice do passo para o qual navegar (0: Empresa, 1: Deptos, 2: Cargos, 3: Riscos).
+ * @param {number|null} deptoIndex - O índice do departamento ativo (relevante para passos > 1).
+ */
+function goToStep(step, deptoIndex = null) {
+    wizardStep = step;
+
+    // Se o índice do departamento for fornecido, atualiza o contexto
+    if (deptoIndex !== null) {
+        activeDepartamentoIndex = deptoIndex;
+    }
+
+    // Limpa contextos futuros para evitar inconsistências
+    if (step < 3) {
+        activeCargoIndex = -1;
+        activeFuncionarioIndex = -1;
+        currentGroupId = null;
+    }
+    if (step < 2) {
+        activeDepartamentoIndex = -1;
+    }
+    
+    renderWizardStep();
+}
+
+
+/**
+ * ★ NOVO: Gera os breadcrumbs clicáveis
+ * @returns {string} O HTML do breadcrumb.
+ */
+function renderBreadcrumb() {
+    if (wizardStep === 0) return ''; // Sem breadcrumb na tela da empresa
+
+    const empresaNome = escapeHtml(currentInspection.empresa.nome);
+    let html = `<a href="#" onclick="event.preventDefault(); goToStep(0);">${empresaNome}</a>`;
+
+    if (wizardStep > 1 && activeDepartamentoIndex > -1) {
+        const deptoNome = escapeHtml(currentInspection.departamentos[activeDepartamentoIndex].nome);
+        html += ` › <a href="#" onclick="event.preventDefault(); goToStep(1);">${deptoNome}</a>`;
+    }
+
+    if (wizardStep > 2) {
+        let activeItemName = '';
+        if (currentGroupId) {
+            const grupo = currentInspection.departamentos[activeDepartamentoIndex].grupos.find(g => g.id === currentGroupId);
+            activeItemName = `Grupo: ${escapeHtml(grupo.listaDeCargos.join(', '))}`;
+        } else if (activeCargoIndex > -1) {
+            activeItemName = `Cargo: ${escapeHtml(currentInspection.departamentos[activeDepartamentoIndex].cargos[activeCargoIndex].nome)}`;
+        } else if (activeFuncionarioIndex > -1) {
+            activeItemName = `Funcionário: ${escapeHtml(currentInspection.departamentos[activeDepartamentoIndex].funcionarios[activeFuncionarioIndex].nome)}`;
+        }
+        // O último item não é clicável, apenas texto
+        html += ` › <strong>${activeItemName}</strong>`;
+    }
+
+    return `<div class="breadcrumb" style="cursor:pointer;">${html}</div>`;
+}
+
+
+// ==========================================
 // HELPER: ADICIONAR VOZ EM TODOS OS CAMPOS
 // ==========================================
 
@@ -271,8 +335,7 @@ function renderWizardStep() {
     }
 }
 
-function nextStep() { wizardStep++; renderWizardStep(); }
-function prevStep() { wizardStep--; renderWizardStep(); }
+// Removido nextStep() e prevStep() pois goToStep() agora centraliza a lógica
 
 function updateProgressBar() {
     const steps = ['empresa', 'departamento', 'cargo', 'risco'];
@@ -359,7 +422,7 @@ function renderEmpresaStep() {
 function saveEmpresaAndNext() {
     currentInspection.empresa = { nome: document.getElementById("nome").value, cnpj: document.getElementById("cnpj").value, data: document.getElementById("data").value, elaborado: document.getElementById("elaborado").value, aprovado: document.getElementById("aprovado").value };
     if (!currentInspection.empresa.nome) return showToast("O nome da empresa é obrigatório.", "error");
-    persistCurrentInspection((success) => { if(success) { showToast("Dados da empresa salvos!", "success"); nextStep(); } });
+    persistCurrentInspection((success) => { if(success) { showToast("Dados da empresa salvos!", "success"); goToStep(1); } });
 }
 
 // ==========================================
@@ -369,7 +432,7 @@ function saveEmpresaAndNext() {
 function renderDepartamentoStep() {
     document.getElementById('wizard-content').innerHTML = `
         <div class="card">
-            <div class="breadcrumb">Empresa: <strong>${escapeHtml(currentInspection.empresa.nome)}</strong></div>
+            ${renderBreadcrumb()}
             <h3>Departamentos Adicionados <small style="font-weight: 400; color: var(--gray-500);">(Arraste para reordenar)</small></h3>
             <ul id="departamento-list" class="item-list"></ul>
             <h3 id="depto-form-title">Novo Departamento</h3>
@@ -391,7 +454,7 @@ function renderDepartamentoStep() {
                     <button type="button" id="cancel-depto-edit-btn" class="nav hidden" onclick="clearDeptoForm()">Cancelar</button>
                 </div>
             </form>
-            <div class="wizard-nav"><button class="nav" onclick="prevStep()">Voltar</button></div>
+            <div class="wizard-nav"><button class="nav" onclick="goToStep(0)">Voltar para Empresa</button></div>
         </div>`;
     updateDepartamentoList();
     setTimeout(() => initializeSortableLists(), 0);
@@ -419,7 +482,7 @@ function updateDepartamentoList() {
         itemActions.appendChild(createButton('Editar', 'outline', () => editDepartamento(index)));
         itemActions.appendChild(createButton('<i class="bi bi-copy"></i> Duplicar', 'outline', () => duplicateItem('departamento', index)));
         itemActions.appendChild(createButton('Excluir', 'danger', () => deleteItem('departamento', index)));
-        itemActions.appendChild(createButton('Cargos/Func.', 'primary', () => goToCargos(index)));
+        itemActions.appendChild(createButton('Cargos/Func.', 'primary', () => goToStep(2, index)));
         
         li.appendChild(itemInfo);
         li.appendChild(itemActions);
@@ -474,11 +537,6 @@ function clearDeptoForm() {
     document.getElementById("depto-form-title").innerText = "Novo Departamento";
     document.getElementById("save-depto-btn").innerHTML = "Adicionar";
     document.getElementById("cancel-depto-edit-btn").classList.add("hidden");
-}
-
-function goToCargos(index) {
-    activeDepartamentoIndex = index;
-    nextStep();
 }
 
 // ==========================================
@@ -556,7 +614,7 @@ function renderCargoFuncionarioStep() {
     
     document.getElementById('wizard-content').innerHTML = `
         <div class="card">
-            <div class="breadcrumb">${escapeHtml(currentInspection.empresa.nome)} › <strong>${escapeHtml(depto.nome)}</strong></div>
+            ${renderBreadcrumb()}
             <h3>Grupos de Cargos <small style="font-weight: 400; color: var(--gray-500);">(Arraste para reordenar)</small></h3>
             <ul id="grupo-list" class="item-list"></ul>
             <details id="grupo-form-details" class="accordion-section" ${detailsAttr}>
@@ -612,7 +670,7 @@ function renderCargoFuncionarioStep() {
                     </form>
                 </div>
             </details>
-            <div class="wizard-nav"><button class="nav" onclick="prevStep()">Voltar</button></div>
+            <div class="wizard-nav"><button class="nav" onclick="goToStep(1)">Voltar para Departamentos</button></div>
         </div>`;
     updateAllLists();
     setTimeout(() => initializeSortableLists(), 0);
@@ -681,7 +739,6 @@ function updateGrupoList() {
         itemActions.appendChild(createButton('<i class="bi bi-copy"></i> Duplicar', 'outline', () => duplicateItem('grupo', index)));
         itemActions.appendChild(createButton('Excluir', 'danger', () => deleteItem('grupo', index)));
         itemActions.appendChild(createButton('Riscos', 'primary', () => goToRiscos(index, 'grupo')));
-        // A linha abaixo foi movida para ser a última
         itemActions.appendChild(createButton('<i class="bi bi-clipboard2-pulse"></i> Exames', 'outline', () => mostrarModalExames(index, 'grupo')));
 
         li.appendChild(itemInfo);
@@ -901,7 +958,7 @@ function goToRiscos(index, type) {
     activeCargoIndex = type === 'cargo' ? index : -1;
     activeFuncionarioIndex = type === 'funcionario' ? index : -1;
     currentGroupId = type === 'grupo' ? currentInspection.departamentos[activeDepartamentoIndex].grupos[index].id : null;
-    nextStep();
+    goToStep(3);
 }
 
 // ==========================================
@@ -910,44 +967,37 @@ function goToRiscos(index, type) {
 
 function renderRiscoStep() {
     const depto = currentInspection.departamentos[activeDepartamentoIndex];
-    let breadcrumbText = '', tituloRiscos = '', infoBox = '', targetObject;
-    let currentContextValue = '', nomeParaSugestoes = null; // A MUDANÇA MAIS IMPORTANTE: variável unificada
+    let tituloRiscos = '', infoBox = '', targetObject;
+    let currentContextValue = '', nomeParaSugestoes = null; 
 
-    // 1. Identifica o alvo (cargo, grupo ou funcionário) e define as variáveis de forma segura
     if (currentGroupId) {
         targetObject = depto.grupos.find(g => g.id === currentGroupId);
-        if (!targetObject) { showToast("Grupo não encontrado.", "error"); prevStep(); return; }
+        if (!targetObject) { showToast("Grupo não encontrado.", "error"); goToStep(2, activeDepartamentoIndex); return; }
         
-        const nomesGrupo = targetObject.listaDeCargos.join(', ');
-        breadcrumbText = `${escapeHtml(currentInspection.empresa.nome)} › ${escapeHtml(depto.nome)} › <strong>Grupo: ${escapeHtml(nomesGrupo)}</strong>`;
         tituloRiscos = `Riscos do Grupo (${targetObject.listaDeCargos.length} cargos)`;
         infoBox = `<div style="padding:1rem;background:var(--primary-light);border-left:4px solid var(--primary);border-radius:.5rem;margin-bottom:1.5rem;"><strong style="display:block;margin-bottom:.5rem;color:var(--gray-900);">Modo Grupo</strong><p style="margin:0;color:var(--gray-700);font-size:.95rem;">Os riscos aqui serão aplicados a todos os cargos do grupo.</p></div>`;
         currentContextValue = `grupo-${depto.grupos.findIndex(g => g.id === currentGroupId)}`;
-        // Sugestões de risco não se aplicam a grupos, então `nomeParaSugestoes` permanece null.
 
     } else if (activeCargoIndex > -1) {
         targetObject = depto.cargos[activeCargoIndex];
-        if (!targetObject) { showToast("Cargo não encontrado.", "error"); prevStep(); return; }
+        if (!targetObject) { showToast("Cargo não encontrado.", "error"); goToStep(2, activeDepartamentoIndex); return; }
 
-        breadcrumbText = `${escapeHtml(currentInspection.empresa.nome)} › ${escapeHtml(depto.nome)} › <strong>Cargo: ${escapeHtml(targetObject.nome)}</strong>`;
         tituloRiscos = 'Riscos Identificados';
         currentContextValue = `cargo-${activeCargoIndex}`;
-        nomeParaSugestoes = targetObject.nome.toLowerCase(); // Define o nome para buscar sugestões
+        nomeParaSugestoes = targetObject.nome.toLowerCase();
 
     } else if (activeFuncionarioIndex > -1) {
         targetObject = depto.funcionarios[activeFuncionarioIndex];
-        if (!targetObject) { showToast("Funcionário não encontrado.", "error"); prevStep(); return; }
+        if (!targetObject) { showToast("Funcionário não encontrado.", "error"); goToStep(2, activeDepartamentoIndex); return; }
 
-        breadcrumbText = `${escapeHtml(currentInspection.empresa.nome)} › ${escapeHtml(depto.nome)} › <strong>Funcionário: ${escapeHtml(targetObject.nome)}</strong>`;
         tituloRiscos = 'Riscos Identificados';
         currentContextValue = `funcionario-${activeFuncionarioIndex}`;
-        nomeParaSugestoes = targetObject.nome.toLowerCase(); // Define o nome para buscar sugestões
+        nomeParaSugestoes = targetObject.nome.toLowerCase(); 
         
     } else {
-        prevStep(); return; // Se nenhum alvo for encontrado, volta para a tela anterior
+        goToStep(2, activeDepartamentoIndex); return;
     }
 
-    // 2. LÓGICA DE SUGESTÃO DE RISCOS CORRIGIDA E SIMPLIFICADA
     let sugestoesHTML = '';
     if (nomeParaSugestoes && sugestoesPorCargo[nomeParaSugestoes]) {
         const sugestoes = sugestoesPorCargo[nomeParaSugestoes];
@@ -967,7 +1017,6 @@ function renderRiscoStep() {
         }
     }
 
-    // 3. O resto da função continua como antes...
     const riskTypes = [...new Set(predefinedRisks.map(r => r.tipo.replace(' PSICOSSOCIAIS', '')))];
     let quickNavOptions = (depto.cargos || []).map((c, i) => `<option value="cargo-${i}" ${currentContextValue === `cargo-${i}` ? 'selected' : ''}>Cargo: ${escapeHtml(c.nome)}</option>`).join('');
     quickNavOptions += (depto.funcionarios || []).map((f, i) => `<option value="funcionario-${i}" ${currentContextValue === `funcionario-${i}` ? 'selected' : ''}>Funcionário: ${escapeHtml(f.nome)}</option>`).join('');
@@ -975,14 +1024,14 @@ function renderRiscoStep() {
     
     document.getElementById('wizard-content').innerHTML = `
         <div class="card">
-            <div class="breadcrumb">${breadcrumbText}</div>
+            ${renderBreadcrumb()}
             <div class="form-group">
                 <label for="quick-nav-select">Navegar para riscos de:</label>
                 <select id="quick-nav-select" onchange="switchRiskContext(this.value)">${quickNavOptions}</select>
             </div>
             ${infoBox}
             ${sugestoesHTML}
-            <h3>${tituloRiscos}</h3>
+            <h3>${tituloRiscos} <small style="font-weight: 400; color: var(--gray-500);">(Arraste para reordenar)</small></h3>
             <ul id="risco-list" class="item-list"></ul>
             <h3 id="risco-form-title">Novo Risco</h3>
             <form id="risco-form" oninput="triggerAutosave()">
@@ -1017,18 +1066,12 @@ function renderRiscoStep() {
                 ${renderCampoExamesCustomizados()}
                 <div class="form-actions"><button type="button" class="primary" id="save-risco-btn" onclick="saveRisco()"><i class="bi bi-plus-lg"></i> Adicionar</button><button type="button" id="cancel-risco-edit-btn" class="nav hidden" onclick="clearRiscoForm()">Cancelar</button></div>
             </form>
-            <div class="wizard-nav"><button class="nav" onclick="voltarDosRiscos()">Voltar</button></div>
+            <div class="wizard-nav"><button class="nav" onclick="goToStep(2, activeDepartamentoIndex)">Voltar para Cargos</button></div>
         </div>`;
-
+    
+    setTimeout(() => initializeSortableLists(), 0);
     updateRiscoList();
     atualizarListaDeExames();
-}
-
-function voltarDosRiscos() { 
-    currentGroupId = null; 
-    activeCargoIndex = -1;
-    activeFuncionarioIndex = -1;
-    prevStep(); 
 }
 
 function updatePerigoOptions(selectedType) {
@@ -1134,8 +1177,6 @@ function saveRisco() {
     updateRiscoList(); 
     persistCurrentInspection();
     
-    // ===== LINHA ADICIONADA =====
-    // Rola a tela de volta para a lista de riscos
     document.getElementById('risco-list').scrollIntoView({ behavior: 'smooth' });
 }
 
@@ -1195,7 +1236,6 @@ function addSuggestedRisk(perigoDescricao) {
         return showToast("Erro: Risco sugerido não encontrado na base de dados.", "error");
     }
 
-    // Identifica onde adicionar o risco (cargo, grupo ou funcionário)
     const depto = currentInspection.departamentos[activeDepartamentoIndex];
     let targetObject;
     if (currentGroupId) { targetObject = depto.grupos.find(g => g.id === currentGroupId); }
@@ -1205,22 +1245,18 @@ function addSuggestedRisk(perigoDescricao) {
     if (!targetObject) return;
     if (!targetObject.riscos) targetObject.riscos = [];
 
-    // Clona o objeto para evitar alterações na base de dados original
     const novoRisco = JSON.parse(JSON.stringify(riscoParaAdicionar));
     
-    // Adiciona os exames recomendados automaticamente
     adicionarExamesSugeridos(novoRisco);
 
     targetObject.riscos.push(novoRisco);
 
     showToast(`Risco "${novoRisco.perigo}" adicionado!`, "success");
     
-    // Re-renderiza a tela para atualizar a lista e remover a sugestão
     renderRiscoStep();
     persistCurrentInspection();
 }
 
-// Função auxiliar para popular os exames automaticamente
 function adicionarExamesSugeridos(riscoData) {
     const examData = getExamesPorRisco(riscoData.perigo);
     if (examData && examData.exames) {
@@ -1231,7 +1267,7 @@ function adicionarExamesSugeridos(riscoData) {
 
 
 function clearRiscoForm() {
-    editingIndex = -1; // Limpa o índice de edição
+    editingIndex = -1; 
     document.getElementById("risco-form").reset();
     updatePerigoOptions('');
     document.getElementById("risco-form-title").innerText = "Novo Risco";
@@ -1240,8 +1276,7 @@ function clearRiscoForm() {
     examesTemporarios = []; 
     renderExamesEditaveis(); 
     
-    // ===== LÓGICA ADICIONADA =====
-    updateRiscoList(); // Re-renderiza a lista para remover o destaque
+    updateRiscoList(); 
     document.getElementById('risco-list').scrollIntoView({ behavior: 'smooth' });
 }
 
@@ -1707,6 +1742,11 @@ function initializeSortableLists() {
                 targetArray = currentInspection.departamentos[activeDepartamentoIndex].funcionarios;
             } else if (listId === 'grupo-list') {
                 targetArray = currentInspection.departamentos[activeDepartamentoIndex].grupos;
+            } else if (listId === 'risco-list') { // ★ NOVO: Adicionado suporte para reordenar riscos
+                const depto = currentInspection.departamentos[activeDepartamentoIndex];
+                if (currentGroupId) { targetArray = depto.grupos.find(g => g.id === currentGroupId)?.riscos; }
+                else if (activeCargoIndex > -1) { targetArray = depto.cargos[activeCargoIndex]?.riscos; }
+                else if (activeFuncionarioIndex > -1) { targetArray = depto.funcionarios[activeFuncionarioIndex]?.riscos; }
             }
             if (targetArray) {
                 targetArray.splice(newIndex, 0, targetArray.splice(oldIndex, 1)[0]);
@@ -1714,7 +1754,7 @@ function initializeSortableLists() {
             }
         }
     };
-    ['departamento-list', 'cargo-list', 'funcionario-list', 'grupo-list'].forEach(id => {
+    ['departamento-list', 'cargo-list', 'funcionario-list', 'grupo-list', 'risco-list'].forEach(id => {
         const el = document.getElementById(id);
         if (el) Sortable.create(el, sortableConfig);
     });
