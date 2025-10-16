@@ -696,9 +696,30 @@ function updateCargoList() {
         const li = document.createElement("li");
         const obsText = (cargo.observacoes || []).length > 0 ? (cargo.observacoes || []).slice(0, 2).join(', ') + ((cargo.observacoes || []).length > 2 ? '...' : '') : 'Sem observações';
         
+        // ★ NOVO: Bloco que cria a lista de riscos
+        let riscosHTML = '';
+        if (cargo.riscos && cargo.riscos.length > 0) {
+            const riscosList = cargo.riscos
+                .map(risco => `<span class="badge" style="background-color: var(--gray-200); color: var(--gray-700); font-weight: 500;">${escapeHtml(risco.perigo)}</span>`)
+                .join('');
+            
+            riscosHTML = `
+                <div style="margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid var(--gray-200);">
+                    <div style="display: flex; flex-wrap: wrap; gap: 0.5rem;">
+                        ${riscosList}
+                    </div>
+                </div>
+            `;
+        }
+
         const itemInfo = document.createElement('div');
         itemInfo.className = 'item-info';
-        itemInfo.innerHTML = `<strong>${escapeHtml(cargo.nome)}</strong><small>${(cargo.riscos || []).length} risco(s) | ${escapeHtml(obsText)}</small>`;
+        // HTML do card atualizado para incluir os riscos
+        itemInfo.innerHTML = `
+            <strong>${escapeHtml(cargo.nome)}</strong>
+            <small>${(cargo.riscos || []).length} risco(s) | ${escapeHtml(obsText)}</small>
+            ${riscosHTML}
+        `;
         
         const itemActions = document.createElement('div');
         itemActions.className = 'item-actions';
@@ -728,9 +749,30 @@ function updateGrupoList() {
     depto.grupos.forEach((grupo, index) => {
         const li = document.createElement("li");
         
+        // ★ NOVO: Bloco que cria a lista de riscos
+        let riscosHTML = '';
+        if (grupo.riscos && grupo.riscos.length > 0) {
+            const riscosList = grupo.riscos
+                .map(risco => `<span class="badge" style="background-color: var(--gray-200); color: var(--gray-700); font-weight: 500;">${escapeHtml(risco.perigo)}</span>`)
+                .join('');
+            
+            riscosHTML = `
+                <div style="margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid var(--gray-200);">
+                    <div style="display: flex; flex-wrap: wrap; gap: 0.5rem;">
+                        ${riscosList}
+                    </div>
+                </div>
+            `;
+        }
+
         const itemInfo = document.createElement('div');
         itemInfo.className = 'item-info';
-        itemInfo.innerHTML = `<strong>Grupo: ${escapeHtml(grupo.listaDeCargos.join(', '))}</strong><small>${(grupo.riscos || []).length} risco(s)</small>`;
+        // HTML do card atualizado para incluir os riscos
+        itemInfo.innerHTML = `
+            <strong>Grupo: ${escapeHtml(grupo.listaDeCargos.join(', '))}</strong>
+            <small>${(grupo.riscos || []).length} risco(s)</small>
+            ${riscosHTML}
+        `;
 
         const itemActions = document.createElement('div');
         itemActions.className = 'item-actions';
@@ -761,9 +803,30 @@ function updateFuncionarioList() {
         const li = document.createElement("li");
         const obsText = (func.observacoes || []).length > 0 ? (func.observacoes || []).slice(0, 2).join(', ') + '...' : 'Sem observações';
         
+        // ★ NOVO: Bloco que cria a lista de riscos
+        let riscosHTML = '';
+        if (func.riscos && func.riscos.length > 0) {
+            const riscosList = func.riscos
+                .map(risco => `<span class="badge" style="background-color: var(--gray-200); color: var(--gray-700); font-weight: 500;">${escapeHtml(risco.perigo)}</span>`)
+                .join('');
+            
+            riscosHTML = `
+                <div style="margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid var(--gray-200);">
+                    <div style="display: flex; flex-wrap: wrap; gap: 0.5rem;">
+                        ${riscosList}
+                    </div>
+                </div>
+            `;
+        }
+
         const itemInfo = document.createElement('div');
         itemInfo.className = 'item-info';
-        itemInfo.innerHTML = `<strong>${escapeHtml(func.nome)}</strong><small>${(func.riscos || []).length} risco(s) | ${escapeHtml(obsText)}</small>`;
+        // HTML do card atualizado para incluir os riscos
+        itemInfo.innerHTML = `
+            <strong>${escapeHtml(func.nome)}</strong>
+            <small>${(func.riscos || []).length} risco(s) | ${escapeHtml(obsText)}</small>
+            ${riscosHTML}
+        `;
 
         const itemActions = document.createElement('div');
         itemActions.className = 'item-actions';
