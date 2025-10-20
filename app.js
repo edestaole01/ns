@@ -1107,8 +1107,9 @@ function renderRiscoStep() {
         return;
     }
 
-    // Etapa 2: Gerar sugestões de risco, se aplicável
+    // Etapa 2: Gerar sugestões de risco (COM VERIFICAÇÃO DE SEGURANÇA)
     let sugestoesHTML = '';
+    // ESTA LINHA FOI CORRIGIDA para verificar se 'sugestoesPorCargo' existe antes de usá-la.
     if (typeof sugestoesPorCargo !== 'undefined' && nomeParaSugestoes && sugestoesPorCargo[nomeParaSugestoes]) {
         const sugestoes = sugestoesPorCargo[nomeParaSugestoes];
         const sugestoesFiltradas = sugestoes.filter(sugestao => 
@@ -1183,13 +1184,12 @@ function renderRiscoStep() {
     
     // PÓS-RENDER: Funções que manipulam o HTML recém-criado
     setTimeout(() => {
-        updateRiscoList(); // MOVIDO PARA CÁ
+        updateRiscoList();
         initializeSortableLists();
         atualizarListaDeExames();
         ensureAllAccordionsOpenOnMobile();
     }, 0);
 }
-
 
 function updatePerigoOptions(selectedType) {
     const perigoSelect = document.getElementById("risk-perigo-select");
