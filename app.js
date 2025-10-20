@@ -465,14 +465,13 @@ function renderDepartamentoStep() {
             <div class="wizard-nav"><button class="nav" onclick="goToStep(0)">Voltar para Empresa</button></div>
         </div>`;
     
-    updateDepartamentoList();
-    // A função foi movida para o lugar certo (depois de criar o HTML)
+    // Agora, TODAS as funções de manipulação do DOM rodam depois da renderização
     setTimeout(() => {
+        updateDepartamentoList(); // <-- MOVIDO PARA CÁ
         initializeSortableLists();
-        ensureAllAccordionsOpenOnMobile(); // <-- LUGAR CORRETO
+        ensureAllAccordionsOpenOnMobile();
     }, 0);
 }
-
 
 function updateDepartamentoList() {
     const list = document.getElementById("departamento-list");
@@ -622,10 +621,11 @@ function renderCargoFuncionarioStep() {
     if (!depto.cargos) depto.cargos = [];
     if (!depto.funcionarios) depto.funcionarios = [];
     
-    // Verifica se está no mobile
+    // Verifica se está no mobile para abrir os accordions por padrão
     const isMobile = window.innerWidth <= 768;
-    const detailsAttr = isMobile ? 'open' : ''; // No mobile, abre por padrão
+    const detailsAttr = isMobile ? 'open' : '';
     
+    // Renderiza o HTML principal da tela
     document.getElementById('wizard-content').innerHTML = `
         <div class="card">
             ${renderBreadcrumb()}
@@ -637,7 +637,7 @@ function renderCargoFuncionarioStep() {
                     <form id="grupo-form">
                         <div class="form-group">
                             <label for="grupo-nomes">Nomes dos Cargos do Grupo (um por linha) *</label>
-                            ${wrapWithVoiceButton('grupo-nomes', 'Motorista A\nMotorista B', '', true, 'textarea')}
+                            ${wrapWithVoiceButton('grupo-nomes', 'Motorista A\\nMotorista B', '', true, 'textarea')}
                             <small>Cargos em um grupo compartilham os mesmos riscos e detalhes.</small>
                         </div>
                         ${getFormFieldsHTML('grupo')}
@@ -687,9 +687,9 @@ function renderCargoFuncionarioStep() {
             <div class="wizard-nav"><button class="nav" onclick="goToStep(1)">Voltar para Departamentos</button></div>
         </div>`;
     
-    // PÓS-RENDER - Chama as funções após renderizar o HTML
-    updateAllLists();
+    // PÓS-RENDER - As funções que manipulam o HTML agora rodam DENTRO do setTimeout
     setTimeout(() => {
+        updateAllLists(); // MOVIDO PARA CÁ: Garante que as listas <ul> existem antes de serem preenchidas
         if (typeof initializeSortableLists === 'function') {
             initializeSortableLists();
         }
@@ -1049,6 +1049,8 @@ function goToRiscos(index, type) {
 // PASSO 4: RISCOS - COM VOZ
 // ==========================================
 
+// app.js -> SUBSTITUA TODA A FUNÇÃO renderRiscoStep POR ESTE BLOCO
+
 function renderRiscoStep() {
     const depto = currentInspection.departamentos[activeDepartamentoIndex];
     let tituloRiscos = '', infoBox = '', targetObject;
@@ -1080,14 +1082,13 @@ function renderRiscoStep() {
         nomeParaSugestoes = targetObject.nome.toLowerCase(); 
         
     } else {
-        // Se nenhum contexto for válido, volta para a tela de cargos
         goToStep(2, activeDepartamentoIndex); 
         return;
     }
 
     // Etapa 2: Gerar sugestões de risco, se aplicável
     let sugestoesHTML = '';
-    if (nomeParaSugestoes && sugestoesPorCargo[nomeParaSugestoes]) {
+    if (typeof sugestoesPorCargo !== 'undefined' && nomeParaSugestoes && sugestoesPorCargo[nomeParaSugestoes]) {
         const sugestoes = sugestoesPorCargo[nomeParaSugestoes];
         const sugestoesFiltradas = sugestoes.filter(sugestao => 
             !(targetObject.riscos || []).some(r => r.perigo === sugestao)
@@ -1105,7 +1106,7 @@ function renderRiscoStep() {
         }
     }
 
-    // Etapa 3: Preparar dados para o HTML (tipos de risco e navegação rápida)
+    // Etapa 3: Preparar dados para o HTML
     const riskTypes = [...new Set(predefinedRisks.map(r => r.tipo.replace(' PSICOSSOCIAIS', '')))];
     let quickNavOptions = (depto.cargos || []).map((c, i) => `<option value="cargo-${i}" ${currentContextValue === `cargo-${i}` ? 'selected' : ''}>Cargo: ${escapeHtml(c.nome)}</option>`).join('');
     quickNavOptions += (depto.funcionarios || []).map((f, i) => `<option value="funcionario-${i}" ${currentContextValue === `funcionario-${i}` ? 'selected' : ''}>Funcionário: ${escapeHtml(f.nome)}</option>`).join('');
@@ -1159,12 +1160,12 @@ function renderRiscoStep() {
             <div class="wizard-nav"><button class="nav" onclick="goToStep(2, activeDepartamentoIndex)">Voltar para Cargos</button></div>
         </div>`;
     
-    // Etapa 5: Executar scripts de pós-renderização
-    updateRiscoList();
+    // PÓS-RENDER: Funções que manipulam o HTML recém-criado
     setTimeout(() => {
+        updateRiscoList(); // MOVIDO PARA CÁ
         initializeSortableLists();
         atualizarListaDeExames();
-        ensureAllAccordionsOpenOnMobile(); // Posição correta
+        ensureAllAccordionsOpenOnMobile();
     }, 0);
 }
 
@@ -1258,78 +1259,75 @@ function updateRiscoList() {
 
 function saveRisco() {
     const riscoData = {
-      riscoPresente: document.getElementById("risco-presente").value,
-      tipo: document.getElementById("risco-tipo").value,
-      codigoEsocial: document.getElementById("risco-esocial")?.value || "",
-      perigo: document.getElementById("risco-perigo").value,
-      descricaoDetalhada: document.getElementById("risco-descricao-detalhada")?.value || "",
-      fonteGeradora: document.getElementById("risco-fonte")?.value || "",
-      perfilExposicao: document.getElementById("risco-perfil-exposicao")?.value || "",
-      medicao: document.getElementById("risco-medicao")?.value || "",
-      tempoExposicao: document.getElementById("risco-tempo-exposicao")?.value || "",
-      tipoExposicao: document.getElementById("risco-tipo-exposicao")?.value || "",
-      obsAmbientais: document.getElementById("risco-obs-ambientais")?.value || "",
-      probabilidade: document.getElementById("risco-probabilidade")?.value || "",
-      severidade: document.getElementById("risco-severidade")?.value || "",
-      aceitabilidade: document.getElementById("risco-aceitabilidade")?.value || "",
-      danos: document.getElementById("risco-danos")?.value || "",
-      epiUtilizado: document.getElementById("risco-epi-utilizado")?.value || "",
-      ca: document.getElementById("risco-ca")?.value || "",
-      epc: document.getElementById("risco-epc")?.value || "",
-      epiSugerido: document.getElementById("risco-epi-sugerido")?.value || "",
-      acoesNecessarias: document.getElementById("risco-acoes")?.value || "",
-      observacoesGerais: document.getElementById("risco-observacoes-gerais")?.value || ""
+        riscoPresente: document.getElementById("risco-presente").value,
+        tipo: document.getElementById("risco-tipo").value,
+        codigoEsocial: document.getElementById("risco-esocial")?.value || "",
+        perigo: document.getElementById("risco-perigo").value,
+        descricaoDetalhada: document.getElementById("risco-descricao-detalhada")?.value || "",
+        fonteGeradora: document.getElementById("risco-fonte")?.value || "",
+        perfilExposicao: document.getElementById("risco-perfil-exposicao")?.value || "",
+        medicao: document.getElementById("risco-medicao")?.value || "",
+        tempoExposicao: document.getElementById("risco-tempo-exposicao")?.value || "",
+        tipoExposicao: document.getElementById("risco-tipo-exposicao")?.value || "",
+        obsAmbientais: document.getElementById("risco-obs-ambientais")?.value || "",
+        probabilidade: document.getElementById("risco-probabilidade")?.value || "",
+        severidade: document.getElementById("risco-severidade")?.value || "",
+        aceitabilidade: document.getElementById("risco-aceitabilidade")?.value || "",
+        danos: document.getElementById("risco-danos")?.value || "",
+        epiUtilizado: document.getElementById("risco-epi-utilizado")?.value || "",
+        ca: document.getElementById("risco-ca")?.value || "",
+        epc: document.getElementById("risco-epc")?.value || "",
+        epiSugerido: document.getElementById("risco-epi-sugerido")?.value || "",
+        acoesNecessarias: document.getElementById("risco-acoes")?.value || "",
+        observacoesGerais: document.getElementById("risco-observacoes-gerais")?.value || ""
     };
   
     if (!riscoData.perigo) {
-      showToast("A descrição do perigo é obrigatória.", "error");
-      return;
+        showToast("A descrição do perigo é obrigatória.", "error");
+        return;
     }
   
-    // Vincula exames temporários se houver
+    // Vincula os exames à nova data de risco
     riscoData.exames = Array.isArray(examesTemporarios) ? [...examesTemporarios] : [];
   
     const depto = currentInspection.departamentos[activeDepartamentoIndex];
     let targetArray;
     let message = `Risco ${editingIndex > -1 ? 'atualizado' : 'adicionado'}`;
   
+    // Encontra o array de riscos correto (grupo, cargo ou funcionário)
     if (currentGroupId) {
-      const grupo = (depto.grupos || []).find(g => g.id === currentGroupId);
-      if (!grupo.riscos) grupo.riscos = [];
-      targetArray = grupo.riscos;
-      message += ' para o grupo!';
+        const grupo = depto.grupos.find(g => g.id === currentGroupId);
+        if (!grupo.riscos) grupo.riscos = [];
+        targetArray = grupo.riscos;
+        message += ' para o grupo!';
     } else if (activeCargoIndex > -1) {
-      const cargo = depto.cargos[activeCargoIndex];
-      if (!cargo.riscos) cargo.riscos = [];
-      targetArray = cargo.riscos;
+        const cargo = depto.cargos[activeCargoIndex];
+        if (!cargo.riscos) cargo.riscos = [];
+        targetArray = cargo.riscos;
     } else if (activeFuncionarioIndex > -1) {
-      const func = depto.funcionarios[activeFuncionarioIndex];
-      if (!func.riscos) func.riscos = [];
-      targetArray = func.riscos;
+        const func = depto.funcionarios[activeFuncionarioIndex];
+        if (!func.riscos) func.riscos = [];
+        targetArray = func.riscos;
     } else {
-      showToast("Contexto inválido para salvar risco.", "error");
-      return;
+        showToast("Contexto inválido para salvar risco.", "error");
+        return;
     }
   
+    // Adiciona ou atualiza o risco no array
     if (editingIndex > -1) {
-      targetArray[editingIndex] = riscoData;
+        targetArray[editingIndex] = riscoData;
     } else {
-      targetArray.push(riscoData);
+        targetArray.push(riscoData);
     }
   
-    // Reset estado de edição e UI
-    editingIndex = -1;
-    editingType = null;
-    if (typeof clearRiscoForm === 'function') {
-      clearRiscoForm();
-    }
-  
-    if (typeof updateRiscoList === 'function') {
-      updateRiscoList();
-    }
-    if (typeof persistCurrentInspection === 'function') {
-      persistCurrentInspection(() => showToast(message, "success"));
-    }
+    // Executa as ações na ordem correta
+    showToast(message, "success");
+    clearRiscoForm();             // Limpa o formulário
+    updateRiscoList();            // ATUALIZA A LISTA NA TELA
+    persistCurrentInspection();   // Salva os dados no banco de dados
+    
+    // Rola a visualização para a lista de riscos, para o usuário ver a adição
+    document.getElementById('risco-list').scrollIntoView({ behavior: 'smooth' });
 }
 
 function editRisco(index) {
@@ -1429,8 +1427,8 @@ function clearRiscoForm() {
     examesTemporarios = []; 
     renderExamesEditaveis(); 
     
-    updateRiscoList(); 
-    document.getElementById('risco-list').scrollIntoView({ behavior: 'smooth' });
+    // A chamada para updateRiscoList() foi REMOVIDA daqui, pois a saveRisco já faz isso.
+    // A rolagem da tela também foi movida para a saveRisco.
 }
 
 function switchRiskContext(value) {
@@ -1547,9 +1545,13 @@ function getAllInspections(callback) {
 // PLANO DE AÇÃO - COM VOZ
 // ==========================================
 
+// app.js -> SUBSTITUA TODA A FUNÇÃO renderActionPlanView POR ESTE BLOCO
+
 function renderActionPlanView() {
     if (!currentInspection) return; 
     const e = currentInspection.empresa || {};
+
+    // Renderiza o HTML da tela
     actionPlanView.innerHTML = `
         <div class="card">
             <div class="header">
@@ -1585,7 +1587,11 @@ function renderActionPlanView() {
                 </div>
             </form>
         </div>`;
-    updateActionItemList();
+    
+    // PÓS-RENDER: A chamada foi movida para dentro de um setTimeout
+    setTimeout(() => {
+        updateActionItemList(); // MOVIDO PARA CÁ
+    }, 0);
 }
 
 function showActionPlanView(inspectionId) {
@@ -1692,7 +1698,7 @@ function generateInspectionReport(id) {
         const e = insp.empresa || {};
         const reportDate = new Date().toLocaleString('pt-BR');
 
-        // --- INÍCIO DO HTML DO RELATÓRIO ---
+        // --- INÍCIO DO HTML DO RELATÓRIO (NÃO PRECISA DO BOTÃO DE IMPRIMIR) ---
         let html = `
         <!DOCTYPE html><html lang="pt-br"><head><meta charset="UTF-8"><title>Relatório de Inspeção - ${escapeHtml(e.nome)}</title>
         <style>
@@ -1707,21 +1713,12 @@ function generateInspectionReport(id) {
             .cargo-details, .risco-card { margin-bottom: 20px; }
             .report-checklist { font-family: 'Courier New', Courier, monospace; font-size: 0.9em; background-color: #f8fafc; padding: 10px; border-radius: 4px; border: 1px solid #e2e8f0; }
             .report-checklist-item { margin-right: 1.5rem; white-space: nowrap; }
-            .print-button-container { text-align: center; margin-bottom: 20px; padding: 10px; background: #eff6ff; border: 1px solid #93c5fd; border-radius: 8px; }
-            .print-button { background: #3b82f6; color: white; border: none; padding: 12px 24px; font-size: 16px; border-radius: 6px; cursor: pointer; }
             footer { text-align: center; font-size: 0.8em; color: #64748b; margin-top: 40px; border-top: 1px solid #ccc; padding-top: 10px; }
             @media print {
-                .print-button-container { display: none; }
                 body { margin: 0; }
             }
         </style>
         </head><body>
-
-        <!-- BOTÃO DE IMPRIMIR ADICIONADO AQUI -->
-        <div class="print-button-container">
-            <button class="print-button" onclick="window.print()">🖨️ Imprimir / Salvar como PDF</button>
-        </div>
-
         <div class="report-header">
             <h1>Relatório de Inspeção de Riscos</h1>
             <p><strong>Empresa:</strong> ${escapeHtml(e.nome)}</p>
@@ -1758,23 +1755,11 @@ function generateInspectionReport(id) {
         html += `<footer>Relatório gerado pelo Assistente de Inspeção de Riscos</footer></body></html>`;
         // --- FIM DO HTML DO RELATÓRIO ---
 
-        // --- LÓGICA PARA ABRIR EM NOVA ABA ---
-        try {
-            const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
-            const url = URL.createObjectURL(blob);
-            
-            // Abre a URL do Blob em uma nova aba
-            window.open(url, '_blank');
-            
-            // Libera a memória do objeto URL após um tempo
-            setTimeout(() => URL.revokeObjectURL(url), 10000);
-
-            showToast("Relatório gerado em uma nova aba!", "success");
-
-        } catch (err) {
-            console.error('Erro ao abrir relatório em nova aba:', err);
-            showToast('Não foi possível abrir o relatório. Tente desativar bloqueadores de pop-up.', 'error');
-        }
+        // --- LÓGICA DE DOWNLOAD DIRETO (FUNCIONA EM CELULAR E DESKTOP) ---
+        const nomeArquivo = `Relatorio_${(e.nome || 'inspecao').replace(/\s+/g, '_')}.html`;
+        downloadOrOpenHTML(html, nomeArquivo, { openSameTab: false });
+        
+        showToast("Relatório gerado! Verifique seus downloads.", "success");
     };
   
     request.onerror = (e) => console.error("Erro ao gerar relatório:", e);
