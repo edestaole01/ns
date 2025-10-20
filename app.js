@@ -952,6 +952,24 @@ function saveGrupo() {
 
 function populateForm(prefix, data) {
     if (!data) return;
+
+    // --- ETAPA DE LIMPEZA (NOVO) ---
+    // Limpa todos os checkboxes de observações
+    const obsCheckboxes = ["altura", "espaco", "empilhadeira", "eletricidade", "movimentacao", "talhas", "paleteiras", "veiculos"];
+    obsCheckboxes.forEach(obs => {
+        const check = document.getElementById(`${prefix}-obs-${obs}`);
+        if (check) check.checked = false;
+    });
+
+    // Limpa todos os checkboxes de dados LTCAT
+    const ltcatCheckboxes = ["insalubre", "perigoso", "nho01", "ltcat"];
+    ltcatCheckboxes.forEach(ltcat => {
+        const check = document.getElementById(`${prefix}-${ltcat}`);
+        if (check) check.checked = false;
+    });
+    // --- FIM DA ETAPA DE LIMPEZA ---
+
+    // Etapa de Preenchimento (código antigo, agora mais seguro)
     (data.observacoes || []).forEach(obs => {
         const checkboxId = {
             "Trabalho em altura": `${prefix}-obs-altura`,
@@ -965,14 +983,17 @@ function populateForm(prefix, data) {
         }[obs];
         if (checkboxId && document.getElementById(checkboxId)) document.getElementById(checkboxId).checked = true;
     });
+
     document.getElementById(`${prefix}-perfil-exposicao`).value = data.perfilExposicao || '';
     document.getElementById(`${prefix}-descricao-atividade`).value = data.descricaoAtividade || 'Sim';
+    
     const req = data.requisitosNR || {};
     document.querySelector(`input[name="${prefix}-req-medida"][value="${req.medida || 'Sim'}"]`).checked = true;
     document.querySelector(`input[name="${prefix}-req-condicao"][value="${req.condicao || 'Sim'}"]`).checked = true;
     document.querySelector(`input[name="${prefix}-req-prazo"][value="${req.prazo || 'Sim'}"]`).checked = true;
     document.querySelector(`input[name="${prefix}-req-periodicidade"][value="${req.periodicidade || 'Sim'}"]`).checked = true;
     document.querySelector(`input[name="${prefix}-req-higienizacao"][value="${req.higienizacao || 'Sim'}"]`).checked = true;
+    
     (data.dadosLtcat || []).forEach(dado => {
         const checkboxId = {
             "Insalubre (NR15)": `${prefix}-insalubre`,
@@ -1698,7 +1719,7 @@ function generateInspectionReport(id) {
         const e = insp.empresa || {};
         const reportDate = new Date().toLocaleString('pt-BR');
 
-        // --- INÍCIO DO HTML DO RELATÓRIO (NÃO PRECISA DO BOTÃO DE IMPRIMIR) ---
+        // --- INÍCIO DO HTML DO RELATÓRIO ---
         let html = `
         <!DOCTYPE html><html lang="pt-br"><head><meta charset="UTF-8"><title>Relatório de Inspeção - ${escapeHtml(e.nome)}</title>
         <style>
@@ -1713,12 +1734,18 @@ function generateInspectionReport(id) {
             .cargo-details, .risco-card { margin-bottom: 20px; }
             .report-checklist { font-family: 'Courier New', Courier, monospace; font-size: 0.9em; background-color: #f8fafc; padding: 10px; border-radius: 4px; border: 1px solid #e2e8f0; }
             .report-checklist-item { margin-right: 1.5rem; white-space: nowrap; }
+            .print-button-container { text-align: center; margin-bottom: 20px; padding: 10px; background: #eff6ff; border: 1px solid #93c5fd; border-radius: 8px; }
+            .print-button { background: #3b82f6; color: white; border: none; padding: 12px 24px; font-size: 16px; border-radius: 6px; cursor: pointer; }
             footer { text-align: center; font-size: 0.8em; color: #64748b; margin-top: 40px; border-top: 1px solid #ccc; padding-top: 10px; }
             @media print {
+                .print-button-container { display: none; }
                 body { margin: 0; }
             }
         </style>
         </head><body>
+        <div class="print-button-container">
+            <button class="print-button" onclick="window.print()">🖨️ Imprimir / Salvar como PDF</button>
+        </div>
         <div class="report-header">
             <h1>Relatório de Inspeção de Riscos</h1>
             <p><strong>Empresa:</strong> ${escapeHtml(e.nome)}</p>
@@ -1753,13 +1780,20 @@ function generateInspectionReport(id) {
         });
 
         html += `<footer>Relatório gerado pelo Assistente de Inspeção de Riscos</footer></body></html>`;
-        // --- FIM DO HTML DO RELATÓRIO ---
 
-        // --- LÓGICA DE DOWNLOAD DIRETO (FUNCIONA EM CELULAR E DESKTOP) ---
-        const nomeArquivo = `Relatorio_${(e.nome || 'inspecao').replace(/\s+/g, '_')}.html`;
-        downloadOrOpenHTML(html, nomeArquivo, { openSameTab: false });
-        
-        showToast("Relatório gerado! Verifique seus downloads.", "success");
+        try {
+            const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            window.open(url, '_blank');
+            setTimeout(() => URL.revokeObjectURL(url), 10000);
+            showToast("Relatório gerado em uma nova aba!", "success");
+        } catch (err) {
+            console.error('Erro ao abrir relatório:', err);
+            // Fallback para download direto caso o pop-up falhe
+            const nomeArquivo = `Relatorio_${(e.nome || 'inspecao').replace(/\s+/g, '_')}.html`;
+            downloadOrOpenHTML(html, nomeArquivo, { openSameTab: false });
+            showToast('Pop-up bloqueado. Iniciando download do relatório.', 'warning');
+        }
     };
   
     request.onerror = (e) => console.error("Erro ao gerar relatório:", e);
