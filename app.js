@@ -46,27 +46,18 @@ document.getElementById('nav-dashboard').onclick = showDashboard;
  * @param {number} step - O índice do passo para o qual navegar (0: Empresa, 1: Deptos, 2: Cargos, 3: Riscos).
  * @param {number|null} deptoIndex - O índice do departamento ativo (relevante para passos > 1).
  */
-function goToStep(step, deptoIndex = null) {
+function goToStep(step, deptIndex = null) {
+    if (typeof deptIndex === 'number' && !Number.isNaN(deptIndex)) {
+      activeDepartamentoIndex = deptIndex;
+    }
+    if (step >= 1 && (activeDepartamentoIndex == null || activeDepartamentoIndex < 0)) {
+      showToast('Selecione um departamento antes.', 'warning');
+      return;
+    }
     wizardStep = step;
-
-    // Se o índice do departamento for fornecido, atualiza o contexto
-    if (deptoIndex !== null) {
-        activeDepartamentoIndex = deptoIndex;
-    }
-
-    // Limpa contextos futuros para evitar inconsistências
-    if (step < 3) {
-        activeCargoIndex = -1;
-        activeFuncionarioIndex = -1;
-        currentGroupId = null;
-    }
-    if (step < 2) {
-        activeDepartamentoIndex = -1;
-    }
-    
-    renderWizardStep();
-}
-
+    renderWizardHeader?.();
+    renderWizardStep?.();
+  }
 
 /**
  * ★ NOVO: Gera os breadcrumbs clicáveis
@@ -1071,7 +1062,6 @@ function renderRiscoStep() {
       `<option value="grupo-${i}" ${currentContextValue === `grupo-${i}` ? 'selected' : ''}>Grupo: ${escapeHtml((g.listaDeCargos || []).join(', '))}</option>`
     ).join('');
   
-    // ✅ CORREÇÃO: gerar tipos únicos de risco (removendo sufixo " PSICOSSOCIAIS")
     const riskTypes = [...new Set((predefinedRisks || []).map(r => (r.tipo || '').replace(' PSICOSSOCIAIS', '')))];
   
     // RENDER
@@ -1106,17 +1096,22 @@ function renderRiscoStep() {
   
           <hr style="margin: 1.5rem 0; border: none; border-top: 2px solid var(--gray-100);">
   
+          <div class="form-group"><label for="risco-presente">Risco Presente?</label><select id="risco-presente"><option>Sim</option><option>Não</option></select></div>
           <div class="form-group">
-            <label for="risco-presente">Risco Presente?</label>
-            <select id="risco-presente"><option>Sim</option><option>Não</option></select>
+              <label for="risco-perigo">Descrição (Nome) do Perigo *</label>
+              ${wrapWithVoiceButton('risco-perigo', 'Ex: Ruído contínuo acima de 85 dB', '', true).replace('id="risco-perigo"', 'id="risco-perigo" oninput="atualizarListaDeExames()"')}
           </div>
-  
           <div class="form-group">
-            <label for="risco-perigo">Descrição (Nome) do Perigo *</label>
-            ${wrapWithVoiceButton('risco-perigo', 'Ex: Ruído contínuo acima de 85 dB', '', true)
-              .replace('id="risco-perigo"', 'id="risco-perigo" oninput="atualizarListaDeExames?.()"')}
+              <label for="risco-descricao-detalhada">Descrição Detalhada</label>
+              ${wrapWithVoiceButton('risco-descricao-detalhada', 'Detalhe o contexto do risco...', '', false, 'textarea')}
           </div>
-  
+
+          <!-- CAMPOS RESTAURADOS DA VERSÃO ANTIGA -->
+          <details class="accordion-section"><summary>Fonte, Medição e Exposição</summary><div class="form-grid"><div class="form-group"><label for="risco-fonte">Fonte Geradora</label>${wrapWithVoiceButton('risco-fonte', 'Ex: Compressor', '')}</div><div class="form-group"><label for="risco-perfil-exposicao">Perfil de exposição</label>${wrapWithVoiceButton('risco-perfil-exposicao', 'Ex: Contínuo', '')}</div><div class="form-group"><label for="risco-medicao">Medição</label>${wrapWithVoiceButton('risco-medicao', 'Ex: 92 dB', '')}</div><div class="form-group"><label for="risco-tempo-exposicao">Tempo de Exposição</label>${wrapWithVoiceButton('risco-tempo-exposicao', 'Ex: 8h', '')}</div><div class="form-group"><label for="risco-tipo-exposicao">Tipo de Exposição</label><select id="risco-tipo-exposicao"><option>Permanente</option><option>Ocasional</option><option>Intermitente</option></select></div><div class="form-group"><label for="risco-esocial">Código E-Social</label>${wrapWithVoiceButton('risco-esocial', 'Ex: 01.01.001', '')}</div></div><div class="form-group"><label for="risco-obs-ambientais">Observações de registros ambientais</label>${wrapWithVoiceButton('risco-obs-ambientais', 'Observações...', '', false, 'textarea')}</div></details>
+          <details class="accordion-section"><summary>Análise e Avaliação</summary><div class="form-grid"><div class="form-group"><label for="risco-probabilidade">Probabilidade</label><select id="risco-probabilidade"><option>Improvável</option><option>Provável</option><option>Remota</option><option>Frequente</option></select></div><div class="form-group"><label for="risco-severidade">Severidade</label><select id="risco-severidade"><option>Baixa</option><option>Média</option><option>Alta</option><option>Crítica</option></select></div><div class="form-group"><label for="risco-aceitabilidade">Aceitabilidade</label><select id="risco-aceitabilidade"><option>Tolerável</option><option>Não Tolerável</option></select></div></div><div class="form-group"><label for="risco-danos">Danos Potenciais</label>${wrapWithVoiceButton('risco-danos', 'Descreva os possíveis danos...', '', false, 'textarea')}</div></details>
+          <details class="accordion-section"><summary>Controles e Ações</summary><div class="form-grid"><div class="form-group"><label for="risco-epi-utilizado">EPI Utilizado</label>${wrapWithVoiceButton('risco-epi-utilizado', 'Ex: Protetor auricular', '')}</div><div class="form-group"><label for="risco-ca">CA (Certificado de Aprovação)</label>${wrapWithVoiceButton('risco-ca', 'Ex: 12345', '')}</div><div class="form-group"><label for="risco-epc">EPC Existente</label>${wrapWithVoiceButton('risco-epc', 'Ex: Cabine acústica', '')}</div><div class="form-group"><label for="risco-epi-sugerido">EPI Sugerido</label>${wrapWithVoiceButton('risco-epi-sugerido', 'Ex: Protetor tipo concha', '')}</div></div><div class="form-group"><label for="risco-acoes">Ações Necessárias</label>${wrapWithVoiceButton('risco-acoes', 'Descreva as ações recomendadas...', '', false, 'textarea')}</div><div class="form-group"><label for="risco-observacoes-gerais">Observações Gerais</label>${wrapWithVoiceButton('risco-observacoes-gerais', 'Observações adicionais...', '', false, 'textarea')}</div></details>
+          <!-- FIM DOS CAMPOS RESTAURADOS -->
+
           ${renderCampoExamesCustomizados?.() || ''}
   
           <div class="form-actions">
@@ -1124,12 +1119,13 @@ function renderRiscoStep() {
             <button type="button" class="nav hidden" id="cancel-risco-edit-btn" onclick="clearRiscoForm()">Cancelar</button>
           </div>
         </form>
+        <div class="wizard-nav"><button class="nav" onclick="goToStep(2, activeDepartamentoIndex)">Voltar para Cargos</button></div>
       </div>
     `;
   
     updateRiscoList?.();
     setTimeout(() => initializeSortableLists?.(), 0);
-  }
+}
 
 function updatePerigoOptions(selectedType) {
     const perigoSelect = document.getElementById("risk-perigo-select");
