@@ -1672,15 +1672,15 @@ function generateInspectionReport(id) {
                       .objectStore("inspections").get(id);
   
     request.onsuccess = () => {
-      const insp = request.result;
-      if (!insp) {
-        return showToast("Inspeção não encontrada!", "error");
-      }
-      const e = insp.empresa || {};
-      const reportDate = new Date().toLocaleString('pt-BR');
-  
-      // ===== A LÓGICA QUE FALTAVA COMEÇA AQUI =====
-      let html = `
+        const insp = request.result;
+        if (!insp) {
+            return showToast("Inspeção não encontrada!", "error");
+        }
+        const e = insp.empresa || {};
+        const reportDate = new Date().toLocaleString('pt-BR');
+
+        // --- INÍCIO DO HTML DO RELATÓRIO ---
+        let html = `
         <!DOCTYPE html><html lang="pt-br"><head><meta charset="UTF-8"><title>Relatório de Inspeção - ${escapeHtml(e.nome)}</title>
         <style>
             body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; margin: 20px; }
@@ -1694,9 +1694,21 @@ function generateInspectionReport(id) {
             .cargo-details, .risco-card { margin-bottom: 20px; }
             .report-checklist { font-family: 'Courier New', Courier, monospace; font-size: 0.9em; background-color: #f8fafc; padding: 10px; border-radius: 4px; border: 1px solid #e2e8f0; }
             .report-checklist-item { margin-right: 1.5rem; white-space: nowrap; }
+            .print-button-container { text-align: center; margin-bottom: 20px; padding: 10px; background: #eff6ff; border: 1px solid #93c5fd; border-radius: 8px; }
+            .print-button { background: #3b82f6; color: white; border: none; padding: 12px 24px; font-size: 16px; border-radius: 6px; cursor: pointer; }
             footer { text-align: center; font-size: 0.8em; color: #64748b; margin-top: 40px; border-top: 1px solid #ccc; padding-top: 10px; }
+            @media print {
+                .print-button-container { display: none; }
+                body { margin: 0; }
+            }
         </style>
         </head><body>
+
+        <!-- BOTÃO DE IMPRIMIR ADICIONADO AQUI -->
+        <div class="print-button-container">
+            <button class="print-button" onclick="window.print()">🖨️ Imprimir / Salvar como PDF</button>
+        </div>
+
         <div class="report-header">
             <h1>Relatório de Inspeção de Riscos</h1>
             <p><strong>Empresa:</strong> ${escapeHtml(e.nome)}</p>
@@ -1711,116 +1723,48 @@ function generateInspectionReport(id) {
                 <tr><th>Data do Relatório:</th><td>${reportDate}</td></tr>
             </table>
         </div>
-      `;
-  
-      (insp.departamentos || []).forEach(depto => {
-        html += `<div class="section" style="page-break-before: always;">
-            <h2>Departamento: ${escapeHtml(depto.nome)}</h2>
-            <p><strong>Característica do Setor:</strong> ${escapeHtml(depto.caracteristica || 'N/A')}</p>
-            <p><strong>Descrição da Atividade:</strong> ${escapeHtml(depto.descricao || 'N/A')}</p>`;
+        `;
 
-        (depto.grupos || []).forEach(grupo => {
-            html += renderCargoReport(grupo, `Grupo: ${escapeHtml(grupo.listaDeCargos.join(', '))}`);
+        (insp.departamentos || []).forEach(depto => {
+            html += `<div class="section" style="page-break-before: always;">
+                <h2>Departamento: ${escapeHtml(depto.nome)}</h2>
+                <p><strong>Característica do Setor:</strong> ${escapeHtml(depto.caracteristica || 'N/A')}</p>
+                <p><strong>Descrição da Atividade:</strong> ${escapeHtml(depto.descricao || 'N/A')}</p>`;
+            (depto.grupos || []).forEach(grupo => {
+                html += renderCargoReport(grupo, `Grupo: ${escapeHtml(grupo.listaDeCargos.join(', '))}`);
+            });
+            (depto.cargos || []).forEach(cargo => {
+                html += renderCargoReport(cargo, `Cargo: ${escapeHtml(cargo.nome)}`);
+            });
+            (depto.funcionarios || []).forEach(func => {
+                html += renderCargoReport(func, `Funcionário: ${escapeHtml(func.nome)}`);
+            });
+            html += `</div>`;
         });
-        (depto.cargos || []).forEach(cargo => {
-            html += renderCargoReport(cargo, `Cargo: ${escapeHtml(cargo.nome)}`);
-        });
-        (depto.funcionarios || []).forEach(func => {
-            html += renderCargoReport(func, `Funcionário: ${escapeHtml(func.nome)}`);
-        });
 
-        html += `</div>`;
-      });
+        html += `<footer>Relatório gerado pelo Assistente de Inspeção de Riscos</footer></body></html>`;
+        // --- FIM DO HTML DO RELATÓRIO ---
 
-      html += `<footer>Relatório gerado pelo Assistente de Inspeção de Riscos</footer>`;
-      // ===== A LÓGICA TERMINA AQUI =====
+        // --- LÓGICA PARA ABRIR EM NOVA ABA ---
+        try {
+            const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            
+            // Abre a URL do Blob em uma nova aba
+            window.open(url, '_blank');
+            
+            // Libera a memória do objeto URL após um tempo
+            setTimeout(() => URL.revokeObjectURL(url), 10000);
 
-      html += '</body></html>';
-  
-      downloadOrOpenHTML(html, `Relatorio_${(e.nome||'empresa').replace(/\s+/g,'_')}.html`, { openSameTab: false });
-  
-      showToast("Relatório gerado!", "success");
+            showToast("Relatório gerado em uma nova aba!", "success");
+
+        } catch (err) {
+            console.error('Erro ao abrir relatório em nova aba:', err);
+            showToast('Não foi possível abrir o relatório. Tente desativar bloqueadores de pop-up.', 'error');
+        }
     };
   
     request.onerror = (e) => console.error("Erro ao gerar relatório:", e);
-}
-
-function renderCargoReport(cargo, titulo) {
-    const req = cargo.requisitosNR || {};
-    const formatChecklistItem = (value) => {
-        const sim = value === 'Sim' ? 'X' : '&nbsp;';
-        const nao = value === 'Não' ? 'X' : '&nbsp;';
-        return `S&nbsp;(&nbsp;${sim}&nbsp;)&nbsp;&nbsp;N&nbsp;(&nbsp;${nao}&nbsp;)`;
-    };
-    let html = `<div style="border:2px solid #dbeafe;padding:15px;border-radius:8px;margin:20px 0;page-break-inside:avoid">
-        <h3>${escapeHtml(titulo)}</h3>
-        <div class="cargo-details">
-            <p><strong>Observações:</strong> ${escapeHtml((cargo.observacoes||[]).join(', ')||'N/A')}</p>
-            <p><strong>Perfil de Exposição (Observação Específica):</strong> ${escapeHtml(cargo.perfilExposicao||'N/A')}</p>
-            <p><strong>Descrição Atividade:</strong> ${escapeHtml(cargo.descricaoAtividade||'N/A')}</p>
-            <p><strong>Dados LTCAT:</strong> ${escapeHtml((cargo.dadosLtcat||[]).join(', ')||'N/A')}</p>
-            <h4>✅ Requisitos NR-06/NR-01:</h4>
-            <div class="report-checklist">
-                <span class="report-checklist-item">Medida de Proteção ${formatChecklistItem(req.medida)}</span>
-                <span class="report-checklist-item">Condição de Funcionamento do EPI ${formatChecklistItem(req.condicao)}</span>
-                <span class="report-checklist-item">Prazo de Validade do EPI ${formatChecklistItem(req.prazo)}</span>
-                <span class="report-checklist-item">Periodicidade da Troca do EPI ${formatChecklistItem(req.periodicidade)}</span>
-                <span class="report-checklist-item">Higienização do EPI ${formatChecklistItem(req.higienizacao)}</span>
-            </div>
-        </div>
-        <h4>⚠️ Riscos Identificados</h4>`;
-    if (cargo.riscos && cargo.riscos.length > 0) {
-        cargo.riscos.forEach((risco, idx) => {
-            
-            // ★ NOVO BLOCO: Gera a tabela de exames para este risco específico
-            let examesTableHTML = '';
-            if (risco.exames && risco.exames.length > 0) {
-                const examesRows = risco.exames.map(exame => `
-                    <tr>
-                        <td>
-                            <strong>${escapeHtml(exame.nome)}</strong>
-                            ${exame.observacoes ? `<br><small style="color:#555">${escapeHtml(exame.observacoes)}</small>` : ''}
-                            ${exame.periodicidade && !exame.observacoes ? `<br><small style="color:#555">${escapeHtml(exame.periodicidade)}</small>` : ''}
-                        </td>
-                        <td style="text-align:center; font-weight:bold;">${exame.admissional ? '✓' : '-'}</td>
-                        <td style="text-align:center;">${escapeHtml(exame.periodico || (exame.customizado ? '-' : '✓'))}</td>
-                        <td style="text-align:center; font-weight:bold;">${exame.mudancaRisco ? '✓' : '-'}</td>
-                        <td style="text-align:center; font-weight:bold;">${exame.retornoTrabalho ? '✓' : '-'}</td>
-                        <td style="text-align:center; font-weight:bold;">${exame.demissional ? '✓' : '-'}</td>
-                    </tr>
-                `).join('');
-
-                examesTableHTML = `
-                    <table>
-                        <thead>
-                            <tr><th colspan="6" style="background:#0d9488">🏥 Exames Médicos Ocupacionais</th></tr>
-                            <tr>
-                                <th style="width:40%">Exame</th>
-                                <th>Adm.</th>
-                                <th>Periódico</th>
-                                <th>Mud. Risco</th>
-                                <th>Ret. Trab.</th>
-                                <th>Dem.</th>
-                            </tr>
-                        </thead>
-                        <tbody>${examesRows}</tbody>
-                    </table>`;
-            }
-
-            // HTML do card do risco, agora incluindo a tabela de exames
-            html += `<div class="risco-card"><h5>Risco ${idx+1}: ${escapeHtml(risco.perigo||'N/A')}</h5>
-            <table><thead><tr><th colspan="2" style="background:#2563eb">Informações Básicas</th></tr></thead><tbody><tr><td style="width:200px"><strong>Risco Presente:</strong></td><td>${escapeHtml(risco.riscoPresente||'N/A')}</td></tr><tr><td><strong>Tipo:</strong></td><td>${escapeHtml(risco.tipo||'N/A')}</td></tr><tr><td><strong>E-Social:</strong></td><td>${escapeHtml(risco.codigoEsocial||'N/A')}</td></tr><tr><td><strong>Descrição:</strong></td><td>${escapeHtml(risco.descricaoDetalhada||'N/A')}</td></tr></tbody></table>
-            <table><thead><tr><th colspan="2" style="background:#10b981">Fonte e Exposição</th></tr></thead><tbody><tr><td style="width:200px"><strong>Fonte:</strong></td><td>${escapeHtml(risco.fonteGeradora||'N/A')}</td></tr><tr><td><strong>Perfil Exposição:</strong></td><td>${escapeHtml(risco.perfilExposicao||'N/A')}</td></tr><tr><td><strong>Medição:</strong></td><td>${escapeHtml(risco.medicao||'N/A')}</td></tr><tr><td><strong>Tempo Exposição:</strong></td><td>${escapeHtml(risco.tempoExposicao||'N/A')}</td></tr><tr><td><strong>Tipo Exposição:</strong></td><td>${escapeHtml(risco.tipoExposicao||'N/A')}</td></tr><tr><td><strong>Obs. Ambientais:</strong></td><td>${escapeHtml(risco.obsAmbientais||'N/A')}</td></tr></tbody></table>
-            <table><thead><tr><th colspan="2" style="background:#f59e0b">Análise e Avaliação</th></tr></thead><tbody><tr><td style="width:200px"><strong>Probabilidade:</strong></td><td>${escapeHtml(risco.probabilidade||'N/A')}</td></tr><tr><td><strong>Severidade:</strong></td><td>${escapeHtml(risco.severidade||'N/A')}</td></tr><tr><td><strong>Aceitabilidade:</strong></td><td>${escapeHtml(risco.aceitabilidade||'N/A')}</td></tr><tr><td><strong>Danos Potenciais:</strong></td><td>${escapeHtml(risco.danos||'N/A')}</td></tr></tbody></table>
-            <table><thead><tr><th colspan="2" style="background:#8b5cf6">Controles e Ações</th></tr></thead><tbody><tr><td style="width:200px"><strong>EPI Utilizado:</strong></td><td>${escapeHtml(risco.epiUtilizado||'N/A')}</td></tr><tr><td><strong>CA:</strong></td><td>${escapeHtml(risco.ca||'N/A')}</td></tr><tr><td><strong>EPC Existente:</strong></td><td>${escapeHtml(risco.epc||'N/A')}</td></tr><tr><td><strong>EPI Sugerido:</strong></td><td>${escapeHtml(risco.epiSugerido||'N/A')}</td></tr><tr><td><strong>Ações Necessárias:</strong></td><td>${escapeHtml(risco.acoesNecessarias||'N/A')}</td></tr><tr><td><strong>Obs. Gerais:</strong></td><td>${escapeHtml(risco.observacoesGerais||'N/A')}</td></tr></tbody></table>
-            ${examesTableHTML}
-            </div>`;
-        });
-    } else { 
-        html += `<p style="color:#999;font-style:italic;padding:20px;background:#f9fafb;border-radius:8px">Nenhum risco adicionado.</p>`; 
-    }
-    html += `</div>`; 
-    return html;
 }
 
 // ==========================================
