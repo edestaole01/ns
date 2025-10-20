@@ -50,15 +50,17 @@ function goToStep(step, deptIndex = null) {
     if (typeof deptIndex === 'number' && !Number.isNaN(deptIndex)) {
       activeDepartamentoIndex = deptIndex;
     }
-    if (step >= 1 && (activeDepartamentoIndex == null || activeDepartamentoIndex < 0)) {
+  
+    // ✅ Só exige departamento a partir do step 2 (Cargos/Funcionários/Grupos e Riscos)
+    if (step >= 2 && (activeDepartamentoIndex == null || activeDepartamentoIndex < 0)) {
       showToast('Selecione um departamento antes.', 'warning');
       return;
     }
+  
     wizardStep = step;
-    renderWizardHeader?.();
-    renderWizardStep?.();
+    renderWizardHeader();
+    renderWizardStep();
   }
-
 /**
  * ★ NOVO: Gera os breadcrumbs clicáveis
  * @returns {string} O HTML do breadcrumb.
