@@ -60,7 +60,7 @@ function goToStep(step, deptIndex = null) {
     wizardStep = step;
     renderWizardHeader();
     renderWizardStep();
-  }
+}
 /**
  * ★ NOVO: Gera os breadcrumbs clicáveis
  * @returns {string} O HTML do breadcrumb.
@@ -458,19 +458,13 @@ function renderDepartamentoStep() {
     // PÓS-RENDER
     updateDepartamentoList();
     setTimeout(() => {
-      initializeSortableLists?.();
+      if (typeof initializeSortableLists === 'function') {
+        initializeSortableLists();
+      }
       ensureAllAccordionsOpenOnMobile();
     }, 0);
-  }
-  
-    // PÓS-RENDER
-    updateDepartamentoList();
-    setTimeout(() => {
-      initializeSortableLists?.();
-      ensureAllAccordionsOpenOnMobile();
-    }, 0);
-  }
-  
+}
+
 
 function updateDepartamentoList() {
     const list = document.getElementById("departamento-list");
@@ -684,8 +678,15 @@ function renderCargoFuncionarioStep() {
             </details>
             <div class="wizard-nav"><button class="nav" onclick="goToStep(1)">Voltar para Departamentos</button></div>
         </div>`;
+    
+    // PÓS-RENDER - Chama as funções após renderizar o HTML
     updateAllLists();
-    setTimeout(() => initializeSortableLists(), 0);
+    setTimeout(() => {
+        if (typeof initializeSortableLists === 'function') {
+            initializeSortableLists();
+        }
+        ensureAllAccordionsOpenOnMobile();
+    }, 0);
 }
 
 function updateAllLists() {
@@ -1087,7 +1088,7 @@ function renderRiscoStep() {
         <ul id="risco-list" class="item-list"></ul>
   
         <h3 id="risco-form-title">Novo Risco</h3>
-        <form id="risco-form" oninput="triggerAutosave?.()">
+        <form id="risco-form" oninput="triggerAutosave()">
           <div class="form-grid">
             <div class="form-group">
               <label for="risco-tipo">Tipo de Risco</label>
@@ -1122,7 +1123,7 @@ function renderRiscoStep() {
           <details class="accordion-section"><summary>Controles e Ações</summary><div class="form-grid"><div class="form-group"><label for="risco-epi-utilizado">EPI Utilizado</label>${wrapWithVoiceButton('risco-epi-utilizado', 'Ex: Protetor auricular', '')}</div><div class="form-group"><label for="risco-ca">CA (Certificado de Aprovação)</label>${wrapWithVoiceButton('risco-ca', 'Ex: 12345', '')}</div><div class="form-group"><label for="risco-epc">EPC Existente</label>${wrapWithVoiceButton('risco-epc', 'Ex: Cabine acústica', '')}</div><div class="form-group"><label for="risco-epi-sugerido">EPI Sugerido</label>${wrapWithVoiceButton('risco-epi-sugerido', 'Ex: Protetor tipo concha', '')}</div></div><div class="form-group"><label for="risco-acoes">Ações Necessárias</label>${wrapWithVoiceButton('risco-acoes', 'Descreva as ações recomendadas...', '', false, 'textarea')}</div><div class="form-group"><label for="risco-observacoes-gerais">Observações Gerais</label>${wrapWithVoiceButton('risco-observacoes-gerais', 'Observações adicionais...', '', false, 'textarea')}</div></details>
           <!-- FIM DOS CAMPOS RESTAURADOS -->
 
-          ${renderCampoExamesCustomizados?.() || ''}
+          ${typeof renderCampoExamesCustomizados === 'function' ? renderCampoExamesCustomizados() : ''}
   
           <div class="form-actions">
             <button type="button" class="primary" id="save-risco-btn" onclick="saveRisco()"><i class="bi bi-plus-lg"></i> Adicionar</button>
@@ -1133,9 +1134,20 @@ function renderRiscoStep() {
       </div>
     `;
   
-    updateRiscoList?.();
-    setTimeout(() => initializeSortableLists?.(), 0);
+    // PÓS-RENDER
+    if (typeof updateRiscoList === 'function') {
+        updateRiscoList();
+    }
+    setTimeout(() => {
+      if (typeof initializeSortableLists === 'function') {
+        initializeSortableLists();
+      }
+      if (typeof atualizarListaDeExames === 'function') {
+        atualizarListaDeExames();
+      }
+    }, 0);
 }
+
 
 function updatePerigoOptions(selectedType) {
     const perigoSelect = document.getElementById("risk-perigo-select");
@@ -1288,11 +1300,17 @@ function saveRisco() {
     // Reset estado de edição e UI
     editingIndex = -1;
     editingType = null;
-    clearRiscoForm?.();
+    if (typeof clearRiscoForm === 'function') {
+      clearRiscoForm();
+    }
   
-    updateRiscoList?.();
-    persistCurrentInspection?.(() => showToast(message, "success"));
-  }
+    if (typeof updateRiscoList === 'function') {
+      updateRiscoList();
+    }
+    if (typeof persistCurrentInspection === 'function') {
+      persistCurrentInspection(() => showToast(message, "success"));
+    }
+}
 
 function editRisco(index) {
     editingIndex = index;
@@ -1378,8 +1396,7 @@ function adicionarExamesSugeridos(riscoData) {
       riscoData.exames = [...examData.exames];
     }
     return riscoData;
-  }
-  
+}
 
 
 function clearRiscoForm() {
@@ -2336,35 +2353,26 @@ renderRiscoStep = function() {
  * Controla abertura/fechamento de accordions no mobile
  */
 function toggleAccordion(event, detailsId) {
+    event.preventDefault(); // Previne o comportamento padrão do summary
     const details = document.getElementById(detailsId);
     if (!details) return;
   
-    if (window.innerWidth <= 768) {
-      // Não bloqueie o comportamento nativo do <details>/<summary>
-      // Apenas garanta o toggle explícito caso o elemento não responda em alguns browsers
-      if (details.hasAttribute('open')) {
-        details.removeAttribute('open');
-      } else {
-        details.setAttribute('open', '');
-      }
+    // Toggle simples que funciona em todos os dispositivos
+    if (details.hasAttribute('open')) {
+      details.removeAttribute('open');
     } else {
-      // Em desktop, comportamento nativo já é suficiente.
-      // (Opcionalmente, manter o mesmo toggle)
-      if (details.hasAttribute('open')) {
-        details.removeAttribute('open');
-      } else {
-        details.setAttribute('open', '');
-      }
+      details.setAttribute('open', '');
     }
-  }
+}
 /**
  * Força abertura dos accordions no mobile ao editar
  */
 function forceOpenAccordionOnMobile(id) {
     const el = document.getElementById(id);
-    if (el && window.innerWidth <= 768) el.setAttribute('open', '');
-  }
-
+    if (el && window.innerWidth <= 768) {
+      el.setAttribute('open', '');
+    }
+}
 // Abre todos os <details> da área do wizard no mobile — evita conteúdo "sumido"
 function ensureAllAccordionsOpenOnMobile() {
     if (window.innerWidth <= 768) {
@@ -2372,7 +2380,7 @@ function ensureAllAccordionsOpenOnMobile() {
         d.setAttribute('open', '');
       });
     }
-  }
+}
 
 // ==========================================
 // LOGS E INFORMAÇÕES DE DEBUG
