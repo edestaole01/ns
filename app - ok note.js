@@ -46,21 +46,14 @@ document.getElementById('nav-dashboard').onclick = showDashboard;
  * @param {number} step - O índice do passo para o qual navegar (0: Empresa, 1: Deptos, 2: Cargos, 3: Riscos).
  * @param {number|null} deptoIndex - O índice do departamento ativo (relevante para passos > 1).
  */
-function goToStep(step, deptoIndex = null) {
-    if (typeof deptoIndex === 'number' && !Number.isNaN(deptoIndex)) {
-      activeDepartamentoIndex = deptoIndex;
+function goToStep(step, deptIndex = null) {
+    if (typeof deptIndex === 'number' && !Number.isNaN(deptIndex)) {
+      activeDepartamentoIndex = deptIndex;
     }
   
-    // Limpa contextos futuros para evitar inconsistências ao voltar
-    if (step < 3) {
-        activeCargoIndex = -1;
-        activeFuncionarioIndex = -1;
-        currentGroupId = null;
-    }
-  
-    // Só exige departamento a partir do passo de Cargos
-    if (step >= 2 && (activeDepartamentoIndex === null || activeDepartamentoIndex < 0)) {
-      showToast('Selecione um departamento antes de prosseguir.', 'warning');
+    // ✅ Só exige departamento a partir do step 2 (Cargos/Funcionários/Grupos e Riscos)
+    if (step >= 2 && (activeDepartamentoIndex == null || activeDepartamentoIndex < 0)) {
+      showToast('Selecione um departamento antes.', 'warning');
       return;
     }
   
@@ -438,38 +431,44 @@ function saveEmpresaAndNext() {
 
 // 2) Passo 2 — Departamentos (render com pós-render seguro para mobile)
 function renderDepartamentoStep() {
+    // RENDER
     document.getElementById('wizard-content').innerHTML = `
-        <div class="card">
-            ${renderBreadcrumb()}
-            <h3>Departamentos Adicionados <small style="font-weight: 400; color: var(--gray-500);">(Arraste para reordenar)</small></h3>
-            <ul id="departamento-list" class="item-list"></ul>
-            <h3 id="depto-form-title">Novo Departamento</h3>
-            <form id="depto-form">
-                <div class="form-group">
-                    <label for="depto-nome">Nome do Setor/Departamento *</label>
-                    ${wrapWithVoiceButton('depto-nome', 'Ex: Produção, Administrativo', '', true)}
-                </div>
-                <div class="form-group">
-                    <label for="depto-caracteristica">Característica do Setor</label>
-                    ${wrapWithVoiceButton('depto-caracteristica', 'Ex: Área industrial', '')}
-                </div>
-                <div class="form-group">
-                    <label for="depto-descricao">Descrição da Atividade do Setor</label>
-                    ${wrapWithVoiceButton('depto-descricao', 'Descreva as principais atividades...', '', false, 'textarea')}
-                </div>
-                <div class="form-actions">
-                    <button type="button" class="primary" id="save-depto-btn" onclick="saveDepartamento()">Adicionar</button>
-                    <button type="button" id="cancel-depto-edit-btn" class="nav hidden" onclick="clearDeptoForm()">Cancelar</button>
-                </div>
-            </form>
-            <div class="wizard-nav"><button class="nav" onclick="goToStep(0)">Voltar para Empresa</button></div>
-        </div>`;
-    
+      <div class="card">
+        ${renderBreadcrumb()}
+        <h3>Departamentos Adicionados <small style="font-weight: 400; color: var(--gray-500);">(Arraste para reordenar)</small></h3>
+        <ul id="departamento-list" class="item-list"></ul>
+        <h3 id="depto-form-title">Novo Departamento</h3>
+        <form id="depto-form">
+          <div class="form-group">
+            <label for="depto-nome">Nome do Setor/Departamento *</label>
+            ${wrapWithVoiceButton('depto-nome', 'Ex: Produção, Administrativo', '', true)}
+          </div>
+          <div class="form-group">
+            <label for="depto-caracteristica">Característica do Setor</label>
+            ${wrapWithVoiceButton('depto-caracteristica', 'Ex: Área industrial', '')}
+          </div>
+          <div class="form-group">
+            <label for="depto-descricao">Descrição da Atividade do Setor</label>
+            ${wrapWithVoiceButton('depto-descricao', 'Descreva as principais atividades...', '', false, 'textarea')}
+          </div>
+          <div class="form-actions">
+            <button type="button" class="primary" id="save-depto-btn" onclick="saveDepartamento()">Adicionar</button>
+            <button type="button" id="cancel-depto-edit-btn" class="nav hidden" onclick="clearDeptoForm()">Cancelar</button>
+          </div>
+        </form>
+        <div class="wizard-nav">
+          <button class="nav" onclick="goToStep(0)">Voltar para Empresa</button>
+        </div>
+      </div>
+    `;
+  
+    // PÓS-RENDER
     updateDepartamentoList();
-    // A função foi movida para o lugar certo (depois de criar o HTML)
     setTimeout(() => {
+      if (typeof initializeSortableLists === 'function') {
         initializeSortableLists();
-        ensureAllAccordionsOpenOnMobile(); // <-- LUGAR CORRETO
+      }
+      ensureAllAccordionsOpenOnMobile();
     }, 0);
 }
 
@@ -1051,120 +1050,108 @@ function goToRiscos(index, type) {
 
 function renderRiscoStep() {
     const depto = currentInspection.departamentos[activeDepartamentoIndex];
-    let tituloRiscos = '', infoBox = '', targetObject;
-    let currentContextValue = '', nomeParaSugestoes = null; 
-
-    // Etapa 1: Determinar o contexto atual (Grupo, Cargo ou Funcionário)
+    let tituloRiscos = '';
+    let infoBox = '';
+    let currentContextValue = '';
+  
+    // Determina contexto ativo (cargo, funcionário ou grupo)
     if (currentGroupId) {
-        targetObject = depto.grupos.find(g => g.id === currentGroupId);
-        if (!targetObject) { showToast("Grupo não encontrado.", "error"); goToStep(2, activeDepartamentoIndex); return; }
-        
-        tituloRiscos = `Riscos do Grupo (${targetObject.listaDeCargos.length} cargos)`;
-        infoBox = `<div style="padding:1rem;background:var(--primary-light);border-left:4px solid var(--primary);border-radius:.5rem;margin-bottom:1.5rem;"><strong style="display:block;margin-bottom:.5rem;color:var(--gray-900);">Modo Grupo</strong><p style="margin:0;color:var(--gray-700);font-size:.95rem;">Os riscos aqui serão aplicados a todos os cargos do grupo.</p></div>`;
-        currentContextValue = `grupo-${depto.grupos.findIndex(g => g.id === currentGroupId)}`;
-
+      const g = (depto.grupos || []).find(gr => gr.id === currentGroupId);
+      tituloRiscos = `Riscos do Grupo (${(g?.listaDeCargos || []).join(', ') || 'Sem cargos'})`;
+      currentContextValue = `grupo-${(depto.grupos || []).findIndex(gr => gr.id === currentGroupId)}`;
     } else if (activeCargoIndex > -1) {
-        targetObject = depto.cargos[activeCargoIndex];
-        if (!targetObject) { showToast("Cargo não encontrado.", "error"); goToStep(2, activeDepartamentoIndex); return; }
-
-        tituloRiscos = 'Riscos Identificados';
-        currentContextValue = `cargo-${activeCargoIndex}`;
-        nomeParaSugestoes = targetObject.nome.toLowerCase();
-
+      tituloRiscos = `Riscos do Cargo: ${depto.cargos[activeCargoIndex]?.nome || ''}`;
+      currentContextValue = `cargo-${activeCargoIndex}`;
     } else if (activeFuncionarioIndex > -1) {
-        targetObject = depto.funcionarios[activeFuncionarioIndex];
-        if (!targetObject) { showToast("Funcionário não encontrado.", "error"); goToStep(2, activeDepartamentoIndex); return; }
-
-        tituloRiscos = 'Riscos Identificados';
-        currentContextValue = `funcionario-${activeFuncionarioIndex}`;
-        nomeParaSugestoes = targetObject.nome.toLowerCase(); 
-        
+      tituloRiscos = `Riscos do Funcionário: ${depto.funcionarios[activeFuncionarioIndex]?.nome || ''}`;
+      currentContextValue = `funcionario-${activeFuncionarioIndex}`;
     } else {
-        // Se nenhum contexto for válido, volta para a tela de cargos
-        goToStep(2, activeDepartamentoIndex); 
-        return;
+      infoBox = `<div class="badge" style="background:#fff3cd;color:#92400e;">Selecione um cargo, funcionário ou grupo para cadastrar riscos.</div>`;
     }
-
-    // Etapa 2: Gerar sugestões de risco, se aplicável
-    let sugestoesHTML = '';
-    if (nomeParaSugestoes && sugestoesPorCargo[nomeParaSugestoes]) {
-        const sugestoes = sugestoesPorCargo[nomeParaSugestoes];
-        const sugestoesFiltradas = sugestoes.filter(sugestao => 
-            !(targetObject.riscos || []).some(r => r.perigo === sugestao)
-        );
-
-        if (sugestoesFiltradas.length > 0) {
-            sugestoesHTML = `
-                <div id="risk-suggestions" style="margin-bottom: 2rem; padding: 1.5rem; border: 2px dashed var(--primary); border-radius: 0.75rem; background: var(--primary-light);">
-                    <h4 style="margin-top: 0; color: var(--primary-hover);"><i class="bi bi-lightbulb-fill"></i> Sugestões de Risco para ${escapeHtml(targetObject.nome)}</h4>
-                    <p style="font-size: 0.9rem; color: var(--gray-600); margin-bottom: 1rem;">Clique para adicionar rapidamente os riscos mais comuns para esta função.</p>
-                    <div style="display: flex; flex-wrap: wrap; gap: 0.5rem;">
-                        ${sugestoesFiltradas.map(sugestao => `<button class="outline" type="button" onclick='addSuggestedRisk("${sugestao.replace(/"/g, '&quot;')}")'>+ ${escapeHtml(sugestao)}</button>`).join('')}
-                    </div>
-                </div>`;
-        }
-    }
-
-    // Etapa 3: Preparar dados para o HTML (tipos de risco e navegação rápida)
-    const riskTypes = [...new Set(predefinedRisks.map(r => r.tipo.replace(' PSICOSSOCIAIS', '')))];
-    let quickNavOptions = (depto.cargos || []).map((c, i) => `<option value="cargo-${i}" ${currentContextValue === `cargo-${i}` ? 'selected' : ''}>Cargo: ${escapeHtml(c.nome)}</option>`).join('');
-    quickNavOptions += (depto.funcionarios || []).map((f, i) => `<option value="funcionario-${i}" ${currentContextValue === `funcionario-${i}` ? 'selected' : ''}>Funcionário: ${escapeHtml(f.nome)}</option>`).join('');
-    quickNavOptions += (depto.grupos || []).map((g, i) => `<option value="grupo-${i}" ${currentContextValue === `grupo-${i}` ? 'selected' : ''}>Grupo: ${escapeHtml(g.listaDeCargos.join(', '))}</option>`).join('');
-    
-    // Etapa 4: Renderizar o HTML da página
+  
+    // Opções do quick-nav
+    let quickNavOptions = (depto.cargos || []).map((c, i) =>
+      `<option value="cargo-${i}" ${currentContextValue === `cargo-${i}` ? 'selected' : ''}>Cargo: ${escapeHtml(c.nome)}</option>`
+    ).join('');
+    quickNavOptions += (depto.funcionarios || []).map((f, i) =>
+      `<option value="funcionario-${i}" ${currentContextValue === `funcionario-${i}` ? 'selected' : ''}>Funcionário: ${escapeHtml(f.nome)}</option>`
+    ).join('');
+    quickNavOptions += (depto.grupos || []).map((g, i) =>
+      `<option value="grupo-${i}" ${currentContextValue === `grupo-${i}` ? 'selected' : ''}>Grupo: ${escapeHtml((g.listaDeCargos || []).join(', '))}</option>`
+    ).join('');
+  
+    const riskTypes = [...new Set((predefinedRisks || []).map(r => (r.tipo || '').replace(' PSICOSSOCIAIS', '')))];
+  
+    // RENDER
     document.getElementById('wizard-content').innerHTML = `
-        <div class="card">
-            ${renderBreadcrumb()}
+      <div class="card">
+        ${renderBreadcrumb()}
+        <div class="form-group">
+          <label for="quick-nav-select">Navegar para riscos de:</label>
+          <select id="quick-nav-select" onchange="switchRiskContext(this.value)">${quickNavOptions}</select>
+        </div>
+        ${infoBox}
+        <h3>${tituloRiscos} <small style="font-weight: 400; color: var(--gray-500);">(Arraste para reordenar)</small></h3>
+        <ul id="risco-list" class="item-list"></ul>
+  
+        <h3 id="risco-form-title">Novo Risco</h3>
+        <form id="risco-form" oninput="triggerAutosave()">
+          <div class="form-grid">
             <div class="form-group">
-                <label for="quick-nav-select">Navegar para riscos de:</label>
-                <select id="quick-nav-select" onchange="switchRiskContext(this.value)">${quickNavOptions}</select>
+              <label for="risco-tipo">Tipo de Risco</label>
+              <select id="risco-tipo" onchange="updatePerigoOptions(this.value)">
+                <option value="">-- 1. Selecione o Tipo --</option>
+                ${riskTypes.map(type => `<option value="${type}">${type.charAt(0) + type.slice(1).toLowerCase()}</option>`).join('')}
+              </select>
             </div>
-            ${infoBox}
-            ${sugestoesHTML}
-            <h3>${tituloRiscos} <small style="font-weight: 400; color: var(--gray-500);">(Arraste para reordenar)</small></h3>
-            <ul id="risco-list" class="item-list"></ul>
-            <h3 id="risco-form-title">Novo Risco</h3>
-            <form id="risco-form" oninput="triggerAutosave()">
-                 <div class="form-grid">
-                    <div class="form-group">
-                        <label for="risco-tipo">Tipo de Risco</label>
-                        <select id="risco-tipo" onchange="updatePerigoOptions(this.value)">
-                            <option value="">-- 1. Selecione o Tipo --</option>
-                            ${riskTypes.map(type => `<option value="${type}">${type.charAt(0) + type.slice(1).toLowerCase()}</option>`).join('')}
-                        </select>
-                    </div>
-                     <div class="form-group">
-                        <label for="risk-perigo-select">Selecionar Perigo Pré-definido</label>
-                        <select id="risk-perigo-select" onchange="fillRiscoForm(this.value)">
-                            <option value="">-- Aguardando seleção do tipo --</option>
-                        </select>
-                    </div>
-                </div>
-                <hr style="margin: 1.5rem 0; border: none; border-top: 2px solid var(--gray-100);">
-                <div class="form-group"><label for="risco-presente">Risco Presente?</label><select id="risco-presente"><option>Sim</option><option>Não</option></select></div>
-                <div class="form-group">
-                    <label for="risco-perigo">Descrição (Nome) do Perigo *</label>
-                    ${wrapWithVoiceButton('risco-perigo', 'Ex: Ruído contínuo acima de 85 dB', '', true).replace('id="risco-perigo"', 'id="risco-perigo" oninput="atualizarListaDeExames()"')}
-                </div>
-                <div class="form-group">
-                    <label for="risco-descricao-detalhada">Descrição Detalhada</label>
-                    ${wrapWithVoiceButton('risco-descricao-detalhada', 'Detalhe o contexto do risco...', '', false, 'textarea')}
-                </div>
-                <details class="accordion-section"><summary>Fonte, Medição e Exposição</summary><div class="form-grid"><div class="form-group"><label for="risco-fonte">Fonte Geradora</label>${wrapWithVoiceButton('risco-fonte', 'Ex: Compressor', '')}</div><div class="form-group"><label for="risco-perfil-exposicao">Perfil de exposição</label>${wrapWithVoiceButton('risco-perfil-exposicao', 'Ex: Contínuo', '')}</div><div class="form-group"><label for="risco-medicao">Medição</label>${wrapWithVoiceButton('risco-medicao', 'Ex: 92 dB', '')}</div><div class="form-group"><label for="risco-tempo-exposicao">Tempo de Exposição</label>${wrapWithVoiceButton('risco-tempo-exposicao', 'Ex: 8h', '')}</div><div class="form-group"><label for="risco-tipo-exposicao">Tipo de Exposição</label><select id="risco-tipo-exposicao"><option>Permanente</option><option>Ocasional</option><option>Intermitente</option></select></div><div class="form-group"><label for="risco-esocial">Código E-Social</label>${wrapWithVoiceButton('risco-esocial', 'Ex: 01.01.001', '')}</div></div><div class="form-group"><label for="risco-obs-ambientais">Observações de registros ambientais</label>${wrapWithVoiceButton('risco-obs-ambientais', 'Observações...', '', false, 'textarea')}</div></details>
-                <details class="accordion-section"><summary>Análise e Avaliação</summary><div class="form-grid"><div class="form-group"><label for="risco-probabilidade">Probabilidade</label><select id="risco-probabilidade"><option>Improvável</option><option>Provável</option><option>Remota</option><option>Frequente</option></select></div><div class="form-group"><label for="risco-severidade">Severidade</label><select id="risco-severidade"><option>Baixa</option><option>Média</option><option>Alta</option><option>Crítica</option></select></div><div class="form-group"><label for="risco-aceitabilidade">Aceitabilidade</label><select id="risco-aceitabilidade"><option>Tolerável</option><option>Não Tolerável</option></select></div></div><div class="form-group"><label for="risco-danos">Danos Potenciais</label>${wrapWithVoiceButton('risco-danos', 'Descreva os possíveis danos...', '', false, 'textarea')}</div></details>
-                <details class="accordion-section"><summary>Controles e Ações</summary><div class="form-grid"><div class="form-group"><label for="risco-epi-utilizado">EPI Utilizado</label>${wrapWithVoiceButton('risco-epi-utilizado', 'Ex: Protetor auricular', '')}</div><div class="form-group"><label for="risco-ca">CA (Certificado de Aprovação)</label>${wrapWithVoiceButton('risco-ca', 'Ex: 12345', '')}</div><div class="form-group"><label for="risco-epc">EPC Existente</label>${wrapWithVoiceButton('risco-epc', 'Ex: Cabine acústica', '')}</div><div class="form-group"><label for="risco-epi-sugerido">EPI Sugerido</label>${wrapWithVoiceButton('risco-epi-sugerido', 'Ex: Protetor tipo concha', '')}</div></div><div class="form-group"><label for="risco-acoes">Ações Necessárias</label>${wrapWithVoiceButton('risco-acoes', 'Descreva as ações recomendadas...', '', false, 'textarea')}</div><div class="form-group"><label for="risco-observacoes-gerais">Observações Gerais</label>${wrapWithVoiceButton('risco-observacoes-gerais', 'Observações adicionais...', '', false, 'textarea')}</div></details>
-                ${renderCampoExamesCustomizados()}
-                <div class="form-actions"><button type="button" class="primary" id="save-risco-btn" onclick="saveRisco()"><i class="bi bi-plus-lg"></i> Adicionar</button><button type="button" id="cancel-risco-edit-btn" class="nav hidden" onclick="clearRiscoForm()">Cancelar</button></div>
-            </form>
-            <div class="wizard-nav"><button class="nav" onclick="goToStep(2, activeDepartamentoIndex)">Voltar para Cargos</button></div>
-        </div>`;
-    
-    // Etapa 5: Executar scripts de pós-renderização
-    updateRiscoList();
+            <div class="form-group">
+              <label for="risk-perigo-select">Selecionar Perigo Pré-definido</label>
+              <select id="risk-perigo-select" onchange="fillRiscoForm(this.value)">
+                <option value="">-- Aguardando seleção do tipo --</option>
+              </select>
+            </div>
+          </div>
+  
+          <hr style="margin: 1.5rem 0; border: none; border-top: 2px solid var(--gray-100);">
+  
+          <div class="form-group"><label for="risco-presente">Risco Presente?</label><select id="risco-presente"><option>Sim</option><option>Não</option></select></div>
+          <div class="form-group">
+              <label for="risco-perigo">Descrição (Nome) do Perigo *</label>
+              ${wrapWithVoiceButton('risco-perigo', 'Ex: Ruído contínuo acima de 85 dB', '', true).replace('id="risco-perigo"', 'id="risco-perigo" oninput="atualizarListaDeExames()"')}
+          </div>
+          <div class="form-group">
+              <label for="risco-descricao-detalhada">Descrição Detalhada</label>
+              ${wrapWithVoiceButton('risco-descricao-detalhada', 'Detalhe o contexto do risco...', '', false, 'textarea')}
+          </div>
+
+          <!-- CAMPOS RESTAURADOS DA VERSÃO ANTIGA -->
+          <details class="accordion-section"><summary>Fonte, Medição e Exposição</summary><div class="form-grid"><div class="form-group"><label for="risco-fonte">Fonte Geradora</label>${wrapWithVoiceButton('risco-fonte', 'Ex: Compressor', '')}</div><div class="form-group"><label for="risco-perfil-exposicao">Perfil de exposição</label>${wrapWithVoiceButton('risco-perfil-exposicao', 'Ex: Contínuo', '')}</div><div class="form-group"><label for="risco-medicao">Medição</label>${wrapWithVoiceButton('risco-medicao', 'Ex: 92 dB', '')}</div><div class="form-group"><label for="risco-tempo-exposicao">Tempo de Exposição</label>${wrapWithVoiceButton('risco-tempo-exposicao', 'Ex: 8h', '')}</div><div class="form-group"><label for="risco-tipo-exposicao">Tipo de Exposição</label><select id="risco-tipo-exposicao"><option>Permanente</option><option>Ocasional</option><option>Intermitente</option></select></div><div class="form-group"><label for="risco-esocial">Código E-Social</label>${wrapWithVoiceButton('risco-esocial', 'Ex: 01.01.001', '')}</div></div><div class="form-group"><label for="risco-obs-ambientais">Observações de registros ambientais</label>${wrapWithVoiceButton('risco-obs-ambientais', 'Observações...', '', false, 'textarea')}</div></details>
+          <details class="accordion-section"><summary>Análise e Avaliação</summary><div class="form-grid"><div class="form-group"><label for="risco-probabilidade">Probabilidade</label><select id="risco-probabilidade"><option>Improvável</option><option>Provável</option><option>Remota</option><option>Frequente</option></select></div><div class="form-group"><label for="risco-severidade">Severidade</label><select id="risco-severidade"><option>Baixa</option><option>Média</option><option>Alta</option><option>Crítica</option></select></div><div class="form-group"><label for="risco-aceitabilidade">Aceitabilidade</label><select id="risco-aceitabilidade"><option>Tolerável</option><option>Não Tolerável</option></select></div></div><div class="form-group"><label for="risco-danos">Danos Potenciais</label>${wrapWithVoiceButton('risco-danos', 'Descreva os possíveis danos...', '', false, 'textarea')}</div></details>
+          <details class="accordion-section"><summary>Controles e Ações</summary><div class="form-grid"><div class="form-group"><label for="risco-epi-utilizado">EPI Utilizado</label>${wrapWithVoiceButton('risco-epi-utilizado', 'Ex: Protetor auricular', '')}</div><div class="form-group"><label for="risco-ca">CA (Certificado de Aprovação)</label>${wrapWithVoiceButton('risco-ca', 'Ex: 12345', '')}</div><div class="form-group"><label for="risco-epc">EPC Existente</label>${wrapWithVoiceButton('risco-epc', 'Ex: Cabine acústica', '')}</div><div class="form-group"><label for="risco-epi-sugerido">EPI Sugerido</label>${wrapWithVoiceButton('risco-epi-sugerido', 'Ex: Protetor tipo concha', '')}</div></div><div class="form-group"><label for="risco-acoes">Ações Necessárias</label>${wrapWithVoiceButton('risco-acoes', 'Descreva as ações recomendadas...', '', false, 'textarea')}</div><div class="form-group"><label for="risco-observacoes-gerais">Observações Gerais</label>${wrapWithVoiceButton('risco-observacoes-gerais', 'Observações adicionais...', '', false, 'textarea')}</div></details>
+          <!-- FIM DOS CAMPOS RESTAURADOS -->
+
+          ${typeof renderCampoExamesCustomizados === 'function' ? renderCampoExamesCustomizados() : ''}
+  
+          <div class="form-actions">
+            <button type="button" class="primary" id="save-risco-btn" onclick="saveRisco()"><i class="bi bi-plus-lg"></i> Adicionar</button>
+            <button type="button" class="nav hidden" id="cancel-risco-edit-btn" onclick="clearRiscoForm()">Cancelar</button>
+          </div>
+        </form>
+        <div class="wizard-nav"><button class="nav" onclick="goToStep(2, activeDepartamentoIndex)">Voltar para Cargos</button></div>
+      </div>
+    `;
+  
+    // PÓS-RENDER
+    if (typeof updateRiscoList === 'function') {
+        updateRiscoList();
+    }
     setTimeout(() => {
+      if (typeof initializeSortableLists === 'function') {
         initializeSortableLists();
+      }
+      if (typeof atualizarListaDeExames === 'function') {
         atualizarListaDeExames();
-        ensureAllAccordionsOpenOnMobile(); // Posição correta
+      }
     }, 0);
 }
 
