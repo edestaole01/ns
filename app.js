@@ -363,16 +363,17 @@ function updateProgressBar() {
 function renderWizardHeader() {
     const h = document.getElementById('wizard-header-container');
     if (wizardStep > 0) {
-        h.innerHTML = `
-            <div class="wizard-header">
-                <h2>${currentInspection.id ? 'Editando' : 'Nova'} Inspeção: ${currentInspection.empresa?.nome || ''}</h2>
-                <div style="display: flex; align-items: center; gap: 1rem;">
-                    <span id="autosave-status" style="color: var(--gray-500); font-size: 0.85rem; transition: all 0.3s ease; opacity: 0;"></span>
-                    <button class="secondary" onclick="saveAndExit()">Salvar e Voltar ao Painel</button>
-                </div>
-            </div>`;
+      h.innerHTML = `
+        <div class="wizard-header">
+          <h2>${currentInspection.id ? 'Editando' : 'Nova'} Inspeção: ${currentInspection.empresa?.nome || ''}</h2>
+          <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
+            <span id="autosave-status" style="color: var(--gray-500); font-size: 0.85rem; transition: all 0.3s ease; opacity: 0;"></span>
+            <button class="outline" onclick="gerarRelatorio()"><i class="bi bi-clipboard2-pulse"></i> Relatório</button>
+            <button class="secondary" onclick="saveAndExit()">Salvar e Voltar ao Painel</button>
+          </div>
+        </div>`;
     } else {
-        h.innerHTML = '';
+      h.innerHTML = '';
     }
 }
 
@@ -2851,19 +2852,4 @@ function gerarRelatorio() {
       showToast("Erro ao gerar relatório.", "error");
     }
   }
-  function renderWizardHeader() {
-    const h = document.getElementById('wizard-header-container');
-    if (wizardStep > 0) {
-      h.innerHTML = `
-        <div class="wizard-header">
-          <h2>${currentInspection.id ? 'Editando' : 'Nova'} Inspeção: ${currentInspection.empresa?.nome || ''}</h2>
-          <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
-            <span id="autosave-status" style="color: var(--gray-500); font-size: 0.85rem; transition: all 0.3s ease; opacity: 0;"></span>
-            <button class="outline" onclick="gerarRelatorio()"><i class="bi bi-clipboard2-pulse"></i> Relatório</button>
-            <button class="secondary" onclick="saveAndExit()">Salvar e Voltar ao Painel</button>
-          </div>
-        </div>`;
-    } else {
-      h.innerHTML = '';
-    }
-  }
+  
