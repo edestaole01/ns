@@ -429,47 +429,37 @@ function saveEmpresaAndNext() {
 // PASSO 2: DEPARTAMENTOS - COM VOZ
 // ==========================================
 
-// 2) Passo 2 — Departamentos (render com pós-render seguro para mobile)
 function renderDepartamentoStep() {
-    // RENDER
     document.getElementById('wizard-content').innerHTML = `
-      <div class="card">
-        ${renderBreadcrumb()}
-        <h3>Departamentos Adicionados <small style="font-weight: 400; color: var(--gray-500);">(Arraste para reordenar)</small></h3>
-        <ul id="departamento-list" class="item-list"></ul>
-        <h3 id="depto-form-title">Novo Departamento</h3>
-        <form id="depto-form">
-          <div class="form-group">
-            <label for="depto-nome">Nome do Setor/Departamento *</label>
-            ${wrapWithVoiceButton('depto-nome', 'Ex: Produção, Administrativo', '', true)}
-          </div>
-          <div class="form-group">
-            <label for="depto-caracteristica">Característica do Setor</label>
-            ${wrapWithVoiceButton('depto-caracteristica', 'Ex: Área industrial', '')}
-          </div>
-          <div class="form-group">
-            <label for="depto-descricao">Descrição da Atividade do Setor</label>
-            ${wrapWithVoiceButton('depto-descricao', 'Descreva as principais atividades...', '', false, 'textarea')}
-          </div>
-          <div class="form-actions">
-            <button type="button" class="primary" id="save-depto-btn" onclick="saveDepartamento()">Adicionar</button>
-            <button type="button" id="cancel-depto-edit-btn" class="nav hidden" onclick="clearDeptoForm()">Cancelar</button>
-          </div>
-        </form>
-        <div class="wizard-nav">
-          <button class="nav" onclick="goToStep(0)">Voltar para Empresa</button>
-        </div>
-      </div>
-    `;
-  
-    // PÓS-RENDER
+        ensureAllAccordionsOpenOnMobile();
+        <div class="card">
+            ${renderBreadcrumb()}
+            <h3>Departamentos Adicionados <small style="font-weight: 400; color: var(--gray-500);">(Arraste para reordenar)</small></h3>
+            <ul id="departamento-list" class="item-list"></ul>
+            <h3 id="depto-form-title">Novo Departamento</h3>
+            <form id="depto-form">
+                <div class="form-group">
+                    <label for="depto-nome">Nome do Setor/Departamento *</label>
+                    ${wrapWithVoiceButton('depto-nome', 'Ex: Produção, Administrativo', '', true)}
+                </div>
+                <div class="form-group">
+                    <label for="depto-caracteristica">Característica do Setor</label>
+                    ${wrapWithVoiceButton('depto-caracteristica', 'Ex: Área industrial', '')}
+                </div>
+                <div class="form-group">
+                    <label for="depto-descricao">Descrição da Atividade do Setor</label>
+                    ${wrapWithVoiceButton('depto-descricao', 'Descreva as principais atividades...', '', false, 'textarea')}
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="primary" id="save-depto-btn" onclick="saveDepartamento()">Adicionar</button>
+                    <button type="button" id="cancel-depto-edit-btn" class="nav hidden" onclick="clearDeptoForm()">Cancelar</button>
+                </div>
+            </form>
+            <div class="wizard-nav"><button class="nav" onclick="goToStep(0)">Voltar para Empresa</button></div>
+        </div>`;
     updateDepartamentoList();
-    setTimeout(() => {
-      initializeSortableLists?.();
-      ensureAllAccordionsOpenOnMobile();
-    }, 0);
-  }
-  
+    setTimeout(() => initializeSortableLists(), 0);
+}
 
 function updateDepartamentoList() {
     const list = document.getElementById("departamento-list");
@@ -1041,95 +1031,113 @@ function goToRiscos(index, type) {
 
 function renderRiscoStep() {
     const depto = currentInspection.departamentos[activeDepartamentoIndex];
-    let tituloRiscos = '';
-    let infoBox = '';
-    let currentContextValue = '';
-  
-    // Determina contexto ativo (cargo, funcionário ou grupo)
+    let tituloRiscos = '', infoBox = '', targetObject;
+    let currentContextValue = '', nomeParaSugestoes = null; 
+
     if (currentGroupId) {
-      const g = (depto.grupos || []).find(gr => gr.id === currentGroupId);
-      tituloRiscos = `Riscos do Grupo (${(g?.listaDeCargos || []).join(', ') || 'Sem cargos'})`;
-      currentContextValue = `grupo-${(depto.grupos || []).findIndex(gr => gr.id === currentGroupId)}`;
+        targetObject = depto.grupos.find(g => g.id === currentGroupId);
+        if (!targetObject) { showToast("Grupo não encontrado.", "error"); goToStep(2, activeDepartamentoIndex); return; }
+        
+        tituloRiscos = `Riscos do Grupo (${targetObject.listaDeCargos.length} cargos)`;
+        infoBox = `<div style="padding:1rem;background:var(--primary-light);border-left:4px solid var(--primary);border-radius:.5rem;margin-bottom:1.5rem;"><strong style="display:block;margin-bottom:.5rem;color:var(--gray-900);">Modo Grupo</strong><p style="margin:0;color:var(--gray-700);font-size:.95rem;">Os riscos aqui serão aplicados a todos os cargos do grupo.</p></div>`;
+        currentContextValue = `grupo-${depto.grupos.findIndex(g => g.id === currentGroupId)}`;
+
     } else if (activeCargoIndex > -1) {
-      tituloRiscos = `Riscos do Cargo: ${depto.cargos[activeCargoIndex]?.nome || ''}`;
-      currentContextValue = `cargo-${activeCargoIndex}`;
+        targetObject = depto.cargos[activeCargoIndex];
+        if (!targetObject) { showToast("Cargo não encontrado.", "error"); goToStep(2, activeDepartamentoIndex); return; }
+
+        tituloRiscos = 'Riscos Identificados';
+        currentContextValue = `cargo-${activeCargoIndex}`;
+        nomeParaSugestoes = targetObject.nome.toLowerCase();
+
     } else if (activeFuncionarioIndex > -1) {
-      tituloRiscos = `Riscos do Funcionário: ${depto.funcionarios[activeFuncionarioIndex]?.nome || ''}`;
-      currentContextValue = `funcionario-${activeFuncionarioIndex}`;
+        targetObject = depto.funcionarios[activeFuncionarioIndex];
+        if (!targetObject) { showToast("Funcionário não encontrado.", "error"); goToStep(2, activeDepartamentoIndex); return; }
+
+        tituloRiscos = 'Riscos Identificados';
+        currentContextValue = `funcionario-${activeFuncionarioIndex}`;
+        nomeParaSugestoes = targetObject.nome.toLowerCase(); 
+        
     } else {
-      infoBox = `<div class="badge" style="background:#fff3cd;color:#92400e;">Selecione um cargo, funcionário ou grupo para cadastrar riscos.</div>`;
+        goToStep(2, activeDepartamentoIndex); return;
     }
-  
-    // Opções do quick-nav
-    let quickNavOptions = (depto.cargos || []).map((c, i) =>
-      `<option value="cargo-${i}" ${currentContextValue === `cargo-${i}` ? 'selected' : ''}>Cargo: ${escapeHtml(c.nome)}</option>`
-    ).join('');
-    quickNavOptions += (depto.funcionarios || []).map((f, i) =>
-      `<option value="funcionario-${i}" ${currentContextValue === `funcionario-${i}` ? 'selected' : ''}>Funcionário: ${escapeHtml(f.nome)}</option>`
-    ).join('');
-    quickNavOptions += (depto.grupos || []).map((g, i) =>
-      `<option value="grupo-${i}" ${currentContextValue === `grupo-${i}` ? 'selected' : ''}>Grupo: ${escapeHtml((g.listaDeCargos || []).join(', '))}</option>`
-    ).join('');
-  
-    // ✅ CORREÇÃO: gerar tipos únicos de risco (removendo sufixo " PSICOSSOCIAIS")
-    const riskTypes = [...new Set((predefinedRisks || []).map(r => (r.tipo || '').replace(' PSICOSSOCIAIS', '')))];
-  
-    // RENDER
+
+    let sugestoesHTML = '';
+    if (nomeParaSugestoes && sugestoesPorCargo[nomeParaSugestoes]) {
+        const sugestoes = sugestoesPorCargo[nomeParaSugestoes];
+        const sugestoesFiltradas = sugestoes.filter(sugestao => 
+            !(targetObject.riscos || []).some(r => r.perigo === sugestao)
+        );
+
+        if (sugestoesFiltradas.length > 0) {
+            sugestoesHTML = `
+                <div id="risk-suggestions" style="margin-bottom: 2rem; padding: 1.5rem; border: 2px dashed var(--primary); border-radius: 0.75rem; background: var(--primary-light);">
+                    <h4 style="margin-top: 0; color: var(--primary-hover);"><i class="bi bi-lightbulb-fill"></i> Sugestões de Risco para ${escapeHtml(targetObject.nome)}</h4>
+                    <p style="font-size: 0.9rem; color: var(--gray-600); margin-bottom: 1rem;">Clique para adicionar rapidamente os riscos mais comuns para esta função.</p>
+                    <div style="display: flex; flex-wrap: wrap; gap: 0.5rem;">
+                        ${sugestoesFiltradas.map(sugestao => `<button class="outline" type="button" onclick='addSuggestedRisk("${sugestao.replace(/"/g, '&quot;')}")'>+ ${escapeHtml(sugestao)}</button>`).join('')}
+                    </div>
+                </div>`;
+        }
+    }
+
+    const riskTypes = [...new Set(predefinedRisks.map(r => r.tipo.replace(' PSICOSSOCIAIS', '')))];
+    let quickNavOptions = (depto.cargos || []).map((c, i) => `<option value="cargo-${i}" ${currentContextValue === `cargo-${i}` ? 'selected' : ''}>Cargo: ${escapeHtml(c.nome)}</option>`).join('');
+    quickNavOptions += (depto.funcionarios || []).map((f, i) => `<option value="funcionario-${i}" ${currentContextValue === `funcionario-${i}` ? 'selected' : ''}>Funcionário: ${escapeHtml(f.nome)}</option>`).join('');
+    quickNavOptions += (depto.grupos || []).map((g, i) => `<option value="grupo-${i}" ${currentContextValue === `grupo-${i}` ? 'selected' : ''}>Grupo: ${escapeHtml(g.listaDeCargos.join(', '))}</option>`).join('');
+    
     document.getElementById('wizard-content').innerHTML = `
-      <div class="card">
-        ${renderBreadcrumb()}
-        <div class="form-group">
-          <label for="quick-nav-select">Navegar para riscos de:</label>
-          <select id="quick-nav-select" onchange="switchRiskContext(this.value)">${quickNavOptions}</select>
-        </div>
-        ${infoBox}
-        <h3>${tituloRiscos} <small style="font-weight: 400; color: var(--gray-500);">(Arraste para reordenar)</small></h3>
-        <ul id="risco-list" class="item-list"></ul>
-  
-        <h3 id="risco-form-title">Novo Risco</h3>
-        <form id="risco-form" oninput="triggerAutosave?.()">
-          <div class="form-grid">
+        ensureAllAccordionsOpenOnMobile();
+        <div class="card">
+            ${renderBreadcrumb()}
             <div class="form-group">
-              <label for="risco-tipo">Tipo de Risco</label>
-              <select id="risco-tipo" onchange="updatePerigoOptions(this.value)">
-                <option value="">-- 1. Selecione o Tipo --</option>
-                ${riskTypes.map(type => `<option value="${type}">${type.charAt(0) + type.slice(1).toLowerCase()}</option>`).join('')}
-              </select>
+                <label for="quick-nav-select">Navegar para riscos de:</label>
+                <select id="quick-nav-select" onchange="switchRiskContext(this.value)">${quickNavOptions}</select>
             </div>
-            <div class="form-group">
-              <label for="risk-perigo-select">Selecionar Perigo Pré-definido</label>
-              <select id="risk-perigo-select" onchange="fillRiscoForm(this.value)">
-                <option value="">-- Aguardando seleção do tipo --</option>
-              </select>
-            </div>
-          </div>
-  
-          <hr style="margin: 1.5rem 0; border: none; border-top: 2px solid var(--gray-100);">
-  
-          <div class="form-group">
-            <label for="risco-presente">Risco Presente?</label>
-            <select id="risco-presente"><option>Sim</option><option>Não</option></select>
-          </div>
-  
-          <div class="form-group">
-            <label for="risco-perigo">Descrição (Nome) do Perigo *</label>
-            ${wrapWithVoiceButton('risco-perigo', 'Ex: Ruído contínuo acima de 85 dB', '', true)
-              .replace('id="risco-perigo"', 'id="risco-perigo" oninput="atualizarListaDeExames?.()"')}
-          </div>
-  
-          ${renderCampoExamesCustomizados?.() || ''}
-  
-          <div class="form-actions">
-            <button type="button" class="primary" id="save-risco-btn" onclick="saveRisco()"><i class="bi bi-plus-lg"></i> Adicionar</button>
-            <button type="button" class="nav hidden" id="cancel-risco-edit-btn" onclick="clearRiscoForm()">Cancelar</button>
-          </div>
-        </form>
-      </div>
-    `;
-  
-    updateRiscoList?.();
-    setTimeout(() => initializeSortableLists?.(), 0);
-  }
+            ${infoBox}
+            ${sugestoesHTML}
+            <h3>${tituloRiscos} <small style="font-weight: 400; color: var(--gray-500);">(Arraste para reordenar)</small></h3>
+            <ul id="risco-list" class="item-list"></ul>
+            <h3 id="risco-form-title">Novo Risco</h3>
+            <form id="risco-form" oninput="triggerAutosave()">
+                 <div class="form-grid">
+                    <div class="form-group">
+                        <label for="risco-tipo">Tipo de Risco</label>
+                        <select id="risco-tipo" onchange="updatePerigoOptions(this.value)">
+                            <option value="">-- 1. Selecione o Tipo --</option>
+                            ${riskTypes.map(type => `<option value="${type}">${type.charAt(0) + type.slice(1).toLowerCase()}</option>`).join('')}
+                        </select>
+                    </div>
+                     <div class="form-group">
+                        <label for="risk-perigo-select">Selecionar Perigo Pré-definido</label>
+                        <select id="risk-perigo-select" onchange="fillRiscoForm(this.value)">
+                            <option value="">-- Aguardando seleção do tipo --</option>
+                        </select>
+                    </div>
+                </div>
+                <hr style="margin: 1.5rem 0; border: none; border-top: 2px solid var(--gray-100);">
+                <div class="form-group"><label for="risco-presente">Risco Presente?</label><select id="risco-presente"><option>Sim</option><option>Não</option></select></div>
+                <div class="form-group">
+                    <label for="risco-perigo">Descrição (Nome) do Perigo *</label>
+                    ${wrapWithVoiceButton('risco-perigo', 'Ex: Ruído contínuo acima de 85 dB', '', true).replace('id="risco-perigo"', 'id="risco-perigo" oninput="atualizarListaDeExames()"')}
+                </div>
+                <div class="form-group">
+                    <label for="risco-descricao-detalhada">Descrição Detalhada</label>
+                    ${wrapWithVoiceButton('risco-descricao-detalhada', 'Detalhe o contexto do risco...', '', false, 'textarea')}
+                </div>
+                <details class="accordion-section"><summary>Fonte, Medição e Exposição</summary><div class="form-grid"><div class="form-group"><label for="risco-fonte">Fonte Geradora</label>${wrapWithVoiceButton('risco-fonte', 'Ex: Compressor', '')}</div><div class="form-group"><label for="risco-perfil-exposicao">Perfil de exposição</label>${wrapWithVoiceButton('risco-perfil-exposicao', 'Ex: Contínuo', '')}</div><div class="form-group"><label for="risco-medicao">Medição</label>${wrapWithVoiceButton('risco-medicao', 'Ex: 92 dB', '')}</div><div class="form-group"><label for="risco-tempo-exposicao">Tempo de Exposição</label>${wrapWithVoiceButton('risco-tempo-exposicao', 'Ex: 8h', '')}</div><div class="form-group"><label for="risco-tipo-exposicao">Tipo de Exposição</label><select id="risco-tipo-exposicao"><option>Permanente</option><option>Ocasional</option><option>Intermitente</option></select></div><div class="form-group"><label for="risco-esocial">Código E-Social</label>${wrapWithVoiceButton('risco-esocial', 'Ex: 01.01.001', '')}</div></div><div class="form-group"><label for="risco-obs-ambientais">Observações de registros ambientais</label>${wrapWithVoiceButton('risco-obs-ambientais', 'Observações...', '', false, 'textarea')}</div></details>
+                <details class="accordion-section"><summary>Análise e Avaliação</summary><div class="form-grid"><div class="form-group"><label for="risco-probabilidade">Probabilidade</label><select id="risco-probabilidade"><option>Improvável</option><option>Provável</option><option>Remota</option><option>Frequente</option></select></div><div class="form-group"><label for="risco-severidade">Severidade</label><select id="risco-severidade"><option>Baixa</option><option>Média</option><option>Alta</option><option>Crítica</option></select></div><div class="form-group"><label for="risco-aceitabilidade">Aceitabilidade</label><select id="risco-aceitabilidade"><option>Tolerável</option><option>Não Tolerável</option></select></div></div><div class="form-group"><label for="risco-danos">Danos Potenciais</label>${wrapWithVoiceButton('risco-danos', 'Descreva os possíveis danos...', '', false, 'textarea')}</div></details>
+                <details class="accordion-section"><summary>Controles e Ações</summary><div class="form-grid"><div class="form-group"><label for="risco-epi-utilizado">EPI Utilizado</label>${wrapWithVoiceButton('risco-epi-utilizado', 'Ex: Protetor auricular', '')}</div><div class="form-group"><label for="risco-ca">CA (Certificado de Aprovação)</label>${wrapWithVoiceButton('risco-ca', 'Ex: 12345', '')}</div><div class="form-group"><label for="risco-epc">EPC Existente</label>${wrapWithVoiceButton('risco-epc', 'Ex: Cabine acústica', '')}</div><div class="form-group"><label for="risco-epi-sugerido">EPI Sugerido</label>${wrapWithVoiceButton('risco-epi-sugerido', 'Ex: Protetor tipo concha', '')}</div></div><div class="form-group"><label for="risco-acoes">Ações Necessárias</label>${wrapWithVoiceButton('risco-acoes', 'Descreva as ações recomendadas...', '', false, 'textarea')}</div><div class="form-group"><label for="risco-observacoes-gerais">Observações Gerais</label>${wrapWithVoiceButton('risco-observacoes-gerais', 'Observações adicionais...', '', false, 'textarea')}</div></details>
+                ${renderCampoExamesCustomizados()}
+                <div class="form-actions"><button type="button" class="primary" id="save-risco-btn" onclick="saveRisco()"><i class="bi bi-plus-lg"></i> Adicionar</button><button type="button" id="cancel-risco-edit-btn" class="nav hidden" onclick="clearRiscoForm()">Cancelar</button></div>
+            </form>
+            <div class="wizard-nav"><button class="nav" onclick="goToStep(2, activeDepartamentoIndex)">Voltar para Cargos</button></div>
+        </div>`;
+    
+    setTimeout(() => initializeSortableLists(), 0);
+    updateRiscoList();
+    atualizarListaDeExames();
+}
 
 function updatePerigoOptions(selectedType) {
     const perigoSelect = document.getElementById("risk-perigo-select");
@@ -1220,73 +1228,39 @@ function updateRiscoList() {
 
 function saveRisco() {
     const riscoData = {
-      riscoPresente: document.getElementById("risco-presente").value,
-      tipo: document.getElementById("risco-tipo").value,
-      codigoEsocial: document.getElementById("risco-esocial")?.value || "",
-      perigo: document.getElementById("risco-perigo").value,
-      descricaoDetalhada: document.getElementById("risco-descricao-detalhada")?.value || "",
-      fonteGeradora: document.getElementById("risco-fonte")?.value || "",
-      perfilExposicao: document.getElementById("risco-perfil-exposicao")?.value || "",
-      medicao: document.getElementById("risco-medicao")?.value || "",
-      tempoExposicao: document.getElementById("risco-tempo-exposicao")?.value || "",
-      tipoExposicao: document.getElementById("risco-tipo-exposicao")?.value || "",
-      obsAmbientais: document.getElementById("risco-obs-ambientais")?.value || "",
-      probabilidade: document.getElementById("risco-probabilidade")?.value || "",
-      severidade: document.getElementById("risco-severidade")?.value || "",
-      aceitabilidade: document.getElementById("risco-aceitabilidade")?.value || "",
-      danos: document.getElementById("risco-danos")?.value || "",
-      epiUtilizado: document.getElementById("risco-epi-utilizado")?.value || "",
-      ca: document.getElementById("risco-ca")?.value || "",
-      epc: document.getElementById("risco-epc")?.value || "",
-      epiSugerido: document.getElementById("risco-epi-sugerido")?.value || "",
-      acoesNecessarias: document.getElementById("risco-acoes")?.value || "",
-      observacoesGerais: document.getElementById("risco-observacoes-gerais")?.value || ""
+        riscoPresente: document.getElementById("risco-presente").value, tipo: document.getElementById("risco-tipo").value, codigoEsocial: document.getElementById("risco-esocial").value, perigo: document.getElementById("risco-perigo").value, descricaoDetalhada: document.getElementById("risco-descricao-detalhada").value, fonteGeradora: document.getElementById("risco-fonte").value, perfilExposicao: document.getElementById("risco-perfil-exposicao").value, medicao: document.getElementById("risco-medicao").value, tempoExposicao: document.getElementById("risco-tempo-exposicao").value, tipoExposicao: document.getElementById("risco-tipo-exposicao").value, obsAmbientais: document.getElementById("risco-obs-ambientais").value, probabilidade: document.getElementById("risco-probabilidade").value, severidade: document.getElementById("risco-severidade").value, aceitabilidade: document.getElementById("risco-aceitabilidade").value, danos: document.getElementById("risco-danos").value, epiUtilizado: document.getElementById("risco-epi-utilizado").value, ca: document.getElementById("risco-ca").value, epc: document.getElementById("risco-epc").value, epiSugerido: document.getElementById("risco-epi-sugerido").value, acoesNecessarias: document.getElementById("risco-acoes").value, observacoesGerais: document.getElementById("risco-observacoes-gerais").value
     };
-  
-    if (!riscoData.perigo) {
-      showToast("A descrição do perigo é obrigatória.", "error");
-      return;
-    }
-  
-    // Vincula exames temporários se houver
-    riscoData.exames = Array.isArray(examesTemporarios) ? [...examesTemporarios] : [];
-  
+    if (!riscoData.perigo) return showToast("A descrição do perigo é obrigatória.", "error");
+    
+    riscoData.exames = [...examesTemporarios]; 
+
     const depto = currentInspection.departamentos[activeDepartamentoIndex];
     let targetArray;
     let message = `Risco ${editingIndex > -1 ? 'atualizado' : 'adicionado'}`;
-  
     if (currentGroupId) {
-      const grupo = (depto.grupos || []).find(g => g.id === currentGroupId);
-      if (!grupo.riscos) grupo.riscos = [];
-      targetArray = grupo.riscos;
-      message += ' para o grupo!';
+        const grupo = depto.grupos.find(g => g.id === currentGroupId); if (!grupo.riscos) grupo.riscos = [];
+        targetArray = grupo.riscos; message += ' para o grupo!';
     } else if (activeCargoIndex > -1) {
-      const cargo = depto.cargos[activeCargoIndex];
-      if (!cargo.riscos) cargo.riscos = [];
-      targetArray = cargo.riscos;
+        const cargo = depto.cargos[activeCargoIndex]; if (!cargo.riscos) cargo.riscos = [];
+        targetArray = cargo.riscos; message += '!';
     } else if (activeFuncionarioIndex > -1) {
-      const func = depto.funcionarios[activeFuncionarioIndex];
-      if (!func.riscos) func.riscos = [];
-      targetArray = func.riscos;
-    } else {
-      showToast("Contexto inválido para salvar risco.", "error");
-      return;
+        const funcionario = depto.funcionarios[activeFuncionarioIndex]; if (!funcionario.riscos) funcionario.riscos = [];
+        targetArray = funcionario.riscos; message += '!';
     }
-  
+    
     if (editingIndex > -1) {
-      targetArray[editingIndex] = riscoData;
+        targetArray[editingIndex] = riscoData;
     } else {
-      targetArray.push(riscoData);
+        targetArray.push(riscoData);
     }
-  
-    // Reset estado de edição e UI
-    editingIndex = -1;
-    editingType = null;
-    clearRiscoForm?.();
-  
-    updateRiscoList?.();
-    persistCurrentInspection?.(() => showToast(message, "success"));
-  }
+    
+    showToast(message, "success");
+    clearRiscoForm(); 
+    updateRiscoList(); 
+    persistCurrentInspection();
+    
+    document.getElementById('risco-list').scrollIntoView({ behavior: 'smooth' });
+}
 
 function editRisco(index) {
     editingIndex = index;
@@ -1367,13 +1341,11 @@ function addSuggestedRisk(perigoDescricao) {
 
 function adicionarExamesSugeridos(riscoData) {
     const examData = getExamesPorRisco(riscoData.perigo);
-    if (examData && Array.isArray(examData.exames)) {
-      // ✅ CORREÇÃO: espalha corretamente os exames sugeridos
-      riscoData.exames = [...examData.exames];
+    if (examData && examData.exames) {
+        riscoData.exames = [...examData.exames];
     }
     return riscoData;
-  }
-  
+}
 
 
 function clearRiscoForm() {
@@ -2354,17 +2326,20 @@ function toggleAccordion(event, detailsId) {
 /**
  * Força abertura dos accordions no mobile ao editar
  */
-function forceOpenAccordionOnMobile(id) {
-    const el = document.getElementById(id);
-    if (el && window.innerWidth <= 768) el.setAttribute('open', '');
-  }
-
+function forceOpenAccordionOnMobile(detailsId) {
+    if (window.innerWidth <= 768) {
+        const details = document.getElementById(detailsId);
+        if (details) {
+            details.setAttribute('open', '');
+        }
+    }
+}
 // Abre todos os <details> da área do wizard no mobile — evita conteúdo "sumido"
 function ensureAllAccordionsOpenOnMobile() {
     if (window.innerWidth <= 768) {
-      document.querySelectorAll('details.accordion-section').forEach(d => {
-        d.setAttribute('open', '');
-      });
+      const container = document.getElementById('wizard-content');
+      if (!container) return;
+      container.querySelectorAll('details').forEach(d => d.setAttribute('open', ''));
     }
   }
 
@@ -2785,71 +2760,3 @@ function adicionarExameManual() {
     periodicidadeInput.value = '';
     renderExamesEditaveis(); // Re-renderiza
 }
-// 5) Gerar Relatório (TXT simples para download)
-function gerarRelatorio() {
-    try {
-      const insp = currentInspection;
-      if (!insp || !insp.departamentos || insp.departamentos.length === 0) {
-        showToast("Nenhuma inspeção ativa para gerar relatório.", "warning");
-        return;
-      }
-  
-      let relatorio = `Relatório de Inspeção - ${insp.empresa?.nome || 'Empresa não informada'}\n\n`;
-  
-      insp.departamentos.forEach((depto, i) => {
-        relatorio += `#${i + 1} Departamento: ${depto.nome}\n`;
-  
-        (depto.cargos || []).forEach(c => {
-          relatorio += `  - Cargo: ${c.nome}\n`;
-          (c.riscos || []).forEach(r => {
-            relatorio += `     • Risco: ${r.perigo} (${r.tipo})\n`;
-          });
-        });
-  
-        (depto.funcionarios || []).forEach(f => {
-          relatorio += `  - Funcionário: ${f.nome}\n`;
-          (f.riscos || []).forEach(r => {
-            relatorio += `     • Risco: ${r.perigo} (${r.tipo})\n`;
-          });
-        });
-  
-        (depto.grupos || []).forEach(g => {
-          relatorio += `  - Grupo: ${(g.listaDeCargos || []).join(', ')}\n`;
-          (g.riscos || []).forEach(r => {
-            relatorio += `     • Risco: ${r.perigo} (${r.tipo})\n`;
-          });
-        });
-  
-        relatorio += '\n';
-      });
-  
-      const blob = new Blob([relatorio], { type: 'text/plain;charset=utf-8' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `Relatorio_${insp.empresa?.nome || 'inspecao'}.txt`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      showToast("Relatório gerado com sucesso!", "success");
-    } catch (err) {
-      console.error(err);
-      showToast("Erro ao gerar relatório.", "error");
-    }
-  }
-  function renderWizardHeader() {
-    const h = document.getElementById('wizard-header-container');
-    if (wizardStep > 0) {
-      h.innerHTML = `
-        <div class="wizard-header">
-          <h2>${currentInspection.id ? 'Editando' : 'Nova'} Inspeção: ${currentInspection.empresa?.nome || ''}</h2>
-          <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
-            <span id="autosave-status" style="color: var(--gray-500); font-size: 0.85rem; transition: all 0.3s ease; opacity: 0;"></span>
-            <button class="outline" onclick="gerarRelatorio()"><i class="bi bi-clipboard2-pulse"></i> Relatório</button>
-            <button class="secondary" onclick="saveAndExit()">Salvar e Voltar ao Painel</button>
-          </div>
-        </div>`;
-    } else {
-      h.innerHTML = '';
-    }
-  }
