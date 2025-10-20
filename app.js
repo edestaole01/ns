@@ -463,6 +463,14 @@ function renderDepartamentoStep() {
     }, 0);
   }
   
+    // PÓS-RENDER
+    updateDepartamentoList();
+    setTimeout(() => {
+      initializeSortableLists?.();
+      ensureAllAccordionsOpenOnMobile();
+    }, 0);
+  }
+  
 
 function updateDepartamentoList() {
     const list = document.getElementById("departamento-list");
