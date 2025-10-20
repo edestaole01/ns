@@ -1,49 +1,39 @@
-// Importa a versão do aplicativo
+// sw.js - VERSÃO CORRIGIDA E MAIS ROBUSTA
+
 importScripts('version.js');
 
-// Usa a versão do APP_VERSION para o cache
 const CACHE_NAME = `inspecao-riscos-cache-v${APP_VERSION}`;
 
-// Lista de arquivos essenciais para a aplicação funcionar offline
-const URLS_TO_CACHE = [
+// Arquivos essenciais que DEVEM estar no cache para o app funcionar
+const ESSENTIALS_TO_CACHE = [
   '/',
   'index.html',
   'app.js',
   'risks-data.js',
-  'exames-data.js', 
+  'exames-data.js',
   'sugestoes-data.js',
   'version.js',
   'manifest.json',
   'icon-192.png',
   'icon-512.png',
-  'https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css',
-  'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap',
-  'https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js'
 ];
 
-// Evento 'install': é disparado quando o Service Worker é instalado
+// Evento de instalação: focado apenas nos arquivos essenciais
 self.addEventListener('install', (event) => {
   console.log(`[Service Worker] Instalando versão ${APP_VERSION}`);
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then((cache) => {
         console.log('[Service Worker] Cache aberto. Adicionando arquivos essenciais.');
-        return cache.addAll(URLS_TO_CACHE);
+        return cache.addAll(ESSENTIALS_TO_CACHE);
+      })
+      .catch(error => {
+        console.error('[Service Worker] Falha ao adicionar arquivos essenciais ao cache:', error);
       })
   );
 });
 
-// Evento 'fetch': é disparado para cada requisição que a página faz
-self.addEventListener('fetch', (event) => {
-  event.respondWith(
-    caches.match(event.request)
-      .then((response) => {
-        return response || fetch(event.request);
-      })
-  );
-});
-
-// Evento 'activate': limpa caches antigos para evitar conflitos
+// Evento de ativação: limpa caches antigos
 self.addEventListener('activate', (event) => {
   console.log(`[Service Worker] Ativando versão ${APP_VERSION}`);
   event.waitUntil(
@@ -57,5 +47,36 @@ self.addEventListener('activate', (event) => {
         })
       );
     })
+  );
+});
+
+// Evento de fetch: busca no cache primeiro, depois na rede
+// Se buscar na rede, tenta salvar uma cópia no cache para uso futuro
+self.addEventListener('fetch', (event) => {
+  event.respondWith(
+    caches.match(event.request)
+      .then((cachedResponse) => {
+        // Se encontrou no cache, retorna
+        if (cachedResponse) {
+          return cachedResponse;
+        }
+
+        // Se não, busca na rede
+        return fetch(event.request).then((networkResponse) => {
+          // Clona a resposta, pois ela só pode ser consumida uma vez
+          const responseToCache = networkResponse.clone();
+          
+          caches.open(CACHE_NAME).then((cache) => {
+            // Salva a resposta da rede no cache para a próxima vez
+            cache.put(event.request, responseToCache);
+          });
+
+          // Retorna a resposta original da rede
+          return networkResponse;
+        });
+      }).catch(error => {
+        console.error('[Service Worker] Erro no fetch:', error);
+        // Pode retornar uma página de fallback offline aqui se desejar
+      })
   );
 });

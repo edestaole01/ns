@@ -1678,22 +1678,71 @@ function generateInspectionReport(id) {
       const e = insp.empresa || {};
       const reportDate = new Date().toLocaleString('pt-BR');
   
-      // ... (seu código que monta a string HTML em `html`) ...
+      // ===== A LÓGICA QUE FALTAVA COMEÇA AQUI =====
+      let html = `
+        <!DOCTYPE html><html lang="pt-br"><head><meta charset="UTF-8"><title>Relatório de Inspeção - ${escapeHtml(e.nome)}</title>
+        <style>
+            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; margin: 20px; }
+            h1, h2, h3, h4, h5 { color: #1e293b; }
+            .report-header { text-align: center; border-bottom: 2px solid #3b82f6; padding-bottom: 15px; margin-bottom: 20px; }
+            .report-header h1 { margin: 0; }
+            .section { margin-bottom: 30px; page-break-inside: avoid; }
+            table { width: 100%; border-collapse: collapse; margin-bottom: 15px; }
+            th, td { border: 1px solid #cbd5e1; padding: 10px; text-align: left; }
+            th { background-color: #f1f5f9; font-weight: bold; }
+            .cargo-details, .risco-card { margin-bottom: 20px; }
+            .report-checklist { font-family: 'Courier New', Courier, monospace; font-size: 0.9em; background-color: #f8fafc; padding: 10px; border-radius: 4px; border: 1px solid #e2e8f0; }
+            .report-checklist-item { margin-right: 1.5rem; white-space: nowrap; }
+            footer { text-align: center; font-size: 0.8em; color: #64748b; margin-top: 40px; border-top: 1px solid #ccc; padding-top: 10px; }
+        </style>
+        </head><body>
+        <div class="report-header">
+            <h1>Relatório de Inspeção de Riscos</h1>
+            <p><strong>Empresa:</strong> ${escapeHtml(e.nome)}</p>
+        </div>
+        <div class="section">
+            <h2>Dados Gerais da Inspeção</h2>
+            <table>
+                <tr><th style="width:200px">CNPJ:</th><td>${escapeHtml(e.cnpj || 'N/A')}</td></tr>
+                <tr><th>Data da Inspeção:</th><td>${formatDateBR(e.data)}</td></tr>
+                <tr><th>Elaborado por:</th><td>${escapeHtml(e.elaborado || 'N/A')}</td></tr>
+                <tr><th>Aprovado por:</th><td>${escapeHtml(e.aprovado || 'N/A')}</td></tr>
+                <tr><th>Data do Relatório:</th><td>${reportDate}</td></tr>
+            </table>
+        </div>
+      `;
   
+      (insp.departamentos || []).forEach(depto => {
+        html += `<div class="section" style="page-break-before: always;">
+            <h2>Departamento: ${escapeHtml(depto.nome)}</h2>
+            <p><strong>Característica do Setor:</strong> ${escapeHtml(depto.caracteristica || 'N/A')}</p>
+            <p><strong>Descrição da Atividade:</strong> ${escapeHtml(depto.descricao || 'N/A')}</p>`;
+
+        (depto.grupos || []).forEach(grupo => {
+            html += renderCargoReport(grupo, `Grupo: ${escapeHtml(grupo.listaDeCargos.join(', '))}`);
+        });
+        (depto.cargos || []).forEach(cargo => {
+            html += renderCargoReport(cargo, `Cargo: ${escapeHtml(cargo.nome)}`);
+        });
+        (depto.funcionarios || []).forEach(func => {
+            html += renderCargoReport(func, `Funcionário: ${escapeHtml(func.nome)}`);
+        });
+
+        html += `</div>`;
+      });
+
+      html += `<footer>Relatório gerado pelo Assistente de Inspeção de Riscos</footer>`;
+      // ===== A LÓGICA TERMINA AQUI =====
+
       html += '</body></html>';
   
-      // >>>>> NOVO: usar utilitário compatível com mobile/PWA
-      // Opção 1 (recomendada): baixar arquivo
       downloadOrOpenHTML(html, `Relatorio_${(e.nome||'empresa').replace(/\s+/g,'_')}.html`, { openSameTab: false });
-  
-      // Opção 2 (alternativa): abrir na mesma aba (sem pop-up)
-      // downloadOrOpenHTML(html, null, { openSameTab: true });
   
       showToast("Relatório gerado!", "success");
     };
   
     request.onerror = (e) => console.error("Erro ao gerar relatório:", e);
-  }
+}
 
 function renderCargoReport(cargo, titulo) {
     const req = cargo.requisitosNR || {};
