@@ -363,10 +363,11 @@ function updateProgressBar() {
 function renderWizardHeader() {
     const h = document.getElementById('wizard-header-container');
     if (wizardStep > 0) {
-      // Adicionamos uma verificação para garantir que a inspeção já foi salva e tem um ID.
+      // Esta linha garante que o botão só funciona se a inspeção já tiver um ID (ou seja, já foi salva)
       const reportButtonHTML = currentInspection.id
-        ? `<button class="outline" onclick="generateInspectionReport(${currentInspection.id})"><i class="bi bi-file-earmark-text"></i> Relatório Completo</button>`
-        : `<button class="outline" disabled title="Salve a inspeção para gerar um relatório"><i class="bi bi-file-earmark-text"></i> Relatório Completo</button>`;
+        // AQUI ESTÁ A CHAMADA CORRETA para o relatório HTML
+        ? `<button class="outline" onclick="generateInspectionReport(${currentInspection.id})"><i class="bi bi-file-earmark-text"></i> Relatório HTML</button>`
+        : `<button class="outline" disabled title="Salve a inspeção para gerar um relatório"><i class="bi bi-file-earmark-text"></i> Relatório HTML</button>`;
 
       h.innerHTML = `
         <div class="wizard-header">
@@ -2854,56 +2855,3 @@ function adicionarExameManual() {
     periodicidadeInput.value = '';
     renderExamesEditaveis(); // Re-renderiza
 }
-// 5) Gerar Relatório (TXT simples para download)
-function gerarRelatorio() {
-    try {
-      const insp = currentInspection;
-      if (!insp || !insp.departamentos || insp.departamentos.length === 0) {
-        showToast("Nenhuma inspeção ativa para gerar relatório.", "warning");
-        return;
-      }
-  
-      let relatorio = `Relatório de Inspeção - ${insp.empresa?.nome || 'Empresa não informada'}\n\n`;
-  
-      insp.departamentos.forEach((depto, i) => {
-        relatorio += `#${i + 1} Departamento: ${depto.nome}\n`;
-  
-        (depto.cargos || []).forEach(c => {
-          relatorio += `  - Cargo: ${c.nome}\n`;
-          (c.riscos || []).forEach(r => {
-            relatorio += `     • Risco: ${r.perigo} (${r.tipo})\n`;
-          });
-        });
-  
-        (depto.funcionarios || []).forEach(f => {
-          relatorio += `  - Funcionário: ${f.nome}\n`;
-          (f.riscos || []).forEach(r => {
-            relatorio += `     • Risco: ${r.perigo} (${r.tipo})\n`;
-          });
-        });
-  
-        (depto.grupos || []).forEach(g => {
-          relatorio += `  - Grupo: ${(g.listaDeCargos || []).join(', ')}\n`;
-          (g.riscos || []).forEach(r => {
-            relatorio += `     • Risco: ${r.perigo} (${r.tipo})\n`;
-          });
-        });
-  
-        relatorio += '\n';
-      });
-  
-      const blob = new Blob([relatorio], { type: 'text/plain;charset=utf-8' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `Relatorio_${insp.empresa?.nome || 'inspecao'}.txt`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      showToast("Relatório gerado com sucesso!", "success");
-    } catch (err) {
-      console.error(err);
-      showToast("Erro ao gerar relatório.", "error");
-    }
-  }
-  
