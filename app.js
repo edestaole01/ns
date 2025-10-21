@@ -25,6 +25,8 @@ let activeFuncionarioIndex = -1;
 let autosaveTimer = null;
 let isAutosaving = false;
 let examesTemporarios = [];
+let isSaving = false;
+
 
 const request = indexedDB.open("fluentInspecoesDB", 1);
 request.onerror = (e) => console.error("Erro no DB:", e);
@@ -37,6 +39,29 @@ const actionPlanView = document.getElementById('action-plan-view');
 
 document.getElementById('nav-dashboard').onclick = showDashboard;
 
+function validateDataIntegrity() {
+    // Verifica se a inspeção atual existe
+    if (!currentInspection) {
+        console.error("ERRO: currentInspection é null");
+        currentInspection = { departamentos: [] };
+        return false;
+    }
+    
+    // Garante que departamentos existe
+    if (!currentInspection.departamentos) {
+        console.warn("Aviso: departamentos não inicializado, criando array vazio");
+        currentInspection.departamentos = [];
+    }
+    
+    // Valida cada departamento
+    currentInspection.departamentos.forEach((depto, index) => {
+        if (!depto.cargos) depto.cargos = [];
+        if (!depto.funcionarios) depto.funcionarios = [];
+        if (!depto.grupos) depto.grupos = [];
+    });
+    
+    return true;
+}
 // ==========================================
 // ★ NOVO: NAVEGAÇÃO CENTRALIZADA
 // ==========================================
@@ -47,27 +72,53 @@ document.getElementById('nav-dashboard').onclick = showDashboard;
  * @param {number|null} deptoIndex - O índice do departamento ativo (relevante para passos > 1).
  */
 function goToStep(step, deptoIndex = null) {
+    validateDataIntegrity();
+
     if (typeof deptoIndex === 'number' && !Number.isNaN(deptoIndex)) {
-      activeDepartamentoIndex = deptoIndex;
+        activeDepartamentoIndex = deptoIndex;
     }
-  
-    // Limpa contextos futuros para evitar inconsistências ao voltar
+    
+    // Limpa contextos futuros para evitar inconsistências
     if (step < 3) {
         activeCargoIndex = -1;
         activeFuncionarioIndex = -1;
         currentGroupId = null;
     }
-  
-    // Só exige departamento a partir do passo de Cargos
-    if (step >= 2 && (activeDepartamentoIndex === null || activeDepartamentoIndex < 0)) {
-      showToast('Selecione um departamento antes de prosseguir.', 'warning');
-      return;
+    
+    // Valida se há departamento quando necessário
+    if (step >= 2) {
+        if (activeDepartamentoIndex === null || activeDepartamentoIndex < 0) {
+            showToast('Selecione um departamento antes de prosseguir.', 'warning');
+            return;
+        }
+        // IMPORTANTE: Verifica se o departamento ainda existe
+        if (!currentInspection.departamentos || !currentInspection.departamentos[activeDepartamentoIndex]) {
+            showToast('Departamento não encontrado. Retornando à lista.', 'error');
+            goToStep(1);
+            return;
+        }
     }
-  
+    
     wizardStep = step;
     renderWizardHeader();
     renderWizardStep();
 }
+function retryOperation(operation, maxRetries = 3, delay = 100) {
+    let retries = 0;
+    
+    function attempt() {
+        return operation().catch(error => {
+            if (retries++ < maxRetries) {
+                console.log(`Tentativa ${retries} de ${maxRetries}...`);
+                return new Promise(resolve => setTimeout(resolve, delay)).then(attempt);
+            }
+            throw error;
+        });
+    }
+    
+    return attempt();
+}
+
 /**
  * ★ NOVO: Gera os breadcrumbs clicáveis
  * @returns {string} O HTML do breadcrumb.
@@ -208,7 +259,10 @@ function deleteItem(type, index) {
         list.splice(index, 1);
         showToast(`${type.charAt(0).toUpperCase() + type.slice(1)} excluído!`, "success");
         listUpdater();
-        persistCurrentInspection();
+        persistCurrentInspectionWithPromise().catch(error => {
+            console.error("Erro ao salvar:", error);
+            showToast("Erro ao salvar. Tentando novamente...", "warning");
+        });
         if (type === 'departamento') updateDashboardStats();
     }
 }
@@ -247,7 +301,10 @@ function duplicateItem(type, index) {
 
     list.splice(index + 1, 0, newItem);
     listUpdater();
-    persistCurrentInspection();
+    persistCurrentInspectionWithPromise().catch(error => {
+        console.error("Erro ao salvar:", error);
+        showToast("Erro ao salvar. Tentando novamente...", "warning");
+    });
     showToast(`${type.charAt(0).toUpperCase() + type.slice(1)} duplicado com sucesso!`, "success");
 }
 
@@ -438,6 +495,11 @@ function saveEmpresaAndNext() {
 
 // 2) Passo 2 — Departamentos (render com pós-render seguro para mobile)
 function renderDepartamentoStep() {
+    // Garante que a estrutura existe
+    if (!currentInspection.departamentos) {
+        currentInspection.departamentos = [];
+    }
+    
     document.getElementById('wizard-content').innerHTML = `
         <div class="card">
             ${renderBreadcrumb()}
@@ -465,15 +527,25 @@ function renderDepartamentoStep() {
             <div class="wizard-nav"><button class="nav" onclick="goToStep(0)">Voltar para Empresa</button></div>
         </div>`;
     
-    // Agora, TODAS as funções de manipulação do DOM rodam depois da renderização
-    setTimeout(() => {
-        updateDepartamentoList(); // <-- MOVIDO PARA CÁ
-        initializeSortableLists();
+    // CORREÇÃO: Usar requestAnimationFrame para garantir renderização
+    requestAnimationFrame(() => {
+        updateDepartamentoList();
+        if (typeof initializeSortableLists === 'function') {
+            try {
+                initializeSortableLists();
+            } catch (e) {
+                console.error('Erro ao inicializar Sortable:', e);
+            }
+        }
         ensureAllAccordionsOpenOnMobile();
-    }, 0);
+    });
 }
 
 function updateDepartamentoList() {
+    if (!validateDataIntegrity()) {
+        console.error("Dados inválidos ao atualizar lista de departamentos");
+        return;
+    }
     const list = document.getElementById("departamento-list");
     list.innerHTML = "";
 
@@ -504,33 +576,98 @@ function updateDepartamentoList() {
 }
 
 function saveDepartamento() {
+    validateDataIntegrity();
     const deptoData = {
         nome: document.getElementById("depto-nome").value,
         caracteristica: document.getElementById("depto-caracteristica").value,
         descricao: document.getElementById("depto-descricao").value
     };
+    
     if (!deptoData.nome) {
         return showToast("O nome do departamento é obrigatório.", "error");
     }
+    
+    // Garante que a estrutura existe
+    if (!currentInspection.departamentos) {
+        currentInspection.departamentos = [];
+    }
+    
     if (editingIndex > -1) {
         const deptoToUpdate = currentInspection.departamentos[editingIndex];
+        if (!deptoToUpdate) {
+            showToast("Erro: Departamento não encontrado para edição.", "error");
+            clearDeptoForm();
+            updateDepartamentoList();
+            return;
+        }
         deptoToUpdate.nome = deptoData.nome;
         deptoToUpdate.caracteristica = deptoData.caracteristica;
         deptoToUpdate.descricao = deptoData.descricao;
         showToast("Departamento atualizado!", "success");
     } else {
-        if (!currentInspection.departamentos) {
-            currentInspection.departamentos = [];
-        }
         deptoData.cargos = [];
         deptoData.funcionarios = [];
         deptoData.grupos = [];
         currentInspection.departamentos.push(deptoData);
         showToast("Departamento adicionado!", "success");
     }
+    
     clearDeptoForm();
     updateDepartamentoList();
-    persistCurrentInspection();
+    
+    // CORREÇÃO: Aguarda a persistência antes de continuar
+    persistCurrentInspectionWithPromise().then(() => {
+        console.log("Departamento salvo com sucesso no banco");
+    }).catch(error => {
+        console.error("Erro ao salvar departamento:", error);
+        showToast("Erro ao salvar no banco de dados!", "error");
+    });
+}
+
+function persistCurrentInspectionWithPromise() {
+    return new Promise((resolve, reject) => {
+        // Evita múltiplos salvamentos simultâneos
+        if (isSaving) {
+            console.log("Já está salvando, aguardando...");
+            setTimeout(() => persistCurrentInspectionWithPromise().then(resolve).catch(reject), 100);
+            return;
+        }
+        
+        isSaving = true;
+        
+        if (!db || !currentInspection || !currentInspection.empresa) {
+            isSaving = false;
+            reject(new Error("Dados inválidos para persistir"));
+            return;
+        }
+        
+        currentInspection.updatedAt = new Date().toISOString();
+        
+        const transaction = db.transaction(["inspections"], "readwrite");
+        const store = transaction.objectStore("inspections");
+        const request = store.put(currentInspection);
+        
+        request.onsuccess = (event) => {
+            if (!currentInspection.id) {
+                currentInspection.id = event.target.result;
+            }
+            console.log("Inspeção salva com sucesso. ID:", currentInspection.id);
+            isSaving = false;
+            resolve(currentInspection.id);
+        };
+        
+        request.onerror = (event) => {
+            console.error("Erro ao persistir inspeção:", event.target.error);
+            isSaving = false;
+            reject(event.target.error);
+        };
+        
+        transaction.onerror = (event) => {
+            console.error("Erro na transação:", event.target.error);
+            isSaving = false;
+            reject(event.target.error);
+        };
+    });
 }
 
 function editDepartamento(index) {
@@ -616,16 +753,28 @@ function getFormFieldsHTML(prefix) {
 }
 
 function renderCargoFuncionarioStep() {
+    // VALIDAÇÃO IMPORTANTE
+    if (!validateDataIntegrity()) {
+        showToast("Erro ao carregar dados. Recarregando...", "warning");
+        return;
+    }
+    if (activeDepartamentoIndex < 0 || !currentInspection.departamentos || !currentInspection.departamentos[activeDepartamentoIndex]) {
+        showToast("Erro: Departamento não encontrado!", "error");
+        goToStep(1);
+        return;
+    }
+    
     const depto = currentInspection.departamentos[activeDepartamentoIndex];
+    
+    // Garante estruturas
     if (!depto.grupos) depto.grupos = [];
     if (!depto.cargos) depto.cargos = [];
     if (!depto.funcionarios) depto.funcionarios = [];
     
-    // Verifica se está no mobile para abrir os accordions por padrão
     const isMobile = window.innerWidth <= 768;
     const detailsAttr = isMobile ? 'open' : '';
     
-    // Renderiza o HTML principal da tela
+    // HTML COMPLETO - CORREÇÃO AQUI
     document.getElementById('wizard-content').innerHTML = `
         <div class="card">
             ${renderBreadcrumb()}
@@ -676,7 +825,7 @@ function renderCargoFuncionarioStep() {
                             <label for="funcionario-nome">Nome do Funcionário *</label>
                             ${wrapWithVoiceButton('funcionario-nome', 'Ex: João da Silva', '', true)}
                         </div>
-                         ${getFormFieldsHTML('funcionario')}
+                        ${getFormFieldsHTML('funcionario')}
                         <div class="form-actions">
                             <button type="button" class="primary" id="save-funcionario-btn" onclick="saveFuncionario()">Adicionar Funcionário</button>
                             <button type="button" class="nav hidden" id="cancel-funcionario-edit-btn" onclick="clearForm('funcionario')">Cancelar</button>
@@ -687,14 +836,18 @@ function renderCargoFuncionarioStep() {
             <div class="wizard-nav"><button class="nav" onclick="goToStep(1)">Voltar para Departamentos</button></div>
         </div>`;
     
-    // PÓS-RENDER - As funções que manipulam o HTML agora rodam DENTRO do setTimeout
-    setTimeout(() => {
-        updateAllLists(); // MOVIDO PARA CÁ: Garante que as listas <ul> existem antes de serem preenchidas
+    // Usar requestAnimationFrame
+    requestAnimationFrame(() => {
+        updateAllLists();
         if (typeof initializeSortableLists === 'function') {
-            initializeSortableLists();
+            try {
+                initializeSortableLists();
+            } catch (e) {
+                console.error('Erro ao inicializar Sortable:', e);
+            }
         }
         ensureAllAccordionsOpenOnMobile();
-    }, 0);
+    });
 }
 
 function updateAllLists() {
@@ -909,7 +1062,10 @@ function saveCargo() {
     }
     clearForm('cargo');
     updateCargoList();
-    persistCurrentInspection();
+    persistCurrentInspectionWithPromise().catch(error => {
+        console.error("Erro ao salvar:", error);
+        showToast("Erro ao salvar. Tentando novamente...", "warning");
+    });
 }
 
 function saveFuncionario() {
@@ -927,7 +1083,10 @@ function saveFuncionario() {
     }
     clearForm('funcionario');
     updateFuncionarioList();
-    persistCurrentInspection();
+    persistCurrentInspectionWithPromise().catch(error => {
+        console.error("Erro ao salvar:", error);
+        showToast("Erro ao salvar. Tentando novamente...", "warning");
+    });
 }
 
 function saveGrupo() {
@@ -947,7 +1106,10 @@ function saveGrupo() {
     }
     clearForm('grupo');
     updateGrupoList();
-    persistCurrentInspection();
+    persistCurrentInspectionWithPromise().catch(error => {
+        console.error("Erro ao salvar:", error);
+        showToast("Erro ao salvar. Tentando novamente...", "warning");
+    });
 }
 
 function populateForm(prefix, data) {
@@ -1060,11 +1222,59 @@ function clearForm(type) {
 }
 
 function goToRiscos(index, type) {
+    // Validação de contexto
+    if (activeDepartamentoIndex < 0 || !currentInspection.departamentos[activeDepartamentoIndex]) {
+        showToast("Erro: Contexto inválido!", "error");
+        return;
+    }
+    
+    const depto = currentInspection.departamentos[activeDepartamentoIndex];
+    
+    // Validação específica por tipo
+    if (type === 'cargo' && (!depto.cargos || !depto.cargos[index])) {
+        showToast("Erro: Cargo não encontrado!", "error");
+        return;
+    }
+    if (type === 'funcionario' && (!depto.funcionarios || !depto.funcionarios[index])) {
+        showToast("Erro: Funcionário não encontrado!", "error");
+        return;
+    }
+    if (type === 'grupo') {
+        const grupo = depto.grupos && depto.grupos[index];
+        if (!grupo) {
+            showToast("Erro: Grupo não encontrado!", "error");
+            return;
+        }
+        currentGroupId = grupo.id;
+    }
+    
     activeCargoIndex = type === 'cargo' ? index : -1;
     activeFuncionarioIndex = type === 'funcionario' ? index : -1;
-    currentGroupId = type === 'grupo' ? currentInspection.departamentos[activeDepartamentoIndex].grupos[index].id : null;
-    goToStep(3);
+    
+    // Salva antes de navegar
+    persistCurrentInspectionWithPromise().then(() => {
+        goToStep(3);
+    }).catch(error => {
+        console.error("Erro ao salvar antes de navegar:", error);
+        goToStep(3); // Navega mesmo assim
+    });
 }
+
+function addMobileDebugInfo() {
+    if (window.innerWidth <= 768) {
+        console.log("=== DEBUG MOBILE ===");
+        console.log("Inspeção atual:", currentInspection);
+        console.log("Departamento ativo:", activeDepartamentoIndex);
+        console.log("Total departamentos:", currentInspection.departamentos?.length || 0);
+        console.log("===================");
+    }
+}
+
+// Chamar debug em pontos críticos
+window.addEventListener('error', (event) => {
+    console.error('Erro global capturado:', event.error);
+    addMobileDebugInfo();
+});
 
 // ==========================================
 // PASSO 4: RISCOS - COM VOZ
@@ -1073,6 +1283,12 @@ function goToRiscos(index, type) {
 // app.js -> SUBSTITUA TODA A FUNÇÃO renderRiscoStep POR ESTE BLOCO
 
 function renderRiscoStep() {
+
+    if (!validateDataIntegrity()) {
+        showToast("Erro ao carregar dados. Recarregando...", "warning");
+        return;
+    }
+
     const depto = currentInspection.departamentos[activeDepartamentoIndex];
     let tituloRiscos = '', infoBox = '', targetObject;
     let currentContextValue = '', nomeParaSugestoes = null; 
@@ -1345,8 +1561,10 @@ function saveRisco() {
     showToast(message, "success");
     clearRiscoForm();             // Limpa o formulário
     updateRiscoList();            // ATUALIZA A LISTA NA TELA
-    persistCurrentInspection();   // Salva os dados no banco de dados
-    
+    persistCurrentInspectionWithPromise().catch(error => {
+        console.error("Erro ao salvar:", error);
+        showToast("Erro ao salvar. Tentando novamente...", "warning");
+    });
     // Rola a visualização para a lista de riscos, para o usuário ver a adição
     document.getElementById('risco-list').scrollIntoView({ behavior: 'smooth' });
 }
@@ -1397,7 +1615,10 @@ function deleteRisco(index) {
     targetArray.splice(index, 1);
     showToast("Risco excluído!", "success");
     updateRiscoList();
-    persistCurrentInspection();
+    persistCurrentInspectionWithPromise().catch(error => {
+        console.error("Erro ao salvar:", error);
+        showToast("Erro ao salvar. Tentando novamente...", "warning");
+    });
 }
 
 function addSuggestedRisk(perigoDescricao) {
@@ -1425,7 +1646,10 @@ function addSuggestedRisk(perigoDescricao) {
     showToast(`Risco "${novoRisco.perigo}" adicionado!`, "success");
     
     renderRiscoStep();
-    persistCurrentInspection();
+    persistCurrentInspectionWithPromise().catch(error => {
+        console.error("Erro ao salvar:", error);
+        showToast("Erro ao salvar. Tentando novamente...", "warning");
+    });
 }
 
 function adicionarExamesSugeridos(riscoData) {
@@ -1516,10 +1740,29 @@ function editInspection(id) {
     const request = db.transaction(["inspections"], "readonly").objectStore("inspections").get(id);
     request.onsuccess = () => {
         currentInspection = request.result;
+        if (!currentInspection) {
+            showToast("Inspeção não encontrada!", "error");
+            return;
+        }
+        
+        // IMPORTANTE: Resetar índices ao editar
+        activeDepartamentoIndex = -1;
+        activeCargoIndex = -1;
+        activeFuncionarioIndex = -1;
+        currentGroupId = null;
+        editingIndex = -1;
+        editingType = null;
+        
+        // Validar dados
+        validateDataIntegrity();
+        
         wizardStep = 0;
         showWizard();
     };
-    request.onerror = (e) => console.error("Erro ao carregar inspeção:", e);
+    request.onerror = (e) => {
+        console.error("Erro ao carregar inspeção:", e);
+        showToast("Erro ao carregar inspeção!", "error");
+    };
 }
 
 function deleteInspection(id) {
@@ -1667,7 +1910,10 @@ function saveActionItem() {
         currentInspection.planoDeAcao.push(itemData); 
         showToast("Item adicionado!", "success"); 
     }
-    persistCurrentInspection(); 
+    persistCurrentInspectionWithPromise().catch(error => {
+        console.error("Erro ao salvar:", error);
+        showToast("Erro ao salvar. Tentando novamente...", "warning");
+    });
     clearActionForm(); 
     updateActionItemList();
 }
@@ -1689,7 +1935,10 @@ function editActionItem(index) {
 function deleteActionItem(index) {
     if (confirm("Excluir este item do plano de ação?")) {
         currentInspection.planoDeAcao.splice(index, 1);
-        persistCurrentInspection();
+        persistCurrentInspectionWithPromise().catch(error => {
+            console.error("Erro ao salvar:", error);
+            showToast("Erro ao salvar. Tentando novamente...", "warning");
+        });
         updateActionItemList();
         showToast("Item excluído.", "success");
     }
@@ -2907,4 +3156,20 @@ function adicionarExameManual() {
     nomeInput.value = '';
     periodicidadeInput.value = '';
     renderExamesEditaveis(); // Re-renderiza
+}
+function logCurrentState(context) {
+    if (window.innerWidth <= 768) { // Só no mobile
+        console.log(`=== ${context} ===`);
+        console.log("ID da inspeção:", currentInspection?.id);
+        console.log("Departamentos:", currentInspection?.departamentos?.length || 0);
+        console.log("Depto ativo:", activeDepartamentoIndex);
+        if (activeDepartamentoIndex >= 0 && currentInspection?.departamentos?.[activeDepartamentoIndex]) {
+            const depto = currentInspection.departamentos[activeDepartamentoIndex];
+            console.log("Nome depto:", depto.nome);
+            console.log("Cargos:", depto.cargos?.length || 0);
+            console.log("Funcionários:", depto.funcionarios?.length || 0);
+            console.log("Grupos:", depto.grupos?.length || 0);
+        }
+        console.log("================");
+    }
 }
