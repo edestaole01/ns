@@ -3218,3 +3218,120 @@ document.addEventListener('touchend', function(e) {
     const target = e.target.closest('button');
     if (target) target.click();
   });
+  // ==========================================
+// ★★★ CONSOLE DE DEBUG MÓVEL ★★★
+// ==========================================
+(function() {
+    // Cria os elementos visuais do console
+    const consoleContainer = document.createElement('div');
+    consoleContainer.id = 'mobile-debug-console';
+    consoleContainer.style.cssText = `
+        position: fixed;
+        bottom: 10px;
+        left: 10px;
+        right: 10px;
+        max-height: 30vh;
+        background-color: rgba(0, 0, 0, 0.85);
+        color: #fff;
+        border-radius: 8px;
+        font-family: monospace;
+        font-size: 12px;
+        overflow-y: scroll;
+        padding: 10px;
+        z-index: 99999;
+        display: none; /* Começa escondido */
+        border: 1px solid #444;
+    `;
+
+    const consoleHeader = document.createElement('div');
+    consoleHeader.style.cssText = `
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding-bottom: 5px;
+        margin-bottom: 5px;
+        border-bottom: 1px solid #555;
+    `;
+
+    const consoleTitle = document.createElement('span');
+    consoleTitle.textContent = 'Mobile Console';
+    consoleTitle.style.fontWeight = 'bold';
+
+    const clearButton = document.createElement('button');
+    clearButton.textContent = 'Limpar';
+    clearButton.style.cssText = `background: #555; color: white; border: none; padding: 2px 8px; border-radius: 4px; cursor: pointer;`;
+    clearButton.onclick = () => { consoleContainer.innerHTML = ''; consoleContainer.appendChild(consoleHeader); };
+
+    const closeButton = document.createElement('button');
+    closeButton.textContent = 'Fechar';
+    closeButton.style.cssText = `background: #555; color: white; border: none; padding: 2px 8px; border-radius: 4px; cursor: pointer; margin-left: 5px;`;
+    closeButton.onclick = () => { consoleContainer.style.display = 'none'; };
+
+    const headerActions = document.createElement('div');
+    headerActions.appendChild(clearButton);
+    headerActions.appendChild(closeButton);
+
+    consoleHeader.appendChild(consoleTitle);
+    consoleHeader.appendChild(headerActions);
+    consoleContainer.appendChild(consoleHeader);
+    document.body.appendChild(consoleContainer);
+
+    // Função para adicionar mensagens ao console visual
+    function logToScreen(message, color = '#0f0') { // Verde por padrão
+        const line = document.createElement('div');
+        line.style.cssText = `border-bottom: 1px solid #333; padding: 2px 0; color: ${color};`;
+        
+        if (typeof message === 'object') {
+            line.textContent = `[${new Date().toLocaleTimeString()}] ${JSON.stringify(message, null, 2)}`;
+        } else {
+            line.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+        }
+        
+        consoleContainer.appendChild(line);
+        consoleContainer.scrollTop = consoleContainer.scrollHeight; // Rola para o final
+    }
+
+    // Sobrescreve as funções originais do console
+    const oldLog = console.log;
+    const oldError = console.error;
+    const oldWarn = console.warn;
+
+    console.log = function(message, ...args) {
+        logToScreen(message, '#0f0'); // Verde
+        oldLog.apply(console, [message, ...args]);
+    };
+
+    console.error = function(message, ...args) {
+        logToScreen(message, '#f00'); // Vermelho
+        oldError.apply(console, [message, ...args]);
+    };
+
+    console.warn = function(message, ...args) {
+        logToScreen(message, '#ff0'); // Amarelo
+        oldWarn.apply(console, [message, ...args]);
+    };
+    
+    // Adiciona um botão para abrir o console
+    const openButton = document.createElement('button');
+    openButton.textContent = '🐞';
+    openButton.style.cssText = `
+        position: fixed;
+        bottom: 10px;
+        right: 10px;
+        width: 50px;
+        height: 50px;
+        border-radius: 50%;
+        background: var(--primary);
+        color: white;
+        font-size: 24px;
+        border: none;
+        box-shadow: var(--shadow-lg);
+        z-index: 99998;
+    `;
+    openButton.onclick = () => {
+        const consoleEl = document.getElementById('mobile-debug-console');
+        consoleEl.style.display = consoleEl.style.display === 'none' ? 'block' : 'none';
+    };
+    document.body.appendChild(openButton);
+
+})();
