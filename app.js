@@ -2091,7 +2091,7 @@ function generateInspectionReport(id) {
         // que é mais robusta em todos os dispositivos.
         const nomeArquivo = `Relatorio_${(e.nome || 'inspecao').replace(/\s+/g, '_')}.html`;
         try {
-            downloadOrOpenHTML(html, nomeArquivo, { openSameTab: false });
+            downloadOrOpenHTML(html, nomeArquivo, { openSameTab: true });
             showToast("Relatório gerado com sucesso!", "success");
         } catch (err) {
             console.error('Erro ao gerar relatório:', err);
@@ -3230,10 +3230,7 @@ function logCurrentState(context) {
         console.log("================");
     }
 }
-document.addEventListener('touchend', function(e) {
-    const target = e.target.closest('button');
-    if (target) target.click();
-  });
+
   // ==========================================
 // ★★★ CONSOLE DE DEBUG MÓVEL ★★★
 // ==========================================
