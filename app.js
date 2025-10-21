@@ -1535,11 +1535,33 @@ function updateRiscoList() {
 }
 
 function saveRisco() {
+    // ★★★ CORREÇÃO PRINCIPAL (INÍCIO) ★★★
+    // 1. Pega a referência do campo de input problemático.
+    const perigoInput = document.getElementById("risco-perigo");
+
+    // 2. Força o campo a perder o foco. Isso faz com que o celular
+    //    "salve" oficialmente o texto que foi digitado nele.
+    if (perigoInput) {
+        perigoInput.blur();
+    }
+
+    // 3. Agora, lê o valor do campo, que garantidamente está atualizado.
+    const perigoValue = perigoInput ? perigoInput.value.trim() : "";
+
+    // 4. A verificação agora usa o valor que acabamos de pegar.
+    if (!perigoValue) {
+        showToast("A descrição do perigo é obrigatória.", "error");
+        // Foca no campo para o usuário corrigir facilmente.
+        if (perigoInput) perigoInput.focus();
+        return;
+    }
+    // ★★★ CORREÇÃO PRINCIPAL (FIM) ★★★
+
     const riscoData = {
         riscoPresente: document.getElementById("risco-presente").value,
         tipo: document.getElementById("risco-tipo").value,
         codigoEsocial: document.getElementById("risco-esocial")?.value || "",
-        perigo: document.getElementById("risco-perigo").value,
+        perigo: perigoValue, // Usa a variável corrigida aqui!
         descricaoDetalhada: document.getElementById("risco-descricao-detalhada")?.value || "",
         fonteGeradora: document.getElementById("risco-fonte")?.value || "",
         perfilExposicao: document.getElementById("risco-perfil-exposicao")?.value || "",
@@ -1558,11 +1580,6 @@ function saveRisco() {
         acoesNecessarias: document.getElementById("risco-acoes")?.value || "",
         observacoesGerais: document.getElementById("risco-observacoes-gerais")?.value || ""
     };
-  
-    if (!riscoData.perigo) {
-        showToast("A descrição do perigo é obrigatória.", "error");
-        return;
-    }
   
     // Vincula os exames à nova data de risco
     riscoData.exames = Array.isArray(examesTemporarios) ? [...examesTemporarios] : [];
@@ -1599,13 +1616,12 @@ function saveRisco() {
   
     // Executa as ações na ordem correta
     showToast(message, "success");
-    clearRiscoForm();             // Limpa o formulário
-    updateRiscoList();            // ATUALIZA A LISTA NA TELA
+    clearRiscoForm();
+    updateRiscoList();
     persistCurrentInspectionWithPromise().catch(error => {
         console.error("Erro ao salvar:", error);
         showToast("Erro ao salvar. Tentando novamente...", "warning");
     });
-    // Rola a visualização para a lista de riscos, para o usuário ver a adição
     document.getElementById('risco-list').scrollIntoView({ behavior: 'smooth' });
 }
 
