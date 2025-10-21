@@ -671,7 +671,9 @@ function persistCurrentInspectionWithPromise() {
 }
 
 function editDepartamento(index) {
-    editingIndex = index; const depto = currentInspection.departamentos[index];
+    editingIndex = index; 
+    editingType = 'departamento';
+    const depto = currentInspection.departamentos[index];
     document.getElementById("depto-nome").value = depto.nome;
     document.getElementById("depto-caracteristica").value = depto.caracteristica;
     document.getElementById("depto-descricao").value = depto.descricao;
@@ -3173,3 +3175,7 @@ function logCurrentState(context) {
         console.log("================");
     }
 }
+document.addEventListener('touchend', function(e) {
+    const target = e.target.closest('button');
+    if (target) target.click();
+  });
