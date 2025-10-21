@@ -1173,45 +1173,83 @@ function editCargo(index) {
     editingIndex = index;
     editingType = 'cargo';
     const cargo = currentInspection.departamentos[activeDepartamentoIndex].cargos[index];
+    const detailsElement = document.getElementById("cargo-form-details");
+    const formElement = document.getElementById('cargo-form');
+
+    if (!detailsElement || !formElement) {
+        showToast("Erro: Elementos do formulário não encontrados.", "error");
+        return;
+    }
     
-    forceOpenAccordionOnMobile('cargo-form-details'); // ADICIONE ESTA LINHA
-    document.getElementById("cargo-form-details").setAttribute("open", "");
+    // 1. Abre o acordeão de forma forçada
+    detailsElement.setAttribute("open", "");
     
+    // 2. Preenche os dados do formulário
     document.getElementById("cargo-nome").value = cargo.nome || '';
     populateForm('cargo', cargo);
     document.getElementById("save-cargo-btn").innerHTML = "Salvar Alterações";
     document.getElementById("cancel-cargo-edit-btn").classList.remove("hidden");
-    document.getElementById('cargo-form-details').scrollIntoView({ behavior: 'smooth' });
+    
+    // 3. ★★★ CORREÇÃO PRINCIPAL ★★★
+    // Usa um pequeno delay para garantir que o navegador redesenhou a tela
+    // antes de tentar rolar até o elemento. Essencial para celulares.
+    setTimeout(() => {
+        formElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        document.getElementById("cargo-nome").focus(); // Foca no campo principal
+    }, 100); // 100ms é suficiente
 }
+
 
 function editFuncionario(index) {
     editingIndex = index;
     editingType = 'funcionario';
     const funcionario = currentInspection.departamentos[activeDepartamentoIndex].funcionarios[index];
+    const detailsElement = document.getElementById("funcionario-form-details");
+    const formElement = document.getElementById('funcionario-form');
+
+    if (!detailsElement || !formElement) {
+        showToast("Erro: Elementos do formulário não encontrados.", "error");
+        return;
+    }
     
-    forceOpenAccordionOnMobile('funcionario-form-details'); // ADICIONE ESTA LINHA
-    document.getElementById("funcionario-form-details").setAttribute("open", "");
+    detailsElement.setAttribute("open", "");
     
     document.getElementById("funcionario-nome").value = funcionario.nome || '';
     populateForm('funcionario', funcionario);
     document.getElementById("save-funcionario-btn").innerHTML = "Salvar Alterações";
     document.getElementById("cancel-funcionario-edit-btn").classList.remove("hidden");
-    document.getElementById('funcionario-form-details').scrollIntoView({ behavior: 'smooth' });
+    
+    // ★★★ CORREÇÃO PRINCIPAL ★★★
+    setTimeout(() => {
+        formElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        document.getElementById("funcionario-nome").focus();
+    }, 100);
 }
 
 function editGrupo(index) {
     editingIndex = index;
     editingType = 'grupo';
     const grupo = currentInspection.departamentos[activeDepartamentoIndex].grupos[index];
+    const detailsElement = document.getElementById("grupo-form-details");
+    const formElement = document.getElementById('grupo-form');
     
-    forceOpenAccordionOnMobile('grupo-form-details'); // ADICIONE ESTA LINHA
-    document.getElementById("grupo-form-details").setAttribute("open", "");
+    if (!detailsElement || !formElement) {
+        showToast("Erro: Elementos do formulário não encontrados.", "error");
+        return;
+    }
+    
+    detailsElement.setAttribute("open", "");
     
     document.getElementById("grupo-nomes").value = (grupo.listaDeCargos || []).join('\n');
     populateForm('grupo', grupo);
     document.getElementById("save-grupo-btn").innerHTML = "Salvar Alterações";
     document.getElementById("cancel-grupo-edit-btn").classList.remove("hidden");
-    document.getElementById('grupo-form-details').scrollIntoView({ behavior: 'smooth' });
+    
+    // ★★★ CORREÇÃO PRINCIPAL ★★★
+    setTimeout(() => {
+        formElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        document.getElementById("grupo-nomes").focus();
+    }, 100);
 }
 
 function clearForm(type) {
@@ -1970,7 +2008,7 @@ function generateInspectionReport(id) {
         const e = insp.empresa || {};
         const reportDate = new Date().toLocaleString('pt-BR');
 
-        // --- INÍCIO DO HTML DO RELATÓRIO ---
+        // --- INÍCIO DO HTML DO RELATÓRIO (NÃO MUDA) ---
         let html = `
         <!DOCTYPE html><html lang="pt-br"><head><meta charset="UTF-8"><title>Relatório de Inspeção - ${escapeHtml(e.nome)}</title>
         <style>
@@ -2032,22 +2070,23 @@ function generateInspectionReport(id) {
 
         html += `<footer>Relatório gerado pelo Assistente de Inspeção de Riscos</footer></body></html>`;
 
+        // ★★★ ALTERAÇÃO PRINCIPAL AQUI ★★★
+        // Em vez de tentar abrir uma nova aba, usamos a função de download
+        // que é mais robusta em todos os dispositivos.
+        const nomeArquivo = `Relatorio_${(e.nome || 'inspecao').replace(/\s+/g, '_')}.html`;
         try {
-            const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
-            const url = URL.createObjectURL(blob);
-            window.open(url, '_blank');
-            setTimeout(() => URL.revokeObjectURL(url), 10000);
-            showToast("Relatório gerado em uma nova aba!", "success");
-        } catch (err) {
-            console.error('Erro ao abrir relatório:', err);
-            // Fallback para download direto caso o pop-up falhe
-            const nomeArquivo = `Relatorio_${(e.nome || 'inspecao').replace(/\s+/g, '_')}.html`;
             downloadOrOpenHTML(html, nomeArquivo, { openSameTab: false });
-            showToast('Pop-up bloqueado. Iniciando download do relatório.', 'warning');
+            showToast("Relatório gerado com sucesso!", "success");
+        } catch (err) {
+            console.error('Erro ao gerar relatório:', err);
+            showToast('Não foi possível gerar o relatório neste dispositivo.', 'error');
         }
     };
   
-    request.onerror = (e) => console.error("Erro ao gerar relatório:", e);
+    request.onerror = (e) => {
+        console.error("Erro ao gerar relatório:", e);
+        showToast("Erro ao carregar dados para o relatório.", "error");
+    };
 }
 
 function renderCargoReport(cargo, titulo) {
