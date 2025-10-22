@@ -2084,6 +2084,47 @@ function generateInspectionReport(id) {
             html += `</div>`;
         });
 
+        // NOVO: Seção do Plano de Ação adicionada aqui
+        if (insp.planoDeAcao && insp.planoDeAcao.length > 0) {
+            html += `
+            <div class="section" style="page-break-before: always;">
+                <h2>Plano de Ação</h2>
+                <table>
+                    <thead>
+                        <tr>
+                            <th style="width:30%">Atividade</th>
+                            <th style="width:40%">Descrição</th>
+                            <th>Prazo Início</th>
+                            <th>Prazo Fim</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>`;
+            
+            insp.planoDeAcao.forEach(item => {
+                html += `
+                        <tr>
+                            <td>${escapeHtml(item.atividade)}</td>
+                            <td>${escapeHtml(item.descricao || 'N/A')}</td>
+                            <td>${formatDateBR(item.prazoInicio)}</td>
+                            <td>${formatDateBR(item.prazoFim)}</td>
+                            <td><span class="badge">${escapeHtml(item.status || 'Pendente')}</span></td>
+                        </tr>`;
+            });
+
+            html += `
+                    </tbody>
+                </table>
+            </div>`;
+        } else {
+             html += `
+            <div class="section">
+                <h2>Plano de Ação</h2>
+                <p>Nenhum item cadastrado no plano de ação.</p>
+            </div>`;
+        }
+
+
         html += `<footer>Relatório gerado pelo Assistente de Inspeção de Riscos</footer></body></html>`;
 
         // ★★★ ALTERAÇÃO PRINCIPAL AQUI ★★★
