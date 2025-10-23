@@ -2138,8 +2138,8 @@ async function generateInspectionReport(id) {
         showToast("Banco de dados indisponível. Não foi possível gerar o relatório.", "error");
     }
 }
-
-* Gera o relatório de um cargo/grupo, agora com filtro de segurança para
+/**
+ * Gera o relatório de um cargo/grupo, agora com filtro de segurança para
  * ignorar riscos nulos ou indefinidos em dados antigos/corrompidos.
  */
 function renderCargoReport(cargo, titulo) {
