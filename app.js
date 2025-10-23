@@ -3650,8 +3650,5 @@ function setupServiceWorker() {
         consoleEl.style.display = consoleEl.style.display === 'none' ? 'block' : 'none';
     };
     document.body.appendChild(openButton);
-
-
     
 })();
-```
