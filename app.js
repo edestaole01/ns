@@ -3391,44 +3391,7 @@ function collectRiscoFormData() {
         observacoesGerais: getFieldValue("risco-observacoes-gerais")
     };
 }
-function setupServiceWorker() {
-    if (!('serviceWorker' in navigator)) {
-        console.warn("Service Worker não suportado.");
-        return;
-    }
-    let newWorker;
-    navigator.serviceWorker.register('./sw.js').then(reg => {
-        console.log('Service Worker registrado com sucesso.');
-        if (reg.waiting) {
-            newWorker = reg.waiting;
-            showUpdateBar();
-            return;
-        }
-        reg.addEventListener('updatefound', () => {
-            newWorker = reg.installing;
-            newWorker.addEventListener('statechange', () => {
-                if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                    showUpdateBar();
-                }
-            });
-        });
-    }).catch(error => {
-        console.error('Falha ao registrar o Service Worker:', error);
-    });
 
-    document.body.addEventListener('click', (event) => {
-        if (event.target.id === 'pwa-update-button' && newWorker) {
-            newWorker.postMessage({ type: 'SKIP_WAITING' });
-        }
-    });
-
-    let refreshing;
-    navigator.serviceWorker.addEventListener('controllerchange', () => {
-        if (refreshing) return;
-        window.location.reload();
-        refreshing = true;
-    });
-}
 function setupServiceWorker() {
     if (!('serviceWorker' in navigator)) {
         console.warn("Service Worker não suportado.");
@@ -3439,20 +3402,16 @@ function setupServiceWorker() {
     navigator.serviceWorker.register('./sw.js').then(reg => {
         console.log('Service Worker registrado com sucesso.');
         
-        // 1. Verifica se já existe um SW esperando para ser ativado
         if (reg.waiting) {
             newWorker = reg.waiting;
-            showUpdateBar(); // Mostra a barra de atualização
+            showUpdateBar();
             return;
         }
 
-        // 2. Escuta por novas versões que estão sendo instaladas
         reg.addEventListener('updatefound', () => {
             newWorker = reg.installing;
             newWorker.addEventListener('statechange', () => {
-                // 3. Se um novo SW for instalado e já houver um antigo controlando a página...
                 if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                    // ...mostra a barra de atualização para o usuário.
                     showUpdateBar();
                 }
             });
@@ -3461,15 +3420,12 @@ function setupServiceWorker() {
         console.error('Falha ao registrar o Service Worker:', error);
     });
 
-    // 4. Escuta o clique no botão de atualizar (na barra)
     document.body.addEventListener('click', (event) => {
         if (event.target.id === 'pwa-update-button' && newWorker) {
-            // Diz ao novo SW para pular a espera e se tornar ativo
             newWorker.postMessage({ type: 'SKIP_WAITING' });
         }
     });
 
-    // 5. Recarrega a página automaticamente quando um novo SW assume o controle
     let refreshing;
     navigator.serviceWorker.addEventListener('controllerchange', () => {
         if (refreshing) return;

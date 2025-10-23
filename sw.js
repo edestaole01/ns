@@ -1,5 +1,3 @@
-// sw.js - VERSÃO CORRIGIDA E MAIS ROBUSTA
-
 importScripts('version.js');
 
 const CACHE_NAME = `inspecao-riscos-cache-v${APP_VERSION}`;
@@ -33,7 +31,7 @@ self.addEventListener('install', (event) => {
   );
 });
 
-// Evento de ativação: limpa caches antigos
+// Evento de ativação: limpa caches antigos e assume o controle
 self.addEventListener('activate', (event) => {
   console.log(`[Service Worker] Ativando versão ${APP_VERSION}`);
   event.waitUntil(
@@ -46,12 +44,24 @@ self.addEventListener('activate', (event) => {
           }
         })
       );
+    }).then(() => {
+      // Garante que o novo service worker assuma o controle da página imediatamente
+      console.log('[Service Worker] Assumindo o controle dos clientes.');
+      return self.clients.claim();
     })
   );
 });
 
+// ★★★ CORREÇÃO ADICIONADA AQUI ★★★
+// Ouve mensagens do cliente (app.js) para pular a fase de espera.
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'SKIP_WAITING') {
+    console.log('[Service Worker] Recebido comando SKIP_WAITING. Ativando nova versão agora.');
+    self.skipWaiting();
+  }
+});
+
 // Evento de fetch: busca no cache primeiro, depois na rede
-// Se buscar na rede, tenta salvar uma cópia no cache para uso futuro
 self.addEventListener('fetch', (event) => {
   event.respondWith(
     caches.match(event.request)
