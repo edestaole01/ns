@@ -2305,44 +2305,43 @@ function renderCargoReport(cargo, titulo) {
         </div>
         <h4>⚠️ Riscos Identificados</h4>`;
     
-    // Filtra o array de riscos para remover entradas inválidas antes de iterar
     const riscosValidos = (cargo.riscos || []).filter(Boolean);
 
     if (riscosValidos.length > 0) {
         riscosValidos.forEach((risco, idx) => {
             let examesTableHTML = '';
-            // Adiciona uma verificação extra para 'risco.exames'
+            
             if (risco.exames && Array.isArray(risco.exames) && risco.exames.length > 0) {
-                const examesRows = risco.exames.filter(Boolean).map(exame => `
-                    <tr>
-                        <td>
-                            <strong>${escapeHtml(exame.nome)}</strong>
-                            ${exame.observacoes ? `<br><small style="color:#555">${escapeHtml(exame.observacoes)}</small>` : ''}
-                            ${exame.periodicidade && !exame.observacoes ? `<br><small style="color:#555">${escapeHtml(exame.periodicidade)}</small>` : ''}
-                        </td>
-                        <td style="text-align:center; font-weight:bold;">${exame.admissional ? '✓' : '-'}</td>
-                        <td style="text-align:center;">${escapeHtml(exame.periodico || (exame.customizado ? '-' : '✓'))}</td>
-                        <td style="text-align:center; font-weight:bold;">${exame.mudancaRisco ? '✓' : '-'}</td>
-                        <td style="text-align:center; font-weight:bold;">${exame.retornoTrabalho ? '✓' : '-'}</td>
-                        <td style="text-align:center; font-weight:bold;">${exame.demissional ? '✓' : '-'}</td>
-                    </tr>
-                `).join('');
+                // ★★★ CORREÇÃO APLICADA AQUI ★★★
+                const examesValidos = risco.exames.filter(exame => exame && typeof exame === 'object' && exame.nome);
 
-                examesTableHTML = `
-                    <table>
-                        <thead>
-                            <tr><th colspan="6" style="background-color:#d1fae5; color: #065f46;">🏥 Exames Médicos Ocupacionais</th></tr>
-                            <tr>
-                                <th style="width:40%">Exame</th>
-                                <th>Adm.</th>
-                                <th>Periódico</th>
-                                <th>Mud. Risco</th>
-                                <th>Ret. Trab.</th>
-                                <th>Dem.</th>
-                            </tr>
-                        </thead>
-                        <tbody>${examesRows}</tbody>
-                    </table>`;
+                if (examesValidos.length > 0) {
+                    const examesRows = examesValidos.map(exame => `
+                        <tr>
+                            <td>
+                                <strong>${escapeHtml(exame.nome)}</strong>
+                                ${exame.observacoes ? `<br><small style="color:#555">${escapeHtml(exame.observacoes)}</small>` : ''}
+                                ${exame.periodicidade && !exame.observacoes ? `<br><small style="color:#555">${escapeHtml(exame.periodicidade)}</small>` : ''}
+                            </td>
+                            <td style="text-align:center; font-weight:bold;">${exame.admissional ? '✓' : '-'}</td>
+                            <td style="text-align:center;">${escapeHtml(exame.periodico || (exame.customizado ? '-' : '✓'))}</td>
+                            <td style="text-align:center; font-weight:bold;">${exame.mudancaRisco ? '✓' : '-'}</td>
+                            <td style="text-align:center; font-weight:bold;">${exame.retornoTrabalho ? '✓' : '-'}</td>
+                            <td style="text-align:center; font-weight:bold;">${exame.demissional ? '✓' : '-'}</td>
+                        </tr>
+                    `).join('');
+
+                    examesTableHTML = `
+                        <table>
+                            <thead>
+                                <tr><th colspan="6" style="background-color:#d1fae5; color: #065f46;">🏥 Exames Médicos Ocupacionais</th></tr>
+                                <tr>
+                                    <th style="width:40%">Exame</th><th>Adm.</th><th>Periódico</th><th>Mud. Risco</th><th>Ret. Trab.</th><th>Dem.</th>
+                                </tr>
+                            </thead>
+                            <tbody>${examesRows}</tbody>
+                        </table>`;
+                }
             }
 
             html += `<div class="risco-card"><h5>Risco ${idx+1}: ${escapeHtml(risco.perigo||'N/A')}</h5>
@@ -3153,102 +3152,96 @@ function renderCampoExamesCustomizados() {
 * @returns {string} HTML do relatório de exames
 */
 function gerarRelatorioExames(cargo) {
-   // A verificação `(cargo.riscos || [])` previne erro se 'riscos' não existir.
-   // O `.filter(Boolean)` remove quaisquer entradas 'undefined' ou 'null' do array.
-   const riscosValidos = (cargo.riscos || []).filter(Boolean);
+    const riscosValidos = (cargo.riscos || []).filter(Boolean);
 
-   if (riscosValidos.length === 0) {
-       return '<p style="color: var(--gray-500); font-style: italic;">Nenhum risco válido cadastrado para este item.</p>';
-   }
-   
-   const examesConsolidados = new Map();
-   
-   // Agora iteramos sobre o array limpo e seguro.
-   riscosValidos.forEach(risco => {
-       if (risco.exames && Array.isArray(risco.exames)) {
-           risco.exames.forEach(exame => {
-               // Verificação extra para garantir que o exame é um objeto válido
-               if (exame && typeof exame === 'object' && exame.nome) {
-                   const key = exame.nome;
-                   if (!examesConsolidados.has(key)) {
-                       examesConsolidados.set(key, {
-                           nome: exame.nome,
-                           riscos: [],
-                           admissional: exame.admissional || false,
-                           periodico: exame.periodico || false,
-                           mudancaRisco: exame.mudancaRisco || false,
-                           retornoTrabalho: exame.retornoTrabalho || false,
-                           demissional: exame.demissional || false,
-                           observacoes: exame.observacoes || exame.periodicidade || ''
-                       });
-                   }
-                   examesConsolidados.get(key).riscos.push(risco.perigo);
-               }
-           });
-       }
-   });
-   
-   if (examesConsolidados.size === 0) {
-       return '<p style="color: var(--gray-500); font-style: italic;">Não há exames definidos para os riscos deste item.</p>';
-   }
-   
-   // O resto do HTML é gerado normalmente.
-   let html = `
-       <div style="background: white; border: 2px solid var(--primary); border-radius: 0.75rem; padding: 1.5rem; margin: 1rem 0;">
-           <h4 style="color: var(--primary); margin: 0 0 1rem 0;">
-               <i class="bi bi-clipboard2-pulse"></i> Exames Necessários - ${escapeHtml(cargo.nome)}
-           </h4>
-           <table style="width: 100%; border-collapse: collapse;">
-               <thead>
-                   <tr style="background: var(--primary-light);">
-                       <th style="padding: 0.75rem; text-align: left; border-bottom: 2px solid var(--primary);">Exame</th>
-                       <th style="padding: 0.75rem; text-align: center; border-bottom: 2px solid var(--primary); font-size: 0.85rem;">Adm.</th>
-                       <th style="padding: 0.75rem; text-align: center; border-bottom: 2px solid var(--primary); font-size: 0.85rem;">Periódico</th>
-                       <th style="padding: 0.75rem; text-align: center; border-bottom: 2px solid var(--primary); font-size: 0.85rem;">Mud.</th>
-                       <th style="padding: 0.75rem; text-align: center; border-bottom: 2px solid var(--primary); font-size: 0.85rem;">Ret.</th>
-                       <th style="padding: 0.75rem; text-align: center; border-bottom: 2px solid var(--primary); font-size: 0.85rem;">Dem.</th>
-                   </tr>
-               </thead>
-               <tbody>`;
-   
-   let idx = 0;
-   examesConsolidados.forEach((exame) => {
-       const bgColor = idx % 2 === 0 ? 'white' : 'var(--gray-50)';
-       html += `
-           <tr style="background: ${bgColor};">
-               <td style="padding: 0.75rem; border-bottom: 1px solid var(--gray-200);">
-                   <strong>${escapeHtml(exame.nome)}</strong>
-                   <br><small style="color: var(--gray-600);">Riscos: ${escapeHtml(exame.riscos.slice(0, 2).join(', '))}${exame.riscos.length > 2 ? '...' : ''}</small>
-                   ${exame.observacoes ? `<br><small style="color: var(--gray-500);">${escapeHtml(exame.observacoes)}</small>` : ''}
-               </td>
-               <td style="padding: 0.75rem; text-align: center; border-bottom: 1px solid var(--gray-200);">
-                   ${exame.admissional ? '✓' : '-'}
-               </td>
-               <td style="padding: 0.75rem; text-align: center; border-bottom: 1px solid var(--gray-200); font-size: 0.85rem;">
-                   ${exame.periodico || '-'}
-               </td>
-               <td style="padding: 0.75rem; text-align: center; border-bottom: 1px solid var(--gray-200);">
-                   ${exame.mudancaRisco ? '✓' : '-'}
-               </td>
-               <td style="padding: 0.75rem; text-align: center; border-bottom: 1px solid var(--gray-200);">
-                   ${exame.retornoTrabalho ? '✓' : '-'}
-               </td>
-               <td style="padding: 0.75rem; text-align: center; border-bottom: 1px solid var(--gray-200);">
-                   ${exame.demissional ? '✓' : '-'}
-               </td>
-           </tr>`;
-       idx++;
-   });
-   
-   html += `
-               </tbody>
-           </table>
-           <p style="margin: 1rem 0 0 0; font-size: 0.85rem; color: var(--gray-600);">
-               📋 Total de exames: <strong>${examesConsolidados.size}</strong>
-           </p>
-       </div>`;
-   
-   return html;
+    if (riscosValidos.length === 0) {
+        return '<p style="color: var(--gray-500); font-style: italic;">Nenhum risco válido cadastrado para este item.</p>';
+    }
+    
+    const examesConsolidados = new Map();
+    
+    riscosValidos.forEach(risco => {
+        if (risco.exames && Array.isArray(risco.exames)) {
+            const examesValidos = risco.exames.filter(exame => exame && typeof exame === 'object' && exame.nome);
+            examesValidos.forEach(exame => {
+                const key = exame.nome;
+                if (!examesConsolidados.has(key)) {
+                    examesConsolidados.set(key, {
+                        nome: exame.nome,
+                        riscos: [],
+                        admissional: exame.admissional || false,
+                        periodico: exame.periodico || false,
+                        mudancaRisco: exame.mudancaRisco || false,
+                        retornoTrabalho: exame.retornoTrabalho || false,
+                        demissional: exame.demissional || false,
+                        observacoes: exame.observacoes || exame.periodicidade || ''
+                    });
+                }
+                examesConsolidados.get(key).riscos.push(risco.perigo);
+            });
+        }
+    });
+    
+    if (examesConsolidados.size === 0) {
+        return '<p style="color: var(--gray-500); font-style: italic;">Não há exames definidos para os riscos deste item.</p>';
+    }
+    
+    let html = `
+        <div style="background: white; border: 2px solid var(--primary); border-radius: 0.75rem; padding: 1.5rem; margin: 1rem 0;">
+            <h4 style="color: var(--primary); margin: 0 0 1rem 0;">
+                <i class="bi bi-clipboard2-pulse"></i> Exames Necessários - ${escapeHtml(cargo.nome)}
+            </h4>
+            <table style="width: 100%; border-collapse: collapse;">
+                <thead>
+                    <tr style="background: var(--primary-light);">
+                        <th style="padding: 0.75rem; text-align: left; border-bottom: 2px solid var(--primary);">Exame</th>
+                        <th style="padding: 0.75rem; text-align: center; border-bottom: 2px solid var(--primary); font-size: 0.85rem;">Adm.</th>
+                        <th style="padding: 0.75rem; text-align: center; border-bottom: 2px solid var(--primary); font-size: 0.85rem;">Periódico</th>
+                        <th style="padding: 0.75rem; text-align: center; border-bottom: 2px solid var(--primary); font-size: 0.85rem;">Mud.</th>
+                        <th style="padding: 0.75rem; text-align: center; border-bottom: 2px solid var(--primary); font-size: 0.85rem;">Ret.</th>
+                        <th style="padding: 0.75rem; text-align: center; border-bottom: 2px solid var(--primary); font-size: 0.85rem;">Dem.</th>
+                    </tr>
+                </thead>
+                <tbody>`;
+    
+    let idx = 0;
+    examesConsolidados.forEach((exame) => {
+        const bgColor = idx % 2 === 0 ? 'white' : 'var(--gray-50)';
+        html += `
+            <tr style="background: ${bgColor};">
+                <td style="padding: 0.75rem; border-bottom: 1px solid var(--gray-200);">
+                    <strong>${escapeHtml(exame.nome)}</strong>
+                    <br><small style="color: var(--gray-600);">Riscos: ${escapeHtml(exame.riscos.slice(0, 2).join(', '))}${exame.riscos.length > 2 ? '...' : ''}</small>
+                    ${exame.observacoes ? `<br><small style="color: var(--gray-500);">${escapeHtml(exame.observacoes)}</small>` : ''}
+                </td>
+                <td style="padding: 0.75rem; text-align: center; border-bottom: 1px solid var(--gray-200);">
+                    ${exame.admissional ? '✓' : '-'}
+                </td>
+                <td style="padding: 0.75rem; text-align: center; border-bottom: 1px solid var(--gray-200); font-size: 0.85rem;">
+                    ${exame.periodico || '-'}
+                </td>
+                <td style="padding: 0.75rem; text-align: center; border-bottom: 1px solid var(--gray-200);">
+                    ${exame.mudancaRisco ? '✓' : '-'}
+                </td>
+                <td style="padding: 0.75rem; text-align: center; border-bottom: 1px solid var(--gray-200);">
+                    ${exame.retornoTrabalho ? '✓' : '-'}
+                </td>
+                <td style="padding: 0.75rem; text-align: center; border-bottom: 1px solid var(--gray-200);">
+                    ${exame.demissional ? '✓' : '-'}
+                </td>
+            </tr>`;
+        idx++;
+    });
+    
+    html += `
+                </tbody>
+            </table>
+            <p style="margin: 1rem 0 0 0; font-size: 0.85rem; color: var(--gray-600);">
+                📋 Total de exames: <strong>${examesConsolidados.size}</strong>
+            </p>
+        </div>`;
+    
+    return html;
 }
 
 // ==========================================
