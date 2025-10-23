@@ -965,6 +965,9 @@ function updateCargoList() {
     }
 
     depto.cargos.forEach((cargo, index) => {
+
+        if (!cargo) return; // ★★★ CORREÇÃO APLICADA AQUI ★★★
+
         const li = document.createElement("li");
         const obsText = (cargo.observacoes || []).length > 0 ? (cargo.observacoes || []).slice(0, 2).join(', ') + ((cargo.observacoes || []).length > 2 ? '...' : '') : 'Sem observações';
         
@@ -1020,6 +1023,8 @@ function updateGrupoList() {
     }
 
     depto.grupos.forEach((grupo, index) => {
+        if (!grupo) return; // ★★★ CORREÇÃO APLICADA AQUI ★★★
+
         const li = document.createElement("li");
         
         let riscosHTML = '';
@@ -1074,6 +1079,7 @@ function updateFuncionarioList() {
     }
 
     depto.funcionarios.forEach((func, index) => {
+        if (!func) return; // ★★★ CORREÇÃO APLICADA AQUI ★★★
         const li = document.createElement("li");
         const obsText = (func.observacoes || []).length > 0 ? (func.observacoes || []).slice(0, 2).join(', ') + '...' : 'Sem observações';
         
