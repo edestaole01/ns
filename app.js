@@ -591,39 +591,49 @@ function renderDepartamentoStep() {
             ${renderBreadcrumb()}
             <h3>Departamentos Adicionados <small style="font-weight: 400; color: var(--gray-500);">(Arraste para reordenar)</small></h3>
             <ul id="departamento-list" class="item-list"></ul>
-            <h3 id="depto-form-title">Novo Departamento</h3>
-            <form id="depto-form">
-                <div class="form-group">
-                    <label for="depto-nome">Nome do Setor/Departamento *</label>
-                    ${wrapWithVoiceButton('depto-nome', 'Ex: Produção, Administrativo', '', true)}
+            <details id="depto-form-details" class="accordion-section" ${window.innerWidth <= 768 ? 'open' : ''}>
+                 <summary onclick="toggleAccordion(event, 'depto-form-details')">Novo Departamento</summary>
+                 <div>
+                    <form id="depto-form">
+                        <div class="form-group">
+                            <label for="depto-nome">Nome do Setor/Departamento *</label>
+                            ${wrapWithVoiceButton('depto-nome', 'Ex: Produção, Administrativo', '', true)}
+                        </div>
+                        <div class="form-group">
+                            <label for="depto-caracteristica">Característica do Setor</label>
+                            ${wrapWithVoiceButton('depto-caracteristica', 'Ex: Área industrial', '')}
+                        </div>
+                        <div class="form-group">
+                            <label for="depto-descricao">Descrição da Atividade do Setor</label>
+                            ${wrapWithVoiceButton('depto-descricao', 'Descreva as principais atividades...', '', false, 'textarea')}
+                        </div>
+                        <div class="form-actions">
+                            <button type="button" class="primary" id="save-depto-btn" onclick="saveDepartamento()">Adicionar</button>
+                            <button type="button" id="cancel-depto-edit-btn" class="nav hidden" onclick="clearDeptoForm()">Cancelar</button>
+                        </div>
+                    </form>
                 </div>
-                <div class="form-group">
-                    <label for="depto-caracteristica">Característica do Setor</label>
-                    ${wrapWithVoiceButton('depto-caracteristica', 'Ex: Área industrial', '')}
-                </div>
-                <div class="form-group">
-                    <label for="depto-descricao">Descrição da Atividade do Setor</label>
-                    ${wrapWithVoiceButton('depto-descricao', 'Descreva as principais atividades...', '', false, 'textarea')}
-                </div>
-                <div class="form-actions">
-                    <button type="button" class="primary" id="save-depto-btn" onclick="saveDepartamento()">Adicionar</button>
-                    <button type="button" id="cancel-depto-edit-btn" class="nav hidden" onclick="clearDeptoForm()">Cancelar</button>
-                </div>
-            </form>
+            </details>
             <div class="wizard-nav"><button class="nav" onclick="goToStep(0)">Voltar para Empresa</button></div>
         </div>`;
     
-    // CORREÇÃO: Usar requestAnimationFrame para garantir renderização
+    // ★★★ CORREÇÃO CRÍTICA APLICADA AQUI ★★★
+    // Envolve a manipulação do DOM em um requestAnimationFrame para garantir que
+    // o navegador já tenha renderizado o HTML acima.
     requestAnimationFrame(() => {
+        // Agora é seguro chamar estas funções, pois os elementos existem.
         updateDepartamentoList();
-        if (typeof initializeSortableLists === 'function') {
-            try {
+        
+        // Adiciona um try-catch por segurança extra, caso SortableJS não carregue.
+        try {
+            if (typeof Sortable !== 'undefined') {
                 initializeSortableLists();
-            } catch (e) {
-                console.error('Erro ao inicializar Sortable:', e);
+            } else {
+                console.warn('SortableJS não foi carregado. A funcionalidade de arrastar não está ativa.');
             }
+        } catch (e) {
+            console.error('Erro ao inicializar Sortable:', e);
         }
-        ensureAllAccordionsOpenOnMobile();
     });
 }
 
@@ -837,100 +847,7 @@ function getFormFieldsHTML(prefix) {
     `;
 }
 
-function renderCargoFuncionarioStep() {
-    if (!validateDataIntegrity()) {
-        showToast("Erro de integridade de dados. Retornando.", "error");
-        return goToStep(1);
-    }
-    if (activeDepartamentoIndex < 0 || !currentInspection.departamentos?.[activeDepartamentoIndex]) {
-        showToast("Erro: Departamento não encontrado ou inválido!", "error");
-        return goToStep(1);
-    }
-    
-    const depto = currentInspection.departamentos[activeDepartamentoIndex];
-    
-    // Validação defensiva: Garante que as arrays existam no objeto 'depto'
-    if (!Array.isArray(depto.grupos)) depto.grupos = [];
-    if (!Array.isArray(depto.cargos)) depto.cargos = [];
-    if (!Array.isArray(depto.funcionarios)) depto.funcionarios = [];
-    
-    const isMobile = window.innerWidth <= 768;
-    const detailsAttr = isMobile ? 'open' : '';
-    
-    // O HTML da função permanece o mesmo que você já tem
-    document.getElementById('wizard-content').innerHTML = `
-        <div class="card">
-            ${renderBreadcrumb()}
-            <h3>Grupos de Cargos <small>(Arraste para reordenar)</small></h3>
-            <ul id="grupo-list" class="item-list"></ul>
-            <details id="grupo-form-details" class="accordion-section" ${detailsAttr}>
-                <summary onclick="toggleAccordion(event, 'grupo-form-details')">Adicionar Novo Grupo</summary>
-                <div>
-                    <form id="grupo-form">
-                        <div class="form-group">
-                            <label for="grupo-nomes">Nomes dos Cargos (um por linha) *</label>
-                            ${wrapWithVoiceButton('grupo-nomes', 'Motorista A\\nMotorista B', '', true, 'textarea')}
-                            <small>Cargos em um grupo compartilham os mesmos riscos.</small>
-                        </div>
-                        ${getFormFieldsHTML('grupo')}
-                        <div class="form-actions">
-                            <button type="button" class="primary" id="save-grupo-btn" onclick="saveGrupo()">Criar Grupo</button>
-                            <button type="button" class="nav hidden" id="cancel-grupo-edit-btn" onclick="clearForm('grupo')">Cancelar</button>
-                        </div>
-                    </form>
-                </div>
-            </details>
-            <h3 style="margin-top: 2rem;">Cargos Individuais <small>(Arraste para reordenar)</small></h3>
-            <ul id="cargo-list" class="item-list"></ul>
-            <details id="cargo-form-details" class="accordion-section" ${detailsAttr}>
-                <summary onclick="toggleAccordion(event, 'cargo-form-details')">Adicionar Novo Cargo</summary>
-                <div>
-                    <form id="cargo-form">
-                        <div class="form-group">
-                            <label for="cargo-nome">Nome do Cargo *</label>
-                            ${wrapWithVoiceButton('cargo-nome', 'Ex: Operador de Máquina', '', true)}
-                        </div>
-                        ${getFormFieldsHTML('cargo')}
-                        <div class="form-actions">
-                            <button type="button" class="primary" id="save-cargo-btn" onclick="saveCargo()">Adicionar Cargo</button>
-                            <button type="button" class="nav hidden" id="cancel-cargo-edit-btn" onclick="clearForm('cargo')">Cancelar</button>
-                        </div>
-                    </form>
-                </div>
-            </details>
-            <h3 style="margin-top: 2rem;">Funcionários Individuais <small>(Arraste para reordenar)</small></h3>
-            <ul id="funcionario-list" class="item-list"></ul>
-            <details id="funcionario-form-details" class="accordion-section" ${detailsAttr}>
-                <summary onclick="toggleAccordion(event, 'funcionario-form-details')">Adicionar Novo Funcionário</summary>
-                <div>
-                    <form id="funcionario-form">
-                        <div class="form-group">
-                            <label for="funcionario-nome">Nome do Funcionário *</label>
-                            ${wrapWithVoiceButton('funcionario-nome', 'Ex: João da Silva', '', true)}
-                        </div>
-                        ${getFormFieldsHTML('funcionario')}
-                        <div class="form-actions">
-                            <button type="button" class="primary" id="save-funcionario-btn" onclick="saveFuncionario()">Adicionar Funcionário</button>
-                            <button type="button" class="nav hidden" id="cancel-funcionario-edit-btn" onclick="clearForm('funcionario')">Cancelar</button>
-                        </div>
-                    </form>
-                </div>
-            </details>
-            <div class="wizard-nav"><button class="nav" onclick="goToStep(1)">Voltar para Departamentos</button></div>
-        </div>`;
-    
-    requestAnimationFrame(() => {
-        updateAllLists();
-        if (typeof initializeSortableLists === 'function') {
-            try {
-                initializeSortableLists();
-            } catch (e) {
-                console.error('Erro ao inicializar Sortable:', e);
-            }
-        }
-        ensureAllAccordionsOpenOnMobile();
-    });
-}
+renderCargoFuncionarioStep
 
 function updateAllLists() {
     updateCargoList();
