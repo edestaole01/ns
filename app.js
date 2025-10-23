@@ -1460,7 +1460,9 @@ function renderRiscoStep() {
 
         tituloRiscos = 'Riscos Identificados';
         currentContextValue = `cargo-${activeCargoIndex}`;
-        nomeParaSugestoes = targetObject.nome.toLowerCase();
+        // ★★★ CORREÇÃO APLICADA AQUI ★★★
+        // Verifica se 'targetObject.nome' existe antes de usá-lo
+        nomeParaSugestoes = targetObject.nome ? targetObject.nome.toLowerCase() : null;
 
     } else if (activeFuncionarioIndex > -1) {
         targetObject = depto.funcionarios[activeFuncionarioIndex];
@@ -1468,7 +1470,9 @@ function renderRiscoStep() {
 
         tituloRiscos = 'Riscos Identificados';
         currentContextValue = `funcionario-${activeFuncionarioIndex}`;
-        nomeParaSugestoes = targetObject.nome.toLowerCase(); 
+        // ★★★ CORREÇÃO APLICADA AQUI ★★★
+        // Mesma verificação para o nome do funcionário
+        nomeParaSugestoes = targetObject.nome ? targetObject.nome.toLowerCase() : null; 
         
     } else {
         goToStep(2, activeDepartamentoIndex); 
