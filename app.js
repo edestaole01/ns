@@ -4,15 +4,13 @@
 
 // Aguarda o conteúdo da página ser totalmente carregado
 document.addEventListener('DOMContentLoaded', () => {
-    // Exibe a versão do app
     const versionElement = document.getElementById('app-version-display');
     if (versionElement && typeof APP_VERSION !== 'undefined') {
         versionElement.textContent = 'v' + APP_VERSION;
     }
     
-    // Inicia a aplicação após a DB estar pronta
     initializeDbAndApp();
-    checkForUpdates();
+    setupServiceWorker(); // ★ NOVO: Chamada para a função centralizada
 });
 
 
@@ -121,10 +119,10 @@ function checkForUpdates() {
  * ★ NOVO: Mostra uma barra no topo da página oferecendo a atualização.
  */
 function showUpdateBar() {
-    let updateBar = document.getElementById('update-bar');
+    let updateBar = document.getElementById('update-bar-pwa');
     if (!updateBar) {
         updateBar = document.createElement('div');
-        updateBar.id = 'update-bar';
+        updateBar.id = 'update-bar-pwa';
         updateBar.style.cssText = `
             position: fixed; top: 70px; left: 0; right: 0; background: var(--primary); color: white;
             padding: 1rem; text-align: center; z-index: 1001; display: flex;
@@ -132,7 +130,7 @@ function showUpdateBar() {
         `;
         updateBar.innerHTML = `
             <span>Uma nova versão do aplicativo está disponível!</span>
-            <button class="outline" style="background:white;color:var(--primary);border-color:var(--primary);" onclick="atualizarAplicativo()">Atualizar Agora</button>
+            <button class="outline" style="background:white;color:var(--primary);border-color:var(--primary);" id="pwa-update-button">Atualizar Agora</button>
         `;
         document.body.appendChild(updateBar);
     }
@@ -3146,11 +3144,13 @@ function renderCampoExamesCustomizados() {
             </div>
         </details>`;
 }
-* Gera relatório consolidado, agora com um filtro de segurança para ignorar
-* riscos nulos ou indefinidos que possam existir em dados antigos/corrompidos.
-* @param {Object} cargo - Cargo ou funcionário com riscos
-* @returns {string} HTML do relatório de exames
-*/
+/**
+ * ★★★ CORREÇÃO CRÍTICA (4.1) ★★★
+ * Gera relatório consolidado, agora com um filtro de segurança para ignorar
+ * riscos nulos ou indefinidos que possam existir em dados antigos/corrompidos.
+ * @param {Object} cargo - Cargo ou funcionário com riscos
+ * @returns {string} HTML do relatório de exames
+ */
 function gerarRelatorioExames(cargo) {
     const riscosValidos = (cargo.riscos || []).filter(Boolean);
 
@@ -3529,6 +3529,56 @@ function collectRiscoFormData() {
         acoesNecessarias: getFieldValue("risco-acoes"),
         observacoesGerais: getFieldValue("risco-observacoes-gerais")
     };
+}
+function setupServiceWorker() {
+    if (!('serviceWorker' in navigator)) {
+        console.warn("Service Worker não suportado.");
+        return;
+    }
+
+    let newWorker;
+
+    navigator.serviceWorker.register('sw.js').then(reg => {
+        console.log('Service Worker registrado com sucesso.');
+
+        // 1. Verifica se já existe um SW esperando para ser ativado
+        if (reg.waiting) {
+            newWorker = reg.waiting;
+            showUpdateBar(); // Mostra a barra de atualização
+            return;
+        }
+
+        // 2. Escuta por novas versões que estão sendo instaladas
+        reg.addEventListener('updatefound', () => {
+            newWorker = reg.installing;
+            newWorker.addEventListener('statechange', () => {
+                // 3. Se um novo SW for instalado e já houver um antigo controlando a página...
+                if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                    // ...mostra a barra de atualização para o usuário.
+                    showUpdateBar(newWorker);
+                }
+            });
+        });
+    }).catch(error => {
+        console.error('Falha ao registrar o Service Worker:', error);
+    });
+
+    // 4. Escuta o clique no botão de atualizar (na barra)
+    // Usamos delegação de eventos para garantir que o botão exista
+    document.body.addEventListener('click', (event) => {
+        if (event.target.id === 'pwa-update-button' && newWorker) {
+            newWorker.postMessage({ type: 'SKIP_WAITING' });
+        }
+    });
+
+    // 5. Recarrega a página automaticamente quando um novo SW assume o controle
+    let refreshing;
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+        if (refreshing) return;
+        console.log("Novo Service Worker assumiu o controle. Recarregando página...");
+        window.location.reload();
+        refreshing = true;
+    });
 }
   // ==========================================
 // ★★★ CONSOLE DE DEBUG MÓVEL ★★★
