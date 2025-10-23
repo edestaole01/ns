@@ -1994,10 +1994,10 @@ function renderActionPlanView() {
             </form>
         </div>`;
     
-    // PÓS-RENDER: A chamada foi movida para dentro de um setTimeout
-    setTimeout(() => {
-        updateActionItemList(); // MOVIDO PARA CÁ
-    }, 0);
+    // PÓS-RENDER: A chamada foi movida para dentro de um requestAnimationFrame para consistência
+    requestAnimationFrame(() => {
+        updateActionItemList();
+    });
 }
 
 function showActionPlanView(inspectionId) {
@@ -3652,3 +3652,4 @@ function setupServiceWorker() {
 
     
 })();
+```
