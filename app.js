@@ -1583,43 +1583,35 @@ async function atualizarAplicativo() {
 
 
 function saveRisco() {
+    // Força o teclado virtual a "confirmar" o valor do último campo focado
     const perigoInput = document.getElementById("risco-perigo");
-    if (perigoInput) perigoInput.blur();
-    const perigoValue = perigoInput ? perigoInput.value.trim() : "";
-    if (!perigoValue) return showToast("A descrição do perigo é obrigatória.", "error");
+    if (perigoInput) {
+        perigoInput.blur();
+    }
 
-    const riscoData = {
-        riscoPresente: document.getElementById("risco-presente").value,
-        tipo: document.getElementById("risco-tipo").value,
-        codigoEsocial: document.getElementById("risco-esocial")?.value || "",
-        perigo: perigoValue,
-        descricaoDetalhada: document.getElementById("risco-descricao-detalhada")?.value || "",
-        fonteGeradora: document.getElementById("risco-fonte")?.value || "",
-        perfilExposicao: document.getElementById("risco-perfil-exposicao")?.value || "",
-        medicao: document.getElementById("risco-medicao")?.value || "",
-        tempoExposicao: document.getElementById("risco-tempo-exposicao")?.value || "",
-        tipoExposicao: document.getElementById("risco-tipo-exposicao")?.value || "",
-        obsAmbientais: document.getElementById("risco-obs-ambientais")?.value || "",
-        probabilidade: document.getElementById("risco-probabilidade")?.value || "",
-        severidade: document.getElementById("risco-severidade")?.value || "",
-        aceitabilidade: document.getElementById("risco-aceitabilidade")?.value || "",
-        danos: document.getElementById("risco-danos")?.value || "",
-        epiUtilizado: document.getElementById("risco-epi-utilizado")?.value || "",
-        ca: document.getElementById("risco-ca")?.value || "",
-        epc: document.getElementById("risco-epc")?.value || "",
-        epiSugerido: document.getElementById("risco-epi-sugerido")?.value || "",
-        acoesNecessarias: document.getElementById("risco-acoes")?.value || "",
-        observacoesGerais: document.getElementById("risco-observacoes-gerais")?.value || ""
-    };
+    // Coleta os dados do formulário de forma segura
+    const riscoData = collectRiscoFormData();
+
+    // Valida o campo obrigatório
+    if (!riscoData.perigo) {
+        showToast("A descrição do perigo é obrigatória.", "error");
+        if (perigoInput) perigoInput.focus(); // Ajuda o usuário a corrigir
+        return;
+    }
+  
+    // Vincula os exames à nova data de risco
     riscoData.exames = Array.isArray(examesTemporarios) ? [...examesTemporarios] : [];
   
     const { risks: targetArray, type } = getActiveTargetObject();
-    if (!targetArray) return showToast("Contexto inválido para salvar risco.", "error");
-    
+    if (!targetArray) {
+        return showToast("Contexto inválido para salvar risco.", "error");
+    }
+  
     const isEditing = editingIndex > -1;
     let message = `Risco ${isEditing ? 'atualizado' : 'adicionado'}`;
     if (type === 'grupo') message += ' para o grupo!';
 
+    // Adiciona ou atualiza o risco no array
     if (isEditing) {
         targetArray[editingIndex] = riscoData;
     } else {
@@ -1628,10 +1620,12 @@ function saveRisco() {
   
     showToast(message, "success");
     const itemIndex = isEditing ? editingIndex : targetArray.length - 1;
+    
+    // Limpa o formulário e atualiza a UI
     clearRiscoForm();
     updateRiscoList();
-
-    // ★ MELHORIA 1: Feedback visual
+    
+    // Feedback visual com scroll
     setTimeout(() => {
         const listItems = document.querySelectorAll('#risco-list li');
         if (listItems[itemIndex]) {
@@ -1641,9 +1635,12 @@ function saveRisco() {
         }
     }, 100);
     
-    persistCurrentInspectionWithPromise().catch(error => console.error("Erro ao salvar:", error));
+    // Persiste os dados no banco
+    persistCurrentInspectionWithPromise().catch(error => {
+        console.error("Erro ao salvar risco:", error);
+        showToast("Erro ao salvar no banco de dados.", "warning");
+    });
 }
-
 
 function editRisco(index) {
     editingIndex = index;
@@ -3348,15 +3345,21 @@ function logCurrentState(context) {
 // Adicione este bloco no final do seu arquivo app.js
 // ==========================================
 window.addEventListener('error', function(event) {
-    console.error('ERRO GLOBAL CAPTURADO:', event.message, 'em', event.filename, ':', event.lineno);
+    const { message, filename, lineno, colno, error } = event;
     
-    // Previne a caixa de diálogo de erro padrão do navegador
-    event.preventDefault();
+    // Formata uma mensagem de erro detalhada
+    const fileNameSimple = filename.substring(filename.lastIndexOf('/') + 1);
+    const errorMessage = `ERRO: ${message} em ${fileNameSimple} (Linha: ${lineno})`;
+    
+    // Loga a mensagem formatada e o objeto de erro completo (com stack trace) no nosso console móvel
+    console.error(errorMessage);
+    if (error) {
+        console.error("Detalhes do Erro:", error);
+    }
+    
+    event.preventDefault(); // Previne a caixa de diálogo de erro padrão do navegador
 
-    // Mostra um toast para erros menores que não param a execução
-    showToast('Ocorreu um erro inesperado.', 'error');
-
-    // Para erros graves, oferece para recarregar a página
+    // Mostra o overlay de erro para o usuário
     let errorOverlay = document.getElementById('error-overlay');
     if (!errorOverlay) {
         errorOverlay = document.createElement('div');
@@ -3373,8 +3376,8 @@ window.addEventListener('error', function(event) {
                 <p style="margin: 1rem 0; color: var(--gray-700);">
                     O aplicativo encontrou um erro inesperado. Recomendamos recarregar a página para continuar.
                 </p>
-                <p style="font-size: 0.8rem; color: var(--gray-500); margin-bottom: 1.5rem;">
-                    Os detalhes do erro foram registrados no console de depuração para análise.
+                <p style="font-size: 0.8rem; color: var(--gray-500); margin-bottom: 1.5rem; word-break: break-all;">
+                    <i>Detalhes técnicos foram registrados no console de depuração (🐞).</i>
                 </p>
                 <button class="primary" onclick="location.reload()">Recarregar Aplicativo</button>
             </div>
@@ -3382,6 +3385,51 @@ window.addEventListener('error', function(event) {
         document.body.appendChild(errorOverlay);
     }
 });
+/**
+ * ★★★ CORREÇÃO CRÍTICA (3.0) ★★★
+ * Lê o valor de um campo de forma segura, retornando um valor padrão se o elemento não for encontrado.
+ * Isso evita o erro "Cannot read properties of null".
+ * @param {string} id - O ID do elemento a ser lido.
+ * @param {any} defaultValue - O valor a ser retornado se o elemento não for encontrado.
+ * @returns {string} - O valor do elemento ou o valor padrão.
+ */
+function getFieldValue(id, defaultValue = '') {
+    const element = document.getElementById(id);
+    // Se o elemento existir, retorna seu valor; senão, retorna o padrão.
+    return element ? element.value : defaultValue;
+}
+
+/**
+ * ★★★ CORREÇÃO CRÍTICA (3.0) ★★★
+ * Coleta todos os dados do formulário de risco de forma robusta e à prova de falhas,
+ * usando o auxiliar getFieldValue.
+ * @returns {object} - O objeto riscoData com todos os campos.
+ */
+function collectRiscoFormData() {
+    return {
+        riscoPresente: getFieldValue("risco-presente", "Sim"),
+        tipo: getFieldValue("risco-tipo"),
+        codigoEsocial: getFieldValue("risco-esocial"),
+        perigo: getFieldValue("risco-perigo").trim(), // .trim() é seguro aqui pois getFieldValue retorna string
+        descricaoDetalhada: getFieldValue("risco-descricao-detalhada"),
+        fonteGeradora: getFieldValue("risco-fonte"),
+        perfilExposicao: getFieldValue("risco-perfil-exposicao"),
+        medicao: getFieldValue("risco-medicao"),
+        tempoExposicao: getFieldValue("risco-tempo-exposicao"),
+        tipoExposicao: getFieldValue("risco-tipo-exposicao", "Permanente"),
+        obsAmbientais: getFieldValue("risco-obs-ambientais"),
+        probabilidade: getFieldValue("risco-probabilidade", "Improvável"),
+        severidade: getFieldValue("risco-severidade", "Baixa"),
+        aceitabilidade: getFieldValue("risco-aceitabilidade", "Tolerável"),
+        danos: getFieldValue("risco-danos"),
+        epiUtilizado: getFieldValue("risco-epi-utilizado"),
+        ca: getFieldValue("risco-ca"),
+        epc: getFieldValue("risco-epc"),
+        epiSugerido: getFieldValue("risco-epi-sugerido"),
+        acoesNecessarias: getFieldValue("risco-acoes"),
+        observacoesGerais: getFieldValue("risco-observacoes-gerais")
+    };
+}
   // ==========================================
 // ★★★ CONSOLE DE DEBUG MÓVEL ★★★
 // ==========================================
