@@ -178,20 +178,56 @@ function goToStep(step, deptoIndex = null) {
         currentGroupId = null;
     }
     if (step >= 2) {
-        if (activeDepartamentoIndex === null || activeDepartamentoIndex < 0) {
-            showToast('Selecione um departamento antes de prosseguir.', 'warning');
-            return;
-        }
-        if (!currentInspection.departamentos || !currentInspection.departamentos[activeDepartamentoIndex]) {
-            showToast('Departamento não encontrado. Retornando à lista.', 'error');
-            goToStep(1);
-            return;
+        if (activeDepartamentoIndex < 0 || !currentInspection.departamentos?.[activeDepartamentoIndex]) {
+            showToast('Departamento inválido. Retornando à lista.', 'error');
+            // Chama a função novamente para ir para o passo 1, em vez de continuar com erro
+            return goToStep(1); 
         }
     }
     wizardStep = step;
+
+    // ★ NOVO: Feedback visual de carregamento durante a transição
+    const wizardContent = document.getElementById('wizard-content');
+    if (wizardContent) {
+        wizardContent.innerHTML = '<div style="text-align:center; padding: 4rem; color: var(--gray-500);">Carregando...</div>';
+    }
+    
+    // Renderiza o cabeçalho e, em seguida, o conteúdo do passo após um pequeno delay
+    // para garantir que a mensagem de "Carregando" seja exibida primeiro.
     renderWizardHeader();
-    renderWizardStep();
+    setTimeout(() => {
+        renderWizardStep();
+    }, 50); // 50ms é suficiente para a UI atualizar
 }
+function focusOnEditForm(type, item) {
+    const detailsElement = document.getElementById(`${type}-form-details`);
+    const formElement = document.getElementById(`${type}-form`);
+    const nameField = document.getElementById(`${type}-${type === 'grupo' ? 'nomes' : 'nome'}`);
+    
+    if (!detailsElement || !formElement || !nameField) {
+        return showToast("Erro: Elementos do formulário de edição não encontrados.", "error");
+    }
+
+    // 1. Abre o acordeão
+    detailsElement.setAttribute("open", "");
+
+    // 2. Preenche os dados
+    if (type === 'grupo') {
+        nameField.value = (item.listaDeCargos || []).join('\n');
+    } else {
+        nameField.value = item.nome || '';
+    }
+    populateForm(type, item);
+    document.getElementById(`save-${type}-btn`).innerHTML = "Salvar Alterações";
+    document.getElementById(`cancel-${type}-edit-btn`).classList.remove("hidden");
+
+    // 3. Rola e foca após a UI ser renderizada
+    setTimeout(() => {
+        formElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        nameField.focus();
+    }, 150); // Um pouco mais de tempo para garantir a renderização em dispositivos lentos
+}
+
 function retryOperation(operation, maxRetries = 3, delay = 100) {
     let retries = 0;
     
@@ -530,7 +566,7 @@ function renderWizardHeader() {
           <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
             <span id="autosave-status" style="color: var(--gray-500); font-size: 0.85rem; transition: all 0.3s ease; opacity: 0;"></span>
             ${reportButtonHTML}
-            <button class="secondary" onclick="saveAndExit()">Salvar e Voltar ao Painel</button>
+            <button class="secondary" onclick="saveAndExit(this)">Salvar e Voltar ao Painel</button>
           </div>
         </div>`;
     } else {
@@ -1246,83 +1282,21 @@ function editCargo(index) {
     editingIndex = index;
     editingType = 'cargo';
     const cargo = currentInspection.departamentos[activeDepartamentoIndex].cargos[index];
-    const detailsElement = document.getElementById("cargo-form-details");
-    const formElement = document.getElementById('cargo-form');
-
-    if (!detailsElement || !formElement) {
-        showToast("Erro: Elementos do formulário não encontrados.", "error");
-        return;
-    }
-    
-    // 1. Abre o acordeão de forma forçada
-    detailsElement.setAttribute("open", "");
-    
-    // 2. Preenche os dados do formulário
-    document.getElementById("cargo-nome").value = cargo.nome || '';
-    populateForm('cargo', cargo);
-    document.getElementById("save-cargo-btn").innerHTML = "Salvar Alterações";
-    document.getElementById("cancel-cargo-edit-btn").classList.remove("hidden");
-    
-    // 3. ★★★ CORREÇÃO PRINCIPAL ★★★
-    // Usa um pequeno delay para garantir que o navegador redesenhou a tela
-    // antes de tentar rolar até o elemento. Essencial para celulares.
-    setTimeout(() => {
-        formElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        document.getElementById("cargo-nome").focus(); // Foca no campo principal
-    }, 100); // 100ms é suficiente
+    focusOnEditForm('cargo', cargo);
 }
-
 
 function editFuncionario(index) {
     editingIndex = index;
     editingType = 'funcionario';
     const funcionario = currentInspection.departamentos[activeDepartamentoIndex].funcionarios[index];
-    const detailsElement = document.getElementById("funcionario-form-details");
-    const formElement = document.getElementById('funcionario-form');
-
-    if (!detailsElement || !formElement) {
-        showToast("Erro: Elementos do formulário não encontrados.", "error");
-        return;
-    }
-    
-    detailsElement.setAttribute("open", "");
-    
-    document.getElementById("funcionario-nome").value = funcionario.nome || '';
-    populateForm('funcionario', funcionario);
-    document.getElementById("save-funcionario-btn").innerHTML = "Salvar Alterações";
-    document.getElementById("cancel-funcionario-edit-btn").classList.remove("hidden");
-    
-    // ★★★ CORREÇÃO PRINCIPAL ★★★
-    setTimeout(() => {
-        formElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        document.getElementById("funcionario-nome").focus();
-    }, 100);
+    focusOnEditForm('funcionario', funcionario);
 }
 
 function editGrupo(index) {
     editingIndex = index;
     editingType = 'grupo';
     const grupo = currentInspection.departamentos[activeDepartamentoIndex].grupos[index];
-    const detailsElement = document.getElementById("grupo-form-details");
-    const formElement = document.getElementById('grupo-form');
-    
-    if (!detailsElement || !formElement) {
-        showToast("Erro: Elementos do formulário não encontrados.", "error");
-        return;
-    }
-    
-    detailsElement.setAttribute("open", "");
-    
-    document.getElementById("grupo-nomes").value = (grupo.listaDeCargos || []).join('\n');
-    populateForm('grupo', grupo);
-    document.getElementById("save-grupo-btn").innerHTML = "Salvar Alterações";
-    document.getElementById("cancel-grupo-edit-btn").classList.remove("hidden");
-    
-    // ★★★ CORREÇÃO PRINCIPAL ★★★
-    setTimeout(() => {
-        formElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        document.getElementById("grupo-nomes").focus();
-    }, 100);
+    focusOnEditForm('grupo', grupo);
 }
 
 function clearForm(type) {
@@ -1776,11 +1750,25 @@ function switchRiskContext(value) {
 // DASHBOARD E GERENCIAMENTO DE INSPEÇÕES
 // ==========================================
 
-function saveAndExit() {
-    persistCurrentInspection((success) => {
-        if(success) { showToast('Inspeção salva!', 'success'); showDashboard(); }
-        else { showToast('Não foi possível salvar.', 'error'); }
-    });
+async function saveAndExit(button) {
+    // ★ NOVO: Desabilita o botão e mostra feedback
+    if (button) {
+        button.disabled = true;
+        button.innerHTML = '<i class="bi bi-arrow-repeat"></i> Salvando...';
+    }
+
+    try {
+        await persistCurrentInspectionWithPromise();
+        showToast('Inspeção salva com sucesso!', 'success');
+        showDashboard();
+    } catch (error) {
+        showToast('Não foi possível salvar a inspeção.', 'error');
+        // ★ NOVO: Reabilita o botão em caso de erro
+        if (button) {
+            button.disabled = false;
+            button.innerHTML = 'Salvar e Voltar ao Painel';
+        }
+    }
 }
 
 async function loadInspections() {
