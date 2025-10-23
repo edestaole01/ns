@@ -4,20 +4,23 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Assistente de Inspeção de Riscos</title>
+    <link rel="manifest" href="manifest.json">
+    
+    <!-- Ícones para abas e tela inicial -->
     <link rel="icon" href="icon-192.png" type="image/png">
     <link rel="apple-touch-icon" href="icon-192.png">
-    <link rel="manifest" href="manifest.json">
+
+    <!-- Fontes e Ícones CSS -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
+    
+    <!-- Biblioteca JS -->
     <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js" defer></script>
-    <style>
-        /* Seu CSS inteiro permanece aqui, sem alterações */
-        :root { /* ... */ }
-        /* ... */
-        @media (max-width: 768px) { /* ... */ }
-    </style>
+
+    <!-- Estilos da Aplicação -->
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <nav class="main-nav">
@@ -29,25 +32,54 @@
     </nav>
 
     <div class="container">
-        <!-- Seu HTML das views permanece aqui, sem alterações -->
         <div id="dashboard-view">
-            <!-- ... -->
+            <div class="card">
+                <div class="header">
+                    <div>
+                        <h1>Bem-vindo ao Sistema de Inspeção</h1>
+                        <p style="color: var(--gray-600); margin-top: 0.5rem;">Gerencie inspeções de segurança e riscos ocupacionais</p>
+                    </div>
+                </div>
+                <div class="stats-grid" id="stats-container">
+                    <div class="stat-card"><span class="stat-value" id="stat-total">0</span><span class="stat-label">Inspeções Cadastradas</span></div>
+                    <div class="stat-card"><span class="stat-value" id="stat-departamentos">0</span><span class="stat-label">Total de Departamentos</span></div>
+                    <div class="stat-card"><span class="stat-value" id="stat-cargos">0</span><span class="stat-label">Total de Cargos/Func.</span></div>
+                    <div class="stat-card"><span class="stat-value" id="stat-riscos">0</span><span class="stat-label">Total de Riscos</span></div>
+                </div>
+            </div>
+            <div class="card" id="inspections-section">
+                <div class="header">
+                    <h2>Inspeções Cadastradas</h2>
+                    <div class="actions">
+                        <button class="primary" onclick="startNewInspection()">
+                           <i class="bi bi-plus-lg"></i> Nova Inspeção
+                        </button>
+                    </div>
+                </div>
+                <ul id="inspection-list" class="item-list"></ul>
+            </div>
         </div>
+
         <div id="wizard-view" class="hidden">
-            <!-- ... -->
+            <div id="wizard-header-container"></div>
+            <ul class="progress-bar">
+                <li id="step-empresa" data-step="1">Empresa</li>
+                <li id="step-departamento" data-step="2">Departamentos</li>
+                <li id="step-cargo" data-step="3">Cargos/Funcionários</li>
+                <li id="step-risco" data-step="4">Riscos</li>
+            </ul>
+            <div id="wizard-content"></div>
         </div>
-        <div id="action-plan-view" class="hidden">
-            <!-- ... -->
-        </div>
+        
+        <div id="action-plan-view" class="hidden"></div>
     </div>
 
-    <!-- SCRIPT PRINCIPAL DA APLICAÇÃO -->
+    <!-- Scripts da Aplicação -->
     <script src="version.js"></script>
     <script src="risks-data.js"></script>
     <script src="exames-data.js"></script>
     <script src="sugestoes-data.js"></script> 
-    <script src="app.js" defer></script> 
-    <!-- Note que removemos o "?v=1.4", o SW cuidará do versionamento -->
+    <script src="app.js" defer></script>
 
 </body>
 </html>

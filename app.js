@@ -10,7 +10,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     initializeDbAndApp();
-    setupServiceWorker(); // ★ NOVO: Chamada para a função centralizada
+    setupServiceWorker(); // ★ CHAMADA CORRETA
 });
 
 
@@ -85,37 +85,6 @@ function initializeDbAndApp() {
 }
 
 /**
- * ★ NOVO: Função para verificar se há uma nova versão do app disponível.
- */
-function checkForUpdates() {
-    if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.getRegistration().then(reg => {
-            if (reg) {
-                // Existe um service worker, vamos verificar se há uma atualização esperando
-                if (reg.waiting) {
-                    showUpdateBar();
-                    return;
-                }
-                // Escuta por novas versões que estão sendo instaladas
-                reg.onupdatefound = () => {
-                    const installingWorker = reg.installing;
-                    if (installingWorker) {
-                        installingWorker.onstatechange = () => {
-                            if (installingWorker.state === 'installed') {
-                                if (navigator.serviceWorker.controller) {
-                                    // Nova versão pronta para ser ativada
-                                    showUpdateBar();
-                                }
-                            }
-                        };
-                    }
-                };
-            }
-        });
-    }
-}
-
-/**
  * ★ NOVO: Mostra uma barra no topo da página oferecendo a atualização.
  */
 function showUpdateBar() {
@@ -134,27 +103,6 @@ function showUpdateBar() {
         `;
         document.body.appendChild(updateBar);
     }
-}
-
-
-async function atualizarAplicativo() {
-  showToast('Atualizando o aplicativo...', 'success');
-  if ('serviceWorker' in navigator) {
-    const registration = await navigator.serviceWorker.getRegistration();
-    if (registration && registration.waiting) {
-      // Envia uma mensagem para o SW em espera para pular a espera
-      registration.waiting.postMessage({ type: 'SKIP_WAITING' });
-      // Espera um pouco para o SW assumir o controle antes de recarregar
-      setTimeout(() => {
-          window.location.reload();
-      }, 500);
-    } else {
-        // Se não houver SW esperando, apenas recarrega
-        window.location.reload();
-    }
-  } else {
-      window.location.reload();
-  }
 }
 
 function validateDataIntegrity() {
@@ -3531,12 +3479,49 @@ function setupServiceWorker() {
         console.warn("Service Worker não suportado.");
         return;
     }
+    let newWorker;
+    navigator.serviceWorker.register('./sw.js').then(reg => {
+        console.log('Service Worker registrado com sucesso.');
+        if (reg.waiting) {
+            newWorker = reg.waiting;
+            showUpdateBar();
+            return;
+        }
+        reg.addEventListener('updatefound', () => {
+            newWorker = reg.installing;
+            newWorker.addEventListener('statechange', () => {
+                if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                    showUpdateBar();
+                }
+            });
+        });
+    }).catch(error => {
+        console.error('Falha ao registrar o Service Worker:', error);
+    });
 
+    document.body.addEventListener('click', (event) => {
+        if (event.target.id === 'pwa-update-button' && newWorker) {
+            newWorker.postMessage({ type: 'SKIP_WAITING' });
+        }
+    });
+
+    let refreshing;
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+        if (refreshing) return;
+        window.location.reload();
+        refreshing = true;
+    });
+}
+function setupServiceWorker() {
+    if (!('serviceWorker' in navigator)) {
+        console.warn("Service Worker não suportado.");
+        return;
+    }
     let newWorker;
 
-    navigator.serviceWorker.register('sw.js').then(reg => {
+    navigator.serviceWorker.register('./sw.js').then(reg => {
         console.log('Service Worker registrado com sucesso.');
-
+        
         // 1. Verifica se já existe um SW esperando para ser ativado
         if (reg.waiting) {
             newWorker = reg.waiting;
@@ -3551,7 +3536,7 @@ function setupServiceWorker() {
                 // 3. Se um novo SW for instalado e já houver um antigo controlando a página...
                 if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
                     // ...mostra a barra de atualização para o usuário.
-                    showUpdateBar(newWorker);
+                    showUpdateBar();
                 }
             });
         });
@@ -3560,9 +3545,9 @@ function setupServiceWorker() {
     });
 
     // 4. Escuta o clique no botão de atualizar (na barra)
-    // Usamos delegação de eventos para garantir que o botão exista
     document.body.addEventListener('click', (event) => {
         if (event.target.id === 'pwa-update-button' && newWorker) {
+            // Diz ao novo SW para pular a espera e se tornar ativo
             newWorker.postMessage({ type: 'SKIP_WAITING' });
         }
     });
