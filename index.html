@@ -378,6 +378,7 @@
     </style>
 </head>
 <body>
+
     <nav class="main-nav">
         <div class="logo"><i class="bi bi-shield-check"></i> Inspeção de Riscos</div>
         <div class="nav-links">
@@ -385,7 +386,33 @@
             <span id="app-version-display" class="app-version"></span>
         </div>
     </nav>
-
+    <script>
+        (function() {
+            console.log("Executando script de limpeza de emergência...");
+            if ('serviceWorker' in navigator) {
+                navigator.serviceWorker.getRegistrations().then(function(registrations) {
+                    if (registrations.length === 0) {
+                        console.log("Nenhum Service Worker encontrado para remover.");
+                        return;
+                    }
+                    for (let registration of registrations) {
+                        registration.unregister().then(function(boolean) {
+                            console.log(boolean ? 'Service Worker removido com sucesso.' : 'Falha ao remover Service Worker.');
+                        });
+                    }
+                    // Após a remoção, é crucial recarregar para que a página seja carregada sem o SW.
+                    setTimeout(() => {
+                        console.log("Recarregando a página para aplicar a limpeza...");
+                        window.location.reload();
+                    }, 1000);
+                }).catch(function(err) {
+                    console.error('Erro durante a remoção do Service Worker: ', err);
+                });
+            } else {
+                console.log("Service Worker não é suportado neste navegador.");
+            }
+        })();
+    </script>
     <div class="container">
         <div id="dashboard-view">
             <div class="card">
