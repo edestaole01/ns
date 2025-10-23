@@ -864,7 +864,7 @@ function renderCargoFuncionarioStep() {
       <div class="wizard-header"><h2>Cargos/Funcionários — ${depto.nome || "Departamento"}</h2></div>
   
       <div class="form-grid">
-        <!-- CARGOS -->
+        <!-- COLUNA 1: CARGOS -->
         <div class="card">
           <h3>Cargos Individuais</h3>
           <ul id="cargo-list" class="item-list"></ul>
@@ -886,7 +886,7 @@ function renderCargoFuncionarioStep() {
           </details>
         </div>
   
-        <!-- GRUPOS -->
+        <!-- COLUNA 2: GRUPOS -->
         <div class="card">
           <h3>Grupos de Cargos</h3>
           <ul id="grupo-list" class="item-list"></ul>
@@ -908,7 +908,7 @@ function renderCargoFuncionarioStep() {
           </details>
         </div>
   
-        <!-- FUNCIONÁRIOS -->
+        <!-- COLUNA 3: FUNCIONÁRIOS -->
         <div class="card">
           <h3>Funcionários</h3>
           <ul id="funcionario-list" class="item-list"></ul>
@@ -945,7 +945,7 @@ function renderCargoFuncionarioStep() {
         if (typeof Sortable !== 'undefined') initializeSortableLists();
       } catch (e) { console.warn('SortableJS não inicializado:', e); }
     });
-  }
+}
 
   function getFormFieldsHTML(prefix) {
     return `
