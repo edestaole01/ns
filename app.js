@@ -718,30 +718,44 @@ function updateDepartamentoList() {
 function saveDepartamento() {
     validateDataIntegrity();
     const deptoData = {
-        nome: document.getElementById("depto-nome").value,
+        nome: document.getElementById("depto-nome").value.trim(),
         caracteristica: document.getElementById("depto-caracteristica").value,
         descricao: document.getElementById("depto-descricao").value
     };
-    if (!deptoData.nome) return showToast("O nome do departamento é obrigatório.", "error");
-    if (!currentInspection.departamentos) currentInspection.departamentos = [];
+
+    if (!deptoData.nome) {
+        return showToast("O nome do departamento é obrigatório.", "error");
+    }
+    
+    if (!currentInspection.departamentos) {
+        currentInspection.departamentos = [];
+    }
 
     const isEditing = editingIndex > -1;
+    
     if (isEditing) {
-        currentInspection.departamentos[editingIndex] = { ...currentInspection.departamentos[editingIndex], ...deptoData };
+        // Usa Object.assign para modificar o objeto existente, preservando a referência.
+        // É mais seguro do que criar um novo objeto com spread operator.
+        Object.assign(currentInspection.departamentos[editingIndex], deptoData);
         showToast("Departamento atualizado!", "success");
     } else {
-        deptoData.cargos = [];
-        deptoData.funcionarios = [];
-        deptoData.grupos = [];
-        currentInspection.departamentos.push(deptoData);
+        // Garante que o novo departamento tenha todas as propriedades necessárias.
+        const novoDepartamento = {
+            ...deptoData,
+            cargos: [],
+            funcionarios: [],
+            grupos: []
+        };
+        currentInspection.departamentos.push(novoDepartamento);
         showToast("Departamento adicionado!", "success");
     }
     
     const itemIndex = isEditing ? editingIndex : currentInspection.departamentos.length - 1;
+    
     clearDeptoForm();
     updateDepartamentoList();
     
-    // ★ MELHORIA 1: Feedback visual
+    // Feedback visual com scroll
     setTimeout(() => {
         const listItems = document.querySelectorAll('#departamento-list li');
         if (listItems[itemIndex]) {
@@ -751,6 +765,7 @@ function saveDepartamento() {
         }
     }, 100);
 
+    // Persiste os dados no banco
     persistCurrentInspectionWithPromise().catch(error => {
         console.error("Erro ao salvar departamento:", error);
         showToast("Erro ao salvar no banco de dados!", "error");
@@ -877,41 +892,39 @@ function getFormFieldsHTML(prefix) {
 }
 
 function renderCargoFuncionarioStep() {
-    // VALIDAÇÃO IMPORTANTE
     if (!validateDataIntegrity()) {
-        showToast("Erro ao carregar dados. Recarregando...", "warning");
-        return;
+        showToast("Erro de integridade de dados. Retornando.", "error");
+        return goToStep(1);
     }
-    if (activeDepartamentoIndex < 0 || !currentInspection.departamentos || !currentInspection.departamentos[activeDepartamentoIndex]) {
-        showToast("Erro: Departamento não encontrado!", "error");
-        goToStep(1);
-        return;
+    if (activeDepartamentoIndex < 0 || !currentInspection.departamentos?.[activeDepartamentoIndex]) {
+        showToast("Erro: Departamento não encontrado ou inválido!", "error");
+        return goToStep(1);
     }
     
     const depto = currentInspection.departamentos[activeDepartamentoIndex];
     
-    // Garante estruturas
-    if (!depto.grupos) depto.grupos = [];
-    if (!depto.cargos) depto.cargos = [];
-    if (!depto.funcionarios) depto.funcionarios = [];
+    // Validação defensiva: Garante que as arrays existam no objeto 'depto'
+    if (!Array.isArray(depto.grupos)) depto.grupos = [];
+    if (!Array.isArray(depto.cargos)) depto.cargos = [];
+    if (!Array.isArray(depto.funcionarios)) depto.funcionarios = [];
     
     const isMobile = window.innerWidth <= 768;
     const detailsAttr = isMobile ? 'open' : '';
     
-    // HTML COMPLETO - CORREÇÃO AQUI
+    // O HTML da função permanece o mesmo que você já tem
     document.getElementById('wizard-content').innerHTML = `
         <div class="card">
             ${renderBreadcrumb()}
-            <h3>Grupos de Cargos <small style="font-weight: 400; color: var(--gray-500);">(Arraste para reordenar)</small></h3>
+            <h3>Grupos de Cargos <small>(Arraste para reordenar)</small></h3>
             <ul id="grupo-list" class="item-list"></ul>
             <details id="grupo-form-details" class="accordion-section" ${detailsAttr}>
                 <summary onclick="toggleAccordion(event, 'grupo-form-details')">Adicionar Novo Grupo</summary>
                 <div>
                     <form id="grupo-form">
                         <div class="form-group">
-                            <label for="grupo-nomes">Nomes dos Cargos do Grupo (um por linha) *</label>
+                            <label for="grupo-nomes">Nomes dos Cargos (um por linha) *</label>
                             ${wrapWithVoiceButton('grupo-nomes', 'Motorista A\\nMotorista B', '', true, 'textarea')}
-                            <small>Cargos em um grupo compartilham os mesmos riscos e detalhes.</small>
+                            <small>Cargos em um grupo compartilham os mesmos riscos.</small>
                         </div>
                         ${getFormFieldsHTML('grupo')}
                         <div class="form-actions">
@@ -921,10 +934,10 @@ function renderCargoFuncionarioStep() {
                     </form>
                 </div>
             </details>
-            <h3 style="margin-top: 2rem;">Cargos Individuais <small style="font-weight: 400; color: var(--gray-500);">(Arraste para reordenar)</small></h3>
+            <h3 style="margin-top: 2rem;">Cargos Individuais <small>(Arraste para reordenar)</small></h3>
             <ul id="cargo-list" class="item-list"></ul>
             <details id="cargo-form-details" class="accordion-section" ${detailsAttr}>
-                <summary onclick="toggleAccordion(event, 'cargo-form-details')">Adicionar Novo Cargo Individual</summary>
+                <summary onclick="toggleAccordion(event, 'cargo-form-details')">Adicionar Novo Cargo</summary>
                 <div>
                     <form id="cargo-form">
                         <div class="form-group">
@@ -939,10 +952,10 @@ function renderCargoFuncionarioStep() {
                     </form>
                 </div>
             </details>
-            <h3 style="margin-top: 2rem;">Funcionários Individuais <small style="font-weight: 400; color: var(--gray-500);">(Arraste para reordenar)</small></h3>
+            <h3 style="margin-top: 2rem;">Funcionários Individuais <small>(Arraste para reordenar)</small></h3>
             <ul id="funcionario-list" class="item-list"></ul>
             <details id="funcionario-form-details" class="accordion-section" ${detailsAttr}>
-                <summary onclick="toggleAccordion(event, 'funcionario-form-details')">Adicionar Novo Funcionário Individual</summary>
+                <summary onclick="toggleAccordion(event, 'funcionario-form-details')">Adicionar Novo Funcionário</summary>
                 <div>
                     <form id="funcionario-form">
                         <div class="form-group">
@@ -960,7 +973,6 @@ function renderCargoFuncionarioStep() {
             <div class="wizard-nav"><button class="nav" onclick="goToStep(1)">Voltar para Departamentos</button></div>
         </div>`;
     
-    // Usar requestAnimationFrame
     requestAnimationFrame(() => {
         updateAllLists();
         if (typeof initializeSortableLists === 'function') {
@@ -1174,20 +1186,40 @@ function collectFormData(prefix) {
 function saveCargo() {
     const nome = document.getElementById("cargo-nome").value.trim();
     if (!nome) return showToast("O nome do cargo é obrigatório.", "error");
+    
     const depto = currentInspection.departamentos[activeDepartamentoIndex];
     if (!depto.cargos) depto.cargos = [];
-    const cargoData = { nome, ...collectFormData('cargo'), riscos: editingIndex > -1 && editingType === 'cargo' ? depto.cargos[editingIndex].riscos : [] };
-    if (editingIndex > -1 && editingType === 'cargo') {
-        depto.cargos[editingIndex] = cargoData;
+    
+    const isEditing = editingIndex > -1 && editingType === 'cargo';
+    const cargoData = { nome, ...collectFormData('cargo') };
+
+    if (isEditing) {
+        // Modifica o objeto existente, preservando 'riscos' e outras propriedades não coletadas no formulário.
+        Object.assign(depto.cargos[editingIndex], cargoData);
         showToast("Cargo atualizado!", "success");
     } else {
-        depto.cargos.push(cargoData);
+        // Garante que o novo objeto tenha todas as propriedades esperadas.
+        const novoCargo = { ...cargoData, riscos: [], exames: [] };
+        depto.cargos.push(novoCargo);
         showToast("Cargo adicionado!", "success");
     }
+    
+    const itemIndex = isEditing ? editingIndex : depto.cargos.length - 1;
     clearForm('cargo');
     updateCargoList();
+    
+    // Feedback visual
+    setTimeout(() => {
+        const listItems = document.querySelectorAll('#cargo-list li');
+        if (listItems[itemIndex]) {
+            listItems[itemIndex].classList.add('item-highlight');
+            listItems[itemIndex].scrollIntoView({ behavior: 'smooth', block: 'center' });
+            setTimeout(() => listItems[itemIndex].classList.remove('item-highlight'), 2500);
+        }
+    }, 100);
+
     persistCurrentInspectionWithPromise().catch(error => {
-        console.error("Erro ao salvar:", error);
+        console.error("Erro ao salvar cargo:", error);
         showToast("Erro ao salvar. Tentando novamente...", "warning");
     });
 }
@@ -1195,20 +1227,38 @@ function saveCargo() {
 function saveFuncionario() {
     const nome = document.getElementById("funcionario-nome").value.trim();
     if (!nome) return showToast("O nome do funcionário é obrigatório.", "error");
+
     const depto = currentInspection.departamentos[activeDepartamentoIndex];
     if (!depto.funcionarios) depto.funcionarios = [];
-    const funcionarioData = { nome, ...collectFormData('funcionario'), riscos: editingIndex > -1 && editingType === 'funcionario' ? depto.funcionarios[editingIndex].riscos : [] };
-    if (editingIndex > -1 && editingType === 'funcionario') {
-        depto.funcionarios[editingIndex] = funcionarioData;
+
+    const isEditing = editingIndex > -1 && editingType === 'funcionario';
+    const funcionarioData = { nome, ...collectFormData('funcionario') };
+
+    if (isEditing) {
+        Object.assign(depto.funcionarios[editingIndex], funcionarioData);
         showToast("Funcionário atualizado!", "success");
     } else {
-        depto.funcionarios.push(funcionarioData);
+        const novoFuncionario = { ...funcionarioData, riscos: [], exames: [] };
+        depto.funcionarios.push(novoFuncionario);
         showToast("Funcionário adicionado!", "success");
     }
+
+    const itemIndex = isEditing ? editingIndex : depto.funcionarios.length - 1;
     clearForm('funcionario');
     updateFuncionarioList();
+
+    // Feedback visual
+    setTimeout(() => {
+        const listItems = document.querySelectorAll('#funcionario-list li');
+        if (listItems[itemIndex]) {
+            listItems[itemIndex].classList.add('item-highlight');
+            listItems[itemIndex].scrollIntoView({ behavior: 'smooth', block: 'center' });
+            setTimeout(() => listItems[itemIndex].classList.remove('item-highlight'), 2500);
+        }
+    }, 100);
+
     persistCurrentInspectionWithPromise().catch(error => {
-        console.error("Erro ao salvar:", error);
+        console.error("Erro ao salvar funcionário:", error);
         showToast("Erro ao salvar. Tentando novamente...", "warning");
     });
 }
@@ -1216,22 +1266,41 @@ function saveFuncionario() {
 function saveGrupo() {
     const nomesText = document.getElementById("grupo-nomes").value.trim();
     if (!nomesText) return showToast("Digite os nomes dos cargos do grupo.", "error");
+    
     const nomes = nomesText.split('\n').map(n => n.trim()).filter(n => n.length > 0);
     if (nomes.length === 0) return showToast("Nomes de cargos inválidos.", "error");
+
     const depto = currentInspection.departamentos[activeDepartamentoIndex];
     if (!depto.grupos) depto.grupos = [];
-    const grupoData = { listaDeCargos: nomes, ...collectFormData('grupo'), riscos: editingIndex > -1 && editingType === 'grupo' ? depto.grupos[editingIndex].riscos : [], id: editingIndex > -1 && editingType === 'grupo' ? depto.grupos[editingIndex].id : 'grupo_' + Date.now() };
-    if (editingIndex > -1 && editingType === 'grupo') {
-        depto.grupos[editingIndex] = grupoData;
+
+    const isEditing = editingIndex > -1 && editingType === 'grupo';
+    const grupoData = { listaDeCargos: nomes, ...collectFormData('grupo') };
+    
+    if (isEditing) {
+        Object.assign(depto.grupos[editingIndex], grupoData);
         showToast("Grupo atualizado!", "success");
     } else {
-        depto.grupos.push(grupoData);
+        const novoGrupo = { ...grupoData, id: 'grupo_' + Date.now(), riscos: [], exames: [] };
+        depto.grupos.push(novoGrupo);
         showToast("Grupo criado!", "success");
     }
+
+    const itemIndex = isEditing ? editingIndex : depto.grupos.length - 1;
     clearForm('grupo');
     updateGrupoList();
+
+    // Feedback visual
+    setTimeout(() => {
+        const listItems = document.querySelectorAll('#grupo-list li');
+        if (listItems[itemIndex]) {
+            listItems[itemIndex].classList.add('item-highlight');
+            listItems[itemIndex].scrollIntoView({ behavior: 'smooth', block: 'center' });
+            setTimeout(() => listItems[itemIndex].classList.remove('item-highlight'), 2500);
+        }
+    }, 100);
+
     persistCurrentInspectionWithPromise().catch(error => {
-        console.error("Erro ao salvar:", error);
+        console.error("Erro ao salvar grupo:", error);
         showToast("Erro ao salvar. Tentando novamente...", "warning");
     });
 }
@@ -1374,6 +1443,43 @@ function addMobileDebugInfo() {
 window.addEventListener('error', (event) => {
     console.error('Erro global capturado:', event.error);
     addMobileDebugInfo();
+});
+
+// ==========================================
+// ★★★ CAPTURA DE ERROS DE PROMISES (ESSENCIAL) ★★★
+// ==========================================
+window.addEventListener('unhandledrejection', function(event) {
+    // O objeto de erro está em event.reason
+    const error = event.reason;
+    console.error('PROMISE REJECTION NÃO TRATADA:', error);
+
+    event.preventDefault(); // Previne que o erro seja logado duas vezes em alguns navegadores
+
+    // Mostra o overlay de erro para o usuário com a mensagem do erro real
+    let errorOverlay = document.getElementById('error-overlay');
+    if (!errorOverlay) {
+        errorOverlay = document.createElement('div');
+        errorOverlay.id = 'error-overlay';
+        errorOverlay.style.cssText = `
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background-color: rgba(0,0,0,0.7); z-index: 10000;
+            display: flex; align-items: center; justify-content: center;
+            padding: 2rem;
+        `;
+        errorOverlay.innerHTML = `
+            <div style="background: white; padding: 2rem; border-radius: 1rem; text-align: center; max-width: 500px; box-shadow: var(--shadow-lg);">
+                <h2 style="color: var(--danger);"><i class="bi bi-exclamation-triangle-fill"></i> Oops! Algo deu errado.</h2>
+                <p style="margin: 1rem 0; color: var(--gray-700);">
+                    O aplicativo encontrou um erro inesperado. Recomendamos recarregar a página para continuar.
+                </p>
+                <p style="font-size: 0.8rem; color: var(--gray-500); margin-bottom: 1.5rem; word-break: break-all;">
+                    <i>Detalhes técnicos foram registrados no console de depuração (🐞).</i>
+                </p>
+                <button class="primary" onclick="location.reload()">Recarregar Aplicativo</button>
+            </div>
+        `;
+        document.body.appendChild(errorOverlay);
+    }
 });
 
 // ==========================================
