@@ -290,8 +290,24 @@
             box-shadow: var(--shadow-md);
             transform: scale(1.02);
         }
+        .three-column-layout {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); /* Ajuste minmax se necessário */
+        gap: 1.5rem;
+        margin-top: 1rem; /* Pequeno espaçamento */
+    }
         
         @media (max-width: 768px) {
+            .three-column-layout {
+            grid-template-columns: 1fr; /* Uma coluna em telas pequenas */
+            gap: 1rem;
+            }
+            .accordion-section[open] summary::after {
+            transform: rotate(45deg);
+            }
+            details > div {
+                padding: 1rem; /* Ajuste o padding interno */
+            }
             .container { padding: 0 1rem; }
             .card { padding: 1.5rem; }
             h1 { font-size: 1.5rem; }
@@ -368,6 +384,7 @@
             .accordion-section > div {
                 padding: 1rem;
             }
+
             
             /* Garante que os botões dentro de accordions sejam visíveis */
             details .form-actions {
