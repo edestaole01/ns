@@ -1562,6 +1562,8 @@ function updatePerigoOptions(selectedType) {
         }
     });
 }
+
+
 async function atualizarAplicativo() {
     if ('serviceWorker' in navigator) {
       const reg = await navigator.serviceWorker.getRegistration();
