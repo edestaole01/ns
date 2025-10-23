@@ -1449,37 +1449,12 @@ window.addEventListener('error', (event) => {
 // ★★★ CAPTURA DE ERROS DE PROMISES (ESSENCIAL) ★★★
 // ==========================================
 window.addEventListener('unhandledrejection', function(event) {
-    // O objeto de erro está em event.reason
-    const error = event.reason;
-    console.error('PROMISE REJECTION NÃO TRATADA:', error);
-
-    event.preventDefault(); // Previne que o erro seja logado duas vezes em alguns navegadores
-
-    // Mostra o overlay de erro para o usuário com a mensagem do erro real
-    let errorOverlay = document.getElementById('error-overlay');
-    if (!errorOverlay) {
-        errorOverlay = document.createElement('div');
-        errorOverlay.id = 'error-overlay';
-        errorOverlay.style.cssText = `
-            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
-            background-color: rgba(0,0,0,0.7); z-index: 10000;
-            display: flex; align-items: center; justify-content: center;
-            padding: 2rem;
-        `;
-        errorOverlay.innerHTML = `
-            <div style="background: white; padding: 2rem; border-radius: 1rem; text-align: center; max-width: 500px; box-shadow: var(--shadow-lg);">
-                <h2 style="color: var(--danger);"><i class="bi bi-exclamation-triangle-fill"></i> Oops! Algo deu errado.</h2>
-                <p style="margin: 1rem 0; color: var(--gray-700);">
-                    O aplicativo encontrou um erro inesperado. Recomendamos recarregar a página para continuar.
-                </p>
-                <p style="font-size: 0.8rem; color: var(--gray-500); margin-bottom: 1.5rem; word-break: break-all;">
-                    <i>Detalhes técnicos foram registrados no console de depuração (🐞).</i>
-                </p>
-                <button class="primary" onclick="location.reload()">Recarregar Aplicativo</button>
-            </div>
-        `;
-        document.body.appendChild(errorOverlay);
-    }
+    const reason = event.reason || {};
+    const error = new Error(reason.message || 'Erro de Promise sem mensagem.');
+    error.stack = reason.stack || error.stack; // Preserva o stack trace se disponível
+    
+    reportCriticalError(error, 'uma operação assíncrona');
+    event.preventDefault();
 });
 
 // ==========================================
@@ -1798,34 +1773,40 @@ function deleteRisco(index) {
 }
 
 function addSuggestedRisk(perigoDescricao) {
-    const riscoParaAdicionar = predefinedRisks.find(r => r.perigo === perigoDescricao);
+    try {
+        const riscoParaAdicionar = predefinedRisks.find(r => r.perigo === perigoDescricao);
+        if (!riscoParaAdicionar) {
+            return showToast("Erro: Risco sugerido não encontrado na base de dados.", "error");
+        }
 
-    if (!riscoParaAdicionar) {
-        return showToast("Erro: Risco sugerido não encontrado na base de dados.", "error");
+        // Usa a função segura para obter o objeto e seu array de riscos
+        const { target: targetObject, risks: targetArray } = getActiveTargetObject();
+
+        // A verificação agora é muito mais simples e segura
+        if (!targetObject || !targetArray) {
+            reportCriticalError(new Error("Contexto inválido ao adicionar risco sugerido."), "adição de risco");
+            return;
+        }
+
+        const novoRisco = JSON.parse(JSON.stringify(riscoParaAdicionar));
+        
+        adicionarExamesSugeridos(novoRisco);
+
+        targetArray.push(novoRisco);
+
+        showToast(`Risco "${novoRisco.perigo}" adicionado!`, "success");
+        
+        // Renderiza novamente a etapa para atualizar a lista e as sugestões
+        renderRiscoStep(); 
+        
+        persistCurrentInspectionWithPromise().catch(error => {
+            console.error("Erro ao salvar risco sugerido:", error);
+            showToast("Erro ao salvar. Tentando novamente...", "warning");
+        });
+
+    } catch (error) {
+        reportCriticalError(error, "adição de risco sugerido");
     }
-
-    const depto = currentInspection.departamentos[activeDepartamentoIndex];
-    let targetObject;
-    if (currentGroupId) { targetObject = depto.grupos.find(g => g.id === currentGroupId); }
-    else if (activeCargoIndex > -1) { targetObject = depto.cargos[activeCargoIndex]; }
-    else if (activeFuncionarioIndex > -1) { targetObject = depto.funcionarios[activeFuncionarioIndex]; }
-
-    if (!targetObject) return;
-    if (!targetObject.riscos) targetObject.riscos = [];
-
-    const novoRisco = JSON.parse(JSON.stringify(riscoParaAdicionar));
-    
-    adicionarExamesSugeridos(novoRisco);
-
-    targetObject.riscos.push(novoRisco);
-
-    showToast(`Risco "${novoRisco.perigo}" adicionado!`, "success");
-    
-    renderRiscoStep();
-    persistCurrentInspectionWithPromise().catch(error => {
-        console.error("Erro ao salvar:", error);
-        showToast("Erro ao salvar. Tentando novamente...", "warning");
-    });
 }
 
 function adicionarExamesSugeridos(riscoData) {
@@ -2295,6 +2276,9 @@ async function generateInspectionReport(id) {
     }
 }
 
+* Gera o relatório de um cargo/grupo, agora com filtro de segurança para
+ * ignorar riscos nulos ou indefinidos em dados antigos/corrompidos.
+ */
 function renderCargoReport(cargo, titulo) {
     const req = cargo.requisitosNR || {};
     const formatChecklistItem = (value) => {
@@ -2320,12 +2304,16 @@ function renderCargoReport(cargo, titulo) {
             </div>
         </div>
         <h4>⚠️ Riscos Identificados</h4>`;
+    
+    // Filtra o array de riscos para remover entradas inválidas antes de iterar
+    const riscosValidos = (cargo.riscos || []).filter(Boolean);
 
-    if (cargo.riscos && cargo.riscos.length > 0) {
-        cargo.riscos.forEach((risco, idx) => {
+    if (riscosValidos.length > 0) {
+        riscosValidos.forEach((risco, idx) => {
             let examesTableHTML = '';
-            if (risco.exames && risco.exames.length > 0) {
-                const examesRows = risco.exames.map(exame => `
+            // Adiciona uma verificação extra para 'risco.exames'
+            if (risco.exames && Array.isArray(risco.exames) && risco.exames.length > 0) {
+                const examesRows = risco.exames.filter(Boolean).map(exame => `
                     <tr>
                         <td>
                             <strong>${escapeHtml(exame.nome)}</strong>
@@ -2343,7 +2331,7 @@ function renderCargoReport(cargo, titulo) {
                 examesTableHTML = `
                     <table>
                         <thead>
-                            <tr><th colspan="6" style="background:#0d9488">🏥 Exames Médicos Ocupacionais</th></tr>
+                            <tr><th colspan="6" style="background-color:#d1fae5; color: #065f46;">🏥 Exames Médicos Ocupacionais</th></tr>
                             <tr>
                                 <th style="width:40%">Exame</th>
                                 <th>Adm.</th>
@@ -2358,15 +2346,15 @@ function renderCargoReport(cargo, titulo) {
             }
 
             html += `<div class="risco-card"><h5>Risco ${idx+1}: ${escapeHtml(risco.perigo||'N/A')}</h5>
-            <table><thead><tr><th colspan="2" style="background:#2563eb">Informações Básicas</th></tr></thead><tbody><tr><td style="width:200px"><strong>Risco Presente:</strong></td><td>${escapeHtml(risco.riscoPresente||'N/A')}</td></tr><tr><td><strong>Tipo:</strong></td><td>${escapeHtml(risco.tipo||'N/A')}</td></tr><tr><td><strong>E-Social:</strong></td><td>${escapeHtml(risco.codigoEsocial||'N/A')}</td></tr><tr><td><strong>Descrição:</strong></td><td>${escapeHtml(risco.descricaoDetalhada||'N/A')}</td></tr></tbody></table>
-            <table><thead><tr><th colspan="2" style="background:#10b981">Fonte e Exposição</th></tr></thead><tbody><tr><td style="width:200px"><strong>Fonte:</strong></td><td>${escapeHtml(risco.fonteGeradora||'N/A')}</td></tr><tr><td><strong>Perfil Exposição:</strong></td><td>${escapeHtml(risco.perfilExposicao||'N/A')}</td></tr><tr><td><strong>Medição:</strong></td><td>${escapeHtml(risco.medicao||'N/A')}</td></tr><tr><td><strong>Tempo Exposição:</strong></td><td>${escapeHtml(risco.tempoExposicao||'N/A')}</td></tr><tr><td><strong>Tipo Exposição:</strong></td><td>${escapeHtml(risco.tipoExposicao||'N/A')}</td></tr><tr><td><strong>Obs. Ambientais:</strong></td><td>${escapeHtml(risco.obsAmbientais||'N/A')}</td></tr></tbody></table>
-            <table><thead><tr><th colspan="2" style="background:#f59e0b">Análise e Avaliação</th></tr></thead><tbody><tr><td style="width:200px"><strong>Probabilidade:</strong></td><td>${escapeHtml(risco.probabilidade||'N/A')}</td></tr><tr><td><strong>Severidade:</strong></td><td>${escapeHtml(risco.severidade||'N/A')}</td></tr><tr><td><strong>Aceitabilidade:</strong></td><td>${escapeHtml(risco.aceitabilidade||'N/A')}</td></tr><tr><td><strong>Danos Potenciais:</strong></td><td>${escapeHtml(risco.danos||'N/A')}</td></tr></tbody></table>
-            <table><thead><tr><th colspan="2" style="background:#8b5cf6">Controles e Ações</th></tr></thead><tbody><tr><td style="width:200px"><strong>EPI Utilizado:</strong></td><td>${escapeHtml(risco.epiUtilizado||'N/A')}</td></tr><tr><td><strong>CA:</strong></td><td>${escapeHtml(risco.ca||'N/A')}</td></tr><tr><td><strong>EPC Existente:</strong></td><td>${escapeHtml(risco.epc||'N/A')}</td></tr><tr><td><strong>EPI Sugerido:</strong></td><td>${escapeHtml(risco.epiSugerido||'N/A')}</td></tr><tr><td><strong>Ações Necessárias:</strong></td><td>${escapeHtml(risco.acoesNecessarias||'N/A')}</td></tr><tr><td><strong>Obs. Gerais:</strong></td><td>${escapeHtml(risco.observacoesGerais||'N/A')}</td></tr></tbody></table>
+            <table><thead><tr><th colspan="2" style="background:#dbeafe; color: #1e40af;">Informações Básicas</th></tr></thead><tbody><tr><td style="width:200px"><strong>Risco Presente:</strong></td><td>${escapeHtml(risco.riscoPresente||'N/A')}</td></tr><tr><td><strong>Tipo:</strong></td><td>${escapeHtml(risco.tipo||'N/A')}</td></tr><tr><td><strong>E-Social:</strong></td><td>${escapeHtml(risco.codigoEsocial||'N/A')}</td></tr><tr><td><strong>Descrição:</strong></td><td>${escapeHtml(risco.descricaoDetalhada||'N/A')}</td></tr></tbody></table>
+            <table><thead><tr><th colspan="2" style="background:#dcfce7; color: #166534;">Fonte e Exposição</th></tr></thead><tbody><tr><td style="width:200px"><strong>Fonte:</strong></td><td>${escapeHtml(risco.fonteGeradora||'N/A')}</td></tr><tr><td><strong>Perfil Exposição:</strong></td><td>${escapeHtml(risco.perfilExposicao||'N/A')}</td></tr><tr><td><strong>Medição:</strong></td><td>${escapeHtml(risco.medicao||'N/A')}</td></tr><tr><td><strong>Tempo Exposição:</strong></td><td>${escapeHtml(risco.tempoExposicao||'N/A')}</td></tr><tr><td><strong>Tipo Exposição:</strong></td><td>${escapeHtml(risco.tipoExposicao||'N/A')}</td></tr><tr><td><strong>Obs. Ambientais:</strong></td><td>${escapeHtml(risco.obsAmbientais||'N/A')}</td></tr></tbody></table>
+            <table><thead><tr><th colspan="2" style="background:#fef3c7; color: #92400e;">Análise e Avaliação</th></tr></thead><tbody><tr><td style="width:200px"><strong>Probabilidade:</strong></td><td>${escapeHtml(risco.probabilidade||'N/A')}</td></tr><tr><td><strong>Severidade:</strong></td><td>${escapeHtml(risco.severidade||'N/A')}</td></tr><tr><td><strong>Aceitabilidade:</strong></td><td>${escapeHtml(risco.aceitabilidade||'N/A')}</td></tr><tr><td><strong>Danos Potenciais:</strong></td><td>${escapeHtml(risco.danos||'N/A')}</td></tr></tbody></table>
+            <table><thead><tr><th colspan="2" style="background:#ede9fe; color: #5b21b6;">Controles e Ações</th></tr></thead><tbody><tr><td style="width:200px"><strong>EPI Utilizado:</strong></td><td>${escapeHtml(risco.epiUtilizado||'N/A')}</td></tr><tr><td><strong>CA:</strong></td><td>${escapeHtml(risco.ca||'N/A')}</td></tr><tr><td><strong>EPC Existente:</strong></td><td>${escapeHtml(risco.epc||'N/A')}</td></tr><tr><td><strong>EPI Sugerido:</strong></td><td>${escapeHtml(risco.epiSugerido||'N/A')}</td></tr><tr><td><strong>Ações Necessárias:</strong></td><td>${escapeHtml(risco.acoesNecessarias||'N/A')}</td></tr><tr><td><strong>Obs. Gerais:</strong></td><td>${escapeHtml(risco.observacoesGerais||'N/A')}</td></tr></tbody></table>
             ${examesTableHTML}
             </div>`;
         });
     } else { 
-        html += `<p style="color:#999;font-style:italic;padding:20px;background:#f9fafb;border-radius:8px">Nenhum risco adicionado.</p>`; 
+        html += `<p style="color:#999;font-style:italic;padding:20px;background:#f9fafb;border-radius:8px">Nenhum risco válido adicionado.</p>`; 
     }
     html += `</div>`; 
     return html;
@@ -3159,101 +3147,110 @@ function renderCampoExamesCustomizados() {
             </div>
         </details>`;
 }
-/**
- * Gera relatório consolidado de exames por cargo/funcionário
- * @param {Object} cargo - Cargo ou funcionário com riscos
- * @returns {string} HTML do relatório de exames
- */
+* Gera relatório consolidado, agora com um filtro de segurança para ignorar
+* riscos nulos ou indefinidos que possam existir em dados antigos/corrompidos.
+* @param {Object} cargo - Cargo ou funcionário com riscos
+* @returns {string} HTML do relatório de exames
+*/
 function gerarRelatorioExames(cargo) {
-    if (!cargo.riscos || cargo.riscos.length === 0) {
-        return '<p style="color: var(--gray-500); font-style: italic;">Nenhum risco cadastrado, portanto não há exames a realizar.</p>';
-    }
-    
-    // Consolida todos os exames de todos os riscos
-    const examesConsolidados = new Map();
-    
-    cargo.riscos.forEach(risco => {
-        if (risco.exames && risco.exames.length > 0) {
-            risco.exames.forEach(exame => {
-                const key = exame.nome;
-                if (!examesConsolidados.has(key)) {
-                    examesConsolidados.set(key, {
-                        nome: exame.nome,
-                        riscos: [],
-                        admissional: exame.admissional || false,
-                        periodico: exame.periodico || false,
-                        mudancaRisco: exame.mudancaRisco || false,
-                        retornoTrabalho: exame.retornoTrabalho || false,
-                        demissional: exame.demissional || false,
-                        observacoes: exame.observacoes || exame.periodicidade || ''
-                    });
-                }
-                examesConsolidados.get(key).riscos.push(risco.perigo);
-            });
-        }
-    });
-    
-    if (examesConsolidados.size === 0) {
-        return '<p style="color: var(--gray-500); font-style: italic;">Não há exames definidos para os riscos deste cargo.</p>';
-    }
-    
-    let html = `
-        <div style="background: white; border: 2px solid var(--primary); border-radius: 0.75rem; padding: 1.5rem; margin: 1rem 0;">
-            <h4 style="color: var(--primary); margin: 0 0 1rem 0;">
-                <i class="bi bi-clipboard2-pulse"></i> Exames Necessários - ${escapeHtml(cargo.nome)}
-            </h4>
-            <table style="width: 100%; border-collapse: collapse;">
-                <thead>
-                    <tr style="background: var(--primary-light);">
-                        <th style="padding: 0.75rem; text-align: left; border-bottom: 2px solid var(--primary);">Exame</th>
-                        <th style="padding: 0.75rem; text-align: center; border-bottom: 2px solid var(--primary); font-size: 0.85rem;">Adm.</th>
-                        <th style="padding: 0.75rem; text-align: center; border-bottom: 2px solid var(--primary); font-size: 0.85rem;">Periódico</th>
-                        <th style="padding: 0.75rem; text-align: center; border-bottom: 2px solid var(--primary); font-size: 0.85rem;">Mud.</th>
-                        <th style="padding: 0.75rem; text-align: center; border-bottom: 2px solid var(--primary); font-size: 0.85rem;">Ret.</th>
-                        <th style="padding: 0.75rem; text-align: center; border-bottom: 2px solid var(--primary); font-size: 0.85rem;">Dem.</th>
-                    </tr>
-                </thead>
-                <tbody>`;
-    
-    let idx = 0;
-    examesConsolidados.forEach((exame) => {
-        const bgColor = idx % 2 === 0 ? 'white' : 'var(--gray-50)';
-        html += `
-            <tr style="background: ${bgColor};">
-                <td style="padding: 0.75rem; border-bottom: 1px solid var(--gray-200);">
-                    <strong>${escapeHtml(exame.nome)}</strong>
-                    <br><small style="color: var(--gray-600);">Riscos: ${escapeHtml(exame.riscos.slice(0, 2).join(', '))}${exame.riscos.length > 2 ? '...' : ''}</small>
-                    ${exame.observacoes ? `<br><small style="color: var(--gray-500);">${escapeHtml(exame.observacoes)}</small>` : ''}
-                </td>
-                <td style="padding: 0.75rem; text-align: center; border-bottom: 1px solid var(--gray-200);">
-                    ${exame.admissional ? '✓' : '-'}
-                </td>
-                <td style="padding: 0.75rem; text-align: center; border-bottom: 1px solid var(--gray-200); font-size: 0.85rem;">
-                    ${exame.periodico || '-'}
-                </td>
-                <td style="padding: 0.75rem; text-align: center; border-bottom: 1px solid var(--gray-200);">
-                    ${exame.mudancaRisco ? '✓' : '-'}
-                </td>
-                <td style="padding: 0.75rem; text-align: center; border-bottom: 1px solid var(--gray-200);">
-                    ${exame.retornoTrabalho ? '✓' : '-'}
-                </td>
-                <td style="padding: 0.75rem; text-align: center; border-bottom: 1px solid var(--gray-200);">
-                    ${exame.demissional ? '✓' : '-'}
-                </td>
-            </tr>`;
-        idx++;
-    });
-    
-    html += `
-                </tbody>
-            </table>
-            <p style="margin: 1rem 0 0 0; font-size: 0.85rem; color: var(--gray-600);">
-                📋 Total de exames: <strong>${examesConsolidados.size}</strong>
-            </p>
-        </div>`;
-    
-    return html;
+   // A verificação `(cargo.riscos || [])` previne erro se 'riscos' não existir.
+   // O `.filter(Boolean)` remove quaisquer entradas 'undefined' ou 'null' do array.
+   const riscosValidos = (cargo.riscos || []).filter(Boolean);
+
+   if (riscosValidos.length === 0) {
+       return '<p style="color: var(--gray-500); font-style: italic;">Nenhum risco válido cadastrado para este item.</p>';
+   }
+   
+   const examesConsolidados = new Map();
+   
+   // Agora iteramos sobre o array limpo e seguro.
+   riscosValidos.forEach(risco => {
+       if (risco.exames && Array.isArray(risco.exames)) {
+           risco.exames.forEach(exame => {
+               // Verificação extra para garantir que o exame é um objeto válido
+               if (exame && typeof exame === 'object' && exame.nome) {
+                   const key = exame.nome;
+                   if (!examesConsolidados.has(key)) {
+                       examesConsolidados.set(key, {
+                           nome: exame.nome,
+                           riscos: [],
+                           admissional: exame.admissional || false,
+                           periodico: exame.periodico || false,
+                           mudancaRisco: exame.mudancaRisco || false,
+                           retornoTrabalho: exame.retornoTrabalho || false,
+                           demissional: exame.demissional || false,
+                           observacoes: exame.observacoes || exame.periodicidade || ''
+                       });
+                   }
+                   examesConsolidados.get(key).riscos.push(risco.perigo);
+               }
+           });
+       }
+   });
+   
+   if (examesConsolidados.size === 0) {
+       return '<p style="color: var(--gray-500); font-style: italic;">Não há exames definidos para os riscos deste item.</p>';
+   }
+   
+   // O resto do HTML é gerado normalmente.
+   let html = `
+       <div style="background: white; border: 2px solid var(--primary); border-radius: 0.75rem; padding: 1.5rem; margin: 1rem 0;">
+           <h4 style="color: var(--primary); margin: 0 0 1rem 0;">
+               <i class="bi bi-clipboard2-pulse"></i> Exames Necessários - ${escapeHtml(cargo.nome)}
+           </h4>
+           <table style="width: 100%; border-collapse: collapse;">
+               <thead>
+                   <tr style="background: var(--primary-light);">
+                       <th style="padding: 0.75rem; text-align: left; border-bottom: 2px solid var(--primary);">Exame</th>
+                       <th style="padding: 0.75rem; text-align: center; border-bottom: 2px solid var(--primary); font-size: 0.85rem;">Adm.</th>
+                       <th style="padding: 0.75rem; text-align: center; border-bottom: 2px solid var(--primary); font-size: 0.85rem;">Periódico</th>
+                       <th style="padding: 0.75rem; text-align: center; border-bottom: 2px solid var(--primary); font-size: 0.85rem;">Mud.</th>
+                       <th style="padding: 0.75rem; text-align: center; border-bottom: 2px solid var(--primary); font-size: 0.85rem;">Ret.</th>
+                       <th style="padding: 0.75rem; text-align: center; border-bottom: 2px solid var(--primary); font-size: 0.85rem;">Dem.</th>
+                   </tr>
+               </thead>
+               <tbody>`;
+   
+   let idx = 0;
+   examesConsolidados.forEach((exame) => {
+       const bgColor = idx % 2 === 0 ? 'white' : 'var(--gray-50)';
+       html += `
+           <tr style="background: ${bgColor};">
+               <td style="padding: 0.75rem; border-bottom: 1px solid var(--gray-200);">
+                   <strong>${escapeHtml(exame.nome)}</strong>
+                   <br><small style="color: var(--gray-600);">Riscos: ${escapeHtml(exame.riscos.slice(0, 2).join(', '))}${exame.riscos.length > 2 ? '...' : ''}</small>
+                   ${exame.observacoes ? `<br><small style="color: var(--gray-500);">${escapeHtml(exame.observacoes)}</small>` : ''}
+               </td>
+               <td style="padding: 0.75rem; text-align: center; border-bottom: 1px solid var(--gray-200);">
+                   ${exame.admissional ? '✓' : '-'}
+               </td>
+               <td style="padding: 0.75rem; text-align: center; border-bottom: 1px solid var(--gray-200); font-size: 0.85rem;">
+                   ${exame.periodico || '-'}
+               </td>
+               <td style="padding: 0.75rem; text-align: center; border-bottom: 1px solid var(--gray-200);">
+                   ${exame.mudancaRisco ? '✓' : '-'}
+               </td>
+               <td style="padding: 0.75rem; text-align: center; border-bottom: 1px solid var(--gray-200);">
+                   ${exame.retornoTrabalho ? '✓' : '-'}
+               </td>
+               <td style="padding: 0.75rem; text-align: center; border-bottom: 1px solid var(--gray-200);">
+                   ${exame.demissional ? '✓' : '-'}
+               </td>
+           </tr>`;
+       idx++;
+   });
+   
+   html += `
+               </tbody>
+           </table>
+           <p style="margin: 1rem 0 0 0; font-size: 0.85rem; color: var(--gray-600);">
+               📋 Total de exames: <strong>${examesConsolidados.size}</strong>
+           </p>
+       </div>`;
+   
+   return html;
 }
+
 // ==========================================
 // ADICIONAR BOTÃO DE RELATÓRIO DE EXAMES
 // ==========================================
@@ -3451,46 +3448,50 @@ function logCurrentState(context) {
 // Adicione este bloco no final do seu arquivo app.js
 // ==========================================
 window.addEventListener('error', function(event) {
-    const { message, filename, lineno, colno, error } = event;
-    
-    // Formata uma mensagem de erro detalhada
-    const fileNameSimple = filename.substring(filename.lastIndexOf('/') + 1);
-    const errorMessage = `ERRO: ${message} em ${fileNameSimple} (Linha: ${lineno})`;
-    
-    // Loga a mensagem formatada e o objeto de erro completo (com stack trace) no nosso console móvel
-    console.error(errorMessage);
-    if (error) {
-        console.error("Detalhes do Erro:", error);
-    }
-    
-    event.preventDefault(); // Previne a caixa de diálogo de erro padrão do navegador
-
-    // Mostra o overlay de erro para o usuário
-    let errorOverlay = document.getElementById('error-overlay');
-    if (!errorOverlay) {
-        errorOverlay = document.createElement('div');
-        errorOverlay.id = 'error-overlay';
-        errorOverlay.style.cssText = `
-            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
-            background-color: rgba(0,0,0,0.7); z-index: 10000;
-            display: flex; align-items: center; justify-content: center;
-            padding: 2rem;
-        `;
-        errorOverlay.innerHTML = `
-            <div style="background: white; padding: 2rem; border-radius: 1rem; text-align: center; max-width: 500px; box-shadow: var(--shadow-lg);">
-                <h2 style="color: var(--danger);"><i class="bi bi-exclamation-triangle-fill"></i> Oops! Algo deu errado.</h2>
-                <p style="margin: 1rem 0; color: var(--gray-700);">
-                    O aplicativo encontrou um erro inesperado. Recomendamos recarregar a página para continuar.
-                </p>
-                <p style="font-size: 0.8rem; color: var(--gray-500); margin-bottom: 1.5rem; word-break: break-all;">
-                    <i>Detalhes técnicos foram registrados no console de depuração (🐞).</i>
-                </p>
-                <button class="primary" onclick="location.reload()">Recarregar Aplicativo</button>
-            </div>
-        `;
-        document.body.appendChild(errorOverlay);
-    }
+    const error = event.error || new Error(event.message);
+    reportCriticalError(error, `operação no arquivo ${event.filename.split('/').pop()} na linha ${event.lineno}`);
+    event.preventDefault();
 });
+
+/**
+ * ★★★ NOVA FERRAMENTA DE DEBUG (4.0) ★★★
+ * Centraliza a exibição do overlay de erro, fornecendo mais contexto.
+ * @param {Error} error - O objeto de erro capturado.
+ * @param {string} context - Uma descrição de onde o erro ocorreu (ex: "ao salvar departamento").
+ */
+function reportCriticalError(error, context = 'uma operação desconhecida') {
+    const errorMessage = `ERRO CRÍTICO durante ${context}: ${error.message}`;
+    console.error(errorMessage);
+    if (error.stack) {
+        console.error("Stack Trace:", error.stack);
+    }
+
+    let errorOverlay = document.getElementById('error-overlay');
+    if (errorOverlay) return; // Evita mostrar múltiplos overlays
+
+    errorOverlay = document.createElement('div');
+    errorOverlay.id = 'error-overlay';
+    errorOverlay.style.cssText = `
+        position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+        background-color: rgba(0,0,0,0.8); z-index: 10000;
+        display: flex; align-items: center; justify-content: center; padding: 1rem;
+    `;
+    errorOverlay.innerHTML = `
+        <div style="background: white; padding: 2rem; border-radius: 1rem; text-align: center; max-width: 500px; box-shadow: var(--shadow-lg);">
+            <h2 style="color: var(--danger);"><i class="bi bi-exclamation-triangle-fill"></i> Oops! Algo deu errado.</h2>
+            <p style="margin: 1rem 0; color: var(--gray-700);">
+                O aplicativo encontrou um erro inesperado durante: <strong>${context}</strong>.
+                Recomendamos recarregar a página para continuar.
+            </p>
+            <p style="font-size: 0.8rem; color: var(--gray-500); margin-bottom: 1.5rem; word-break: break-all;">
+                <i>Detalhes técnicos foram registrados no console de depuração (🐞).</i>
+            </p>
+            <button class="primary" onclick="location.reload()">Recarregar Aplicativo</button>
+        </div>
+    `;
+    document.body.appendChild(errorOverlay);
+}
+
 /**
  * ★★★ CORREÇÃO CRÍTICA (3.0) ★★★
  * Lê o valor de um campo de forma segura, retornando um valor padrão se o elemento não for encontrado.
