@@ -12,8 +12,8 @@ const ESSENTIALS_TO_CACHE = [
   'sugestoes-data.js',
   'version.js',
   'manifest.json',
-  'icon-192.png',
-  'icon-512.png',
+  // 'icon-192.png', // Comentado temporariamente para evitar erro de cache
+  // 'icon-512.png', // Comentado temporariamente para evitar erro de cache
 ];
 
 // Evento de instalação: focado apenas nos arquivos essenciais
