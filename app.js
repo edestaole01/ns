@@ -592,8 +592,8 @@ function renderDepartamentoStep() {
             <h3>Departamentos Adicionados <small style="font-weight: 400; color: var(--gray-500);">(Arraste para reordenar)</small></h3>
             <ul id="departamento-list" class="item-list"></ul>
             <details id="depto-form-details" class="accordion-section" ${window.innerWidth <= 768 ? 'open' : ''}>
-                 <summary onclick="toggleAccordion(event, 'depto-form-details')">Novo Departamento</summary>
-                 <div>
+                <summary id="depto-form-title" onclick="toggleAccordion(event, 'depto-form-details')">Novo Departamento</summary>
+                <div>
                     <form id="depto-form">
                         <div class="form-group">
                             <label for="depto-nome">Nome do Setor/Departamento *</label>
