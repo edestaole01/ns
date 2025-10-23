@@ -3145,13 +3145,15 @@ function renderCampoExamesCustomizados() {
         </details>`;
 }
 /**
- * ★★★ CORREÇÃO CRÍTICA (4.1) ★★★
+ * ★★★ CORREÇÃO CRÍTICA (5.0) ★★★
  * Gera relatório consolidado, agora com um filtro de segurança para ignorar
  * riscos nulos ou indefinidos que possam existir em dados antigos/corrompidos.
  * @param {Object} cargo - Cargo ou funcionário com riscos
  * @returns {string} HTML do relatório de exames
  */
 function gerarRelatorioExames(cargo) {
+    // A verificação `(cargo.riscos || [])` previne erro se 'riscos' não existir.
+    // O `.filter(Boolean)` remove quaisquer entradas 'undefined' ou 'null' do array.
     const riscosValidos = (cargo.riscos || []).filter(Boolean);
 
     if (riscosValidos.length === 0) {
@@ -3160,9 +3162,13 @@ function gerarRelatorioExames(cargo) {
     
     const examesConsolidados = new Map();
     
+    // Agora iteramos sobre o array limpo e seguro.
     riscosValidos.forEach(risco => {
         if (risco.exames && Array.isArray(risco.exames)) {
+            // ★★★ CORREÇÃO APLICADA AQUI ★★★
+            // Filtra o array interno para garantir que cada 'exame' é um objeto válido com a propriedade 'nome'.
             const examesValidos = risco.exames.filter(exame => exame && typeof exame === 'object' && exame.nome);
+
             examesValidos.forEach(exame => {
                 const key = exame.nome;
                 if (!examesConsolidados.has(key)) {
@@ -3214,21 +3220,11 @@ function gerarRelatorioExames(cargo) {
                     <br><small style="color: var(--gray-600);">Riscos: ${escapeHtml(exame.riscos.slice(0, 2).join(', '))}${exame.riscos.length > 2 ? '...' : ''}</small>
                     ${exame.observacoes ? `<br><small style="color: var(--gray-500);">${escapeHtml(exame.observacoes)}</small>` : ''}
                 </td>
-                <td style="padding: 0.75rem; text-align: center; border-bottom: 1px solid var(--gray-200);">
-                    ${exame.admissional ? '✓' : '-'}
-                </td>
-                <td style="padding: 0.75rem; text-align: center; border-bottom: 1px solid var(--gray-200); font-size: 0.85rem;">
-                    ${exame.periodico || '-'}
-                </td>
-                <td style="padding: 0.75rem; text-align: center; border-bottom: 1px solid var(--gray-200);">
-                    ${exame.mudancaRisco ? '✓' : '-'}
-                </td>
-                <td style="padding: 0.75rem; text-align: center; border-bottom: 1px solid var(--gray-200);">
-                    ${exame.retornoTrabalho ? '✓' : '-'}
-                </td>
-                <td style="padding: 0.75rem; text-align: center; border-bottom: 1px solid var(--gray-200);">
-                    ${exame.demissional ? '✓' : '-'}
-                </td>
+                <td style="padding: 0.75rem; text-align: center; border-bottom: 1px solid var(--gray-200);">${exame.admissional ? '✓' : '-'}</td>
+                <td style="padding: 0.75rem; text-align: center; border-bottom: 1px solid var(--gray-200); font-size: 0.85rem;">${exame.periodico || '-'}</td>
+                <td style="padding: 0.75rem; text-align: center; border-bottom: 1px solid var(--gray-200);">${exame.mudancaRisco ? '✓' : '-'}</td>
+                <td style="padding: 0.75rem; text-align: center; border-bottom: 1px solid var(--gray-200);">${exame.retornoTrabalho ? '✓' : '-'}</td>
+                <td style="padding: 0.75rem; text-align: center; border-bottom: 1px solid var(--gray-200);">${exame.demissional ? '✓' : '-'}</td>
             </tr>`;
         idx++;
     });
