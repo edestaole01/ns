@@ -42,7 +42,8 @@ const actionPlanView = document.getElementById('action-plan-view');
  */
 function initializeDbAndApp() {
     dbReadyPromise = new Promise((resolve, reject) => {
-        const request = indexedDB.open("fluentInspecoesDB", 2); // Versão 2 para garantir onupgradeneeded se necessário
+        // Manter a versão 2 para acionar a atualização corretamente
+        const request = indexedDB.open("fluentInspecoesDB", 2);
 
         request.onerror = (e) => {
             console.error("Erro crítico no DB:", e.target.error);
@@ -56,15 +57,27 @@ function initializeDbAndApp() {
             resolve(db);
         };
         
+        // Esta é a função que foi corrigida
         request.onupgradeneeded = (e) => {
-            console.log("Atualizando a estrutura do banco de dados...");
-            const store = e.target.result.createObjectStore("inspections", { keyPath: "id", autoIncrement: true });
-            // Futuras atualizações de schema podem ser adicionadas aqui
-            console.log("Estrutura do banco de dados atualizada com sucesso.");
+            console.log("onupgradeneeded: Atualizando a estrutura do banco de dados...");
+            const db = e.target.result;
+
+            // ★★★ CORREÇÃO CRÍTICA ★★★
+            // Verifica se o 'inspections' Object Store já existe antes de tentar criá-lo.
+            // Isso evita o erro "ConstraintError" que estava quebrando a inicialização.
+            if (!db.objectStoreNames.contains('inspections')) {
+                db.createObjectStore("inspections", { keyPath: "id", autoIncrement: true });
+                console.log("Object store 'inspections' criado com sucesso.");
+            } else {
+                console.log("Object store 'inspections' já existe. Nenhuma ação de criação necessária.");
+            }
+            
+            // Futuras atualizações (ex: para a versão 3) podem ser adicionadas aqui
+            // Exemplo: if (e.oldVersion < 3) { /* adicionar um novo índice, etc. */ }
         };
     });
 
-    // Após a promessa do DB ser resolvida, mostramos o dashboard.
+    // O resto da função permanece igual
     dbReadyPromise.then(() => {
         document.getElementById('nav-dashboard').onclick = showDashboard;
         showDashboard();
