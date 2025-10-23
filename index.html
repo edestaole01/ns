@@ -291,11 +291,11 @@
             transform: scale(1.02);
         }
         .three-column-layout {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); /* Ajuste minmax se necessário */
-        gap: 1.5rem;
-        margin-top: 1rem; /* Pequeno espaçamento */
-    }
+            display: grid;
+            grid-template-columns: 1fr; /* Força uma única coluna, sempre */
+            gap: 1.5rem;
+        }
+            
         
         @media (max-width: 768px) {
             .three-column-layout {
