@@ -847,7 +847,105 @@ function getFormFieldsHTML(prefix) {
     `;
 }
 
-renderCargoFuncionarioStep
+function renderCargoFuncionarioStep() {
+    // Garante integridade e contexto
+    if (!validateDataIntegrity()) { showToast("Erro ao carregar dados.", "warning"); return; }
+    if (activeDepartamentoIndex < 0 || !currentInspection.departamentos[activeDepartamentoIndex]) {
+      showToast("Selecione um departamento.", "warning");
+      goToStep(1);
+      return;
+    }
+  
+    const depto = currentInspection.departamentos[activeDepartamentoIndex];
+  
+    // Cabeçalho e 3 colunas com listas + formulários (accordions)
+    const html = `
+      ${renderBreadcrumb()}
+      <div class="wizard-header"><h2>Cargos/Funcionários — ${depto.nome || "Departamento"}</h2></div>
+  
+      <div class="form-grid">
+        <!-- CARGOS -->
+        <div class="card">
+          <h3>Cargos Individuais</h3>
+          <ul id="cargo-list" class="item-list"></ul>
+          <details id="cargo-form-details" class="accordion-section">
+            <summary onclick="toggleAccordion(event, 'cargo-form-details')">Novo Cargo</summary>
+            <div>
+              <form id="cargo-form">
+                <div class="form-group">
+                  <label for="cargo-nome">Nome do Cargo *</label>
+                  ${wrapWithVoiceButton('cargo-nome', 'Ex: Operador de Máquina', '', true)}
+                </div>
+                ${getFormFieldsHTML('cargo')}
+                <div class="form-actions">
+                  <button type="button" id="save-cargo-btn" class="primary" onclick="saveCargo()">Adicionar</button>
+                  <button type="button" id="cancel-cargo-edit-btn" class="nav hidden" onclick="clearForm('cargo')">Cancelar</button>
+                </div>
+              </form>
+            </div>
+          </details>
+        </div>
+  
+        <!-- GRUPOS -->
+        <div class="card">
+          <h3>Grupos de Cargos</h3>
+          <ul id="grupo-list" class="item-list"></ul>
+          <details id="grupo-form-details" class="accordion-section">
+            <summary onclick="toggleAccordion(event, 'grupo-form-details')">Novo Grupo</summary>
+            <div>
+              <form id="grupo-form">
+                <div class="form-group">
+                  <label for="grupo-nomes">Cargos (um por linha) *</label>
+                  ${wrapWithVoiceButton('grupo-nomes', 'Ex: Auxiliar de Produção\\nOperador I\\nOperador II', '', false, 'textarea')}
+                </div>
+                ${getFormFieldsHTML('grupo')}
+                <div class="form-actions">
+                  <button type="button" id="save-grupo-btn" class="primary" onclick="saveGrupo()">Criar Grupo</button>
+                  <button type="button" id="cancel-grupo-edit-btn" class="nav hidden" onclick="clearForm('grupo')">Cancelar</button>
+                </div>
+              </form>
+            </div>
+          </details>
+        </div>
+  
+        <!-- FUNCIONÁRIOS -->
+        <div class="card">
+          <h3>Funcionários</h3>
+          <ul id="funcionario-list" class="item-list"></ul>
+          <details id="funcionario-form-details" class="accordion-section">
+            <summary onclick="toggleAccordion(event, 'funcionario-form-details')">Novo Funcionário</summary>
+            <div>
+              <form id="funcionario-form">
+                <div class="form-group">
+                  <label for="funcionario-nome">Nome do Funcionário *</label>
+                  ${wrapWithVoiceButton('funcionario-nome', 'Ex: João da Silva', '', true)}
+                </div>
+                ${getFormFieldsHTML('funcionario')}
+                <div class="form-actions">
+                  <button type="button" id="save-funcionario-btn" class="primary" onclick="saveFuncionario()">Adicionar</button>
+                  <button type="button" id="cancel-funcionario-edit-btn" class="nav hidden" onclick="clearForm('funcionario')">Cancelar</button>
+                </div>
+              </form>
+            </div>
+          </details>
+        </div>
+      </div>
+  
+      <div class="wizard-nav">
+        <button class="nav" onclick="goToStep(1)">Voltar</button>
+      </div>
+    `;
+  
+    document.getElementById('wizard-content').innerHTML = html;
+  
+    // Aguarda o DOM aplicar, então popula listas e Sortable
+    requestAnimationFrame(() => {
+      updateAllLists(); // atualiza cargo/grupo/funcionário
+      try {
+        if (typeof Sortable !== 'undefined') initializeSortableLists();
+      } catch (e) { console.warn('SortableJS não inicializado:', e); }
+    });
+  }
 
 function updateAllLists() {
     updateCargoList();
@@ -3434,6 +3532,7 @@ function setupServiceWorker() {
         refreshing = true;
     });
 }
+
   // ==========================================
 // ★★★ CONSOLE DE DEBUG MÓVEL ★★★
 // ==========================================
