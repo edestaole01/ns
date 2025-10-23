@@ -947,6 +947,165 @@ function renderCargoFuncionarioStep() {
     });
   }
 
+  function getFormFieldsHTML(prefix) {
+    return `
+        <fieldset><legend>Observação para os Cargos</legend>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 0.75rem;">
+                <label style="display: flex; align-items: center; gap: 0.5rem;"><input type="checkbox" id="${prefix}-obs-altura"> Trabalho em altura</label>
+                <label style="display: flex; align-items: center; gap: 0.5rem;"><input type="checkbox" id="${prefix}-obs-espaco"> Espaço Confinado</label>
+                <label style="display: flex; align-items: center; gap: 0.5rem;"><input type="checkbox" id="${prefix}-obs-empilhadeira"> Operação de Empilhadeira</label>
+                <label style="display: flex; align-items: center; gap: 0.5rem;"><input type="checkbox" id="${prefix}-obs-eletricidade"> Trabalho com Eletricidade</label>
+                <label style="display: flex; align-items: center; gap: 0.5rem;"><input type="checkbox" id="${prefix}-obs-movimentacao"> Movimentação manual de cargas</label>
+                <label style="display: flex; align-items: center; gap: 0.5rem;"><input type="checkbox" id="${prefix}-obs-talhas"> Operação de Talhas</label>
+                <label style="display: flex; align-items: center; gap: 0.5rem;"><input type="checkbox" id="${prefix}-obs-paleteiras"> Operação de paleteiras</label>
+                <label style="display: flex; align-items: center; gap: 0.5rem;"><input type="checkbox" id="${prefix}-obs-veiculos"> Condução de Veículos</label>
+            </div>
+        </fieldset>
+        <div class="form-group">
+            <label for="${prefix}-perfil-exposicao">Observação específica (Perfil de Exposição)</label>
+            ${wrapWithVoiceButton(`${prefix}-perfil-exposicao`, 'Ex: A soma da exposição ao agente FRD em todos os períodos de acesso é de ___ min...', '', false, 'textarea')}
+        </div>
+        <div class="form-group"><label for="${prefix}-descricao-atividade">Descrição Atividade por função</label><select id="${prefix}-descricao-atividade"><option value="Sim">Sim</option><option value="Não">Não</option></select></div>
+        <fieldset><legend>Atendimento aos requisitos das NR-06 e NR-01</legend>
+            <div class="radio-group-container">
+                <div class="radio-group-item">
+                    <span>Medida de Proteção:</span>
+                    <input type="radio" id="${prefix}-req-medida-sim" name="${prefix}-req-medida" value="Sim" checked><label for="${prefix}-req-medida-sim">S</label>
+                    <input type="radio" id="${prefix}-req-medida-nao" name="${prefix}-req-medida" value="Não"><label for="${prefix}-req-medida-nao">N</label>
+                </div>
+                <div class="radio-group-item">
+                    <span>Condição de Funcionamento do EPI:</span>
+                    <input type="radio" id="${prefix}-req-condicao-sim" name="${prefix}-req-condicao" value="Sim" checked><label for="${prefix}-req-condicao-sim">S</label>
+                    <input type="radio" id="${prefix}-req-condicao-nao" name="${prefix}-req-condicao" value="Não"><label for="${prefix}-req-condicao-nao">N</label>
+                </div>
+                <div class="radio-group-item">
+                    <span>Prazo de Validade do EPI:</span>
+                    <input type="radio" id="${prefix}-req-prazo-sim" name="${prefix}-req-prazo" value="Sim" checked><label for="${prefix}-req-prazo-sim">S</label>
+                    <input type="radio" id="${prefix}-req-prazo-nao" name="${prefix}-req-prazo" value="Não"><label for="${prefix}-req-prazo-nao">N</label>
+                </div>
+                <div class="radio-group-item">
+                    <span>Periodicidade da Troca do EPI:</span>
+                    <input type="radio" id="${prefix}-req-periodicidade-sim" name="${prefix}-req-periodicidade" value="Sim" checked><label for="${prefix}-req-periodicidade-sim">S</label>
+                    <input type="radio" id="${prefix}-req-periodicidade-nao" name="${prefix}-req-periodicidade" value="Não"><label for="${prefix}-req-periodicidade-nao">N</label>
+                </div>
+                <div class="radio-group-item">
+                    <span>Higienização do EPI:</span>
+                    <input type="radio" id="${prefix}-req-higienizacao-sim" name="${prefix}-req-higienizacao" value="Sim" checked><label for="${prefix}-req-higienizacao-sim">S</label>
+                    <input type="radio" id="${prefix}-req-higienizacao-nao" name="${prefix}-req-higienizacao" value="Não"><label for="${prefix}-req-higienizacao-nao">N</label>
+                </div>
+            </div>
+        </fieldset>
+        <fieldset><legend>Classificações e Dados</legend>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 0.75rem;">
+                <label style="display: flex; align-items: center; gap: 0.5rem;"><input type="checkbox" id="${prefix}-insalubre"> Insalubre (NR15)</label>
+                <label style="display: flex; align-items: center; gap: 0.5rem;"><input type="checkbox" id="${prefix}-perigoso"> Perigoso (NR16)</label>
+                <label style="display: flex; align-items: center; gap: 0.5rem;"><input type="checkbox" id="${prefix}-nho01"> NHO 01</label>
+                <label style="display: flex; align-items: center; gap: 0.5rem;"><input type="checkbox" id="${prefix}-ltcat"> DADOS PARA LTCAT</label>
+            </div>
+        </fieldset>
+    `;
+}
+
+function renderCargoFuncionarioStep() {
+    // Garante integridade e contexto
+    if (!validateDataIntegrity()) { showToast("Erro ao carregar dados.", "warning"); return; }
+    if (activeDepartamentoIndex < 0 || !currentInspection.departamentos[activeDepartamentoIndex]) {
+      showToast("Selecione um departamento.", "warning");
+      goToStep(1);
+      return;
+    }
+  
+    const depto = currentInspection.departamentos[activeDepartamentoIndex];
+  
+    // Cabeçalho e 3 colunas com listas + formulários (accordions)
+    const html = `
+      ${renderBreadcrumb()}
+      <div class="wizard-header"><h2>Cargos/Funcionários — ${depto.nome || "Departamento"}</h2></div>
+  
+      <div class="form-grid">
+        <!-- CARGOS -->
+        <div class="card">
+          <h3>Cargos Individuais</h3>
+          <ul id="cargo-list" class="item-list"></ul>
+          <details id="cargo-form-details" class="accordion-section">
+            <summary onclick="toggleAccordion(event, 'cargo-form-details')">Novo Cargo</summary>
+            <div>
+              <form id="cargo-form">
+                <div class="form-group">
+                  <label for="cargo-nome">Nome do Cargo *</label>
+                  ${wrapWithVoiceButton('cargo-nome', 'Ex: Operador de Máquina', '', true)}
+                </div>
+                ${getFormFieldsHTML('cargo')}
+                <div class="form-actions">
+                  <button type="button" id="save-cargo-btn" class="primary" onclick="saveCargo()">Adicionar</button>
+                  <button type="button" id="cancel-cargo-edit-btn" class="nav hidden" onclick="clearForm('cargo')">Cancelar</button>
+                </div>
+              </form>
+            </div>
+          </details>
+        </div>
+  
+        <!-- GRUPOS -->
+        <div class="card">
+          <h3>Grupos de Cargos</h3>
+          <ul id="grupo-list" class="item-list"></ul>
+          <details id="grupo-form-details" class="accordion-section">
+            <summary onclick="toggleAccordion(event, 'grupo-form-details')">Novo Grupo</summary>
+            <div>
+              <form id="grupo-form">
+                <div class="form-group">
+                  <label for="grupo-nomes">Cargos (um por linha) *</label>
+                  ${wrapWithVoiceButton('grupo-nomes', 'Ex: Auxiliar de Produção\\nOperador I\\nOperador II', '', false, 'textarea')}
+                </div>
+                ${getFormFieldsHTML('grupo')}
+                <div class="form-actions">
+                  <button type="button" id="save-grupo-btn" class="primary" onclick="saveGrupo()">Criar Grupo</button>
+                  <button type="button" id="cancel-grupo-edit-btn" class="nav hidden" onclick="clearForm('grupo')">Cancelar</button>
+                </div>
+              </form>
+            </div>
+          </details>
+        </div>
+  
+        <!-- FUNCIONÁRIOS -->
+        <div class="card">
+          <h3>Funcionários</h3>
+          <ul id="funcionario-list" class="item-list"></ul>
+          <details id="funcionario-form-details" class="accordion-section">
+            <summary onclick="toggleAccordion(event, 'funcionario-form-details')">Novo Funcionário</summary>
+            <div>
+              <form id="funcionario-form">
+                <div class="form-group">
+                  <label for="funcionario-nome">Nome do Funcionário *</label>
+                  ${wrapWithVoiceButton('funcionario-nome', 'Ex: João da Silva', '', true)}
+                </div>
+                ${getFormFieldsHTML('funcionario')}
+                <div class="form-actions">
+                  <button type="button" id="save-funcionario-btn" class="primary" onclick="saveFuncionario()">Adicionar</button>
+                  <button type="button" id="cancel-funcionario-edit-btn" class="nav hidden" onclick="clearForm('funcionario')">Cancelar</button>
+                </div>
+              </form>
+            </div>
+          </details>
+        </div>
+      </div>
+  
+      <div class="wizard-nav">
+        <button class="nav" onclick="goToStep(1)">Voltar</button>
+      </div>
+    `;
+  
+    document.getElementById('wizard-content').innerHTML = html;
+  
+    // Aguarda o DOM aplicar, então popula listas e Sortable
+    requestAnimationFrame(() => {
+      updateAllLists(); // atualiza cargo/grupo/funcionário
+      try {
+        if (typeof Sortable !== 'undefined') initializeSortableLists();
+      } catch (e) { console.warn('SortableJS não inicializado:', e); }
+    });
+  }
+
 function updateAllLists() {
     updateCargoList();
     updateGrupoList();
@@ -967,25 +1126,26 @@ function updateCargoList() {
         const li = document.createElement("li");
         const obsText = (cargo.observacoes || []).length > 0 ? (cargo.observacoes || []).slice(0, 2).join(', ') + ((cargo.observacoes || []).length > 2 ? '...' : '') : 'Sem observações';
         
-        // ★ NOVO: Bloco que cria a lista de riscos
         let riscosHTML = '';
         if (cargo.riscos && cargo.riscos.length > 0) {
             const riscosList = cargo.riscos
+                .filter(risco => risco && risco.perigo) // Filtra riscos nulos ou sem 'perigo'
                 .map(risco => `<span class="badge" style="background-color: var(--gray-200); color: var(--gray-700); font-weight: 500;">${escapeHtml(risco.perigo)}</span>`)
                 .join('');
             
-            riscosHTML = `
-                <div style="margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid var(--gray-200);">
-                    <div style="display: flex; flex-wrap: wrap; gap: 0.5rem;">
-                        ${riscosList}
+            if (riscosList) {
+                riscosHTML = `
+                    <div style="margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid var(--gray-200);">
+                        <div style="display: flex; flex-wrap: wrap; gap: 0.5rem;">
+                            ${riscosList}
+                        </div>
                     </div>
-                </div>
-            `;
+                `;
+            }
         }
 
         const itemInfo = document.createElement('div');
         itemInfo.className = 'item-info';
-        // HTML do card atualizado para incluir os riscos
         itemInfo.innerHTML = `
             <strong>${escapeHtml(cargo.nome)}</strong>
             <small>${(cargo.riscos || []).length} risco(s) | ${escapeHtml(obsText)}</small>
@@ -1020,25 +1180,26 @@ function updateGrupoList() {
     depto.grupos.forEach((grupo, index) => {
         const li = document.createElement("li");
         
-        // ★ NOVO: Bloco que cria a lista de riscos
         let riscosHTML = '';
         if (grupo.riscos && grupo.riscos.length > 0) {
             const riscosList = grupo.riscos
+                .filter(risco => risco && risco.perigo) // Filtra riscos nulos
                 .map(risco => `<span class="badge" style="background-color: var(--gray-200); color: var(--gray-700); font-weight: 500;">${escapeHtml(risco.perigo)}</span>`)
                 .join('');
             
-            riscosHTML = `
-                <div style="margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid var(--gray-200);">
-                    <div style="display: flex; flex-wrap: wrap; gap: 0.5rem;">
-                        ${riscosList}
+            if (riscosList) {
+                riscosHTML = `
+                    <div style="margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid var(--gray-200);">
+                        <div style="display: flex; flex-wrap: wrap; gap: 0.5rem;">
+                            ${riscosList}
+                        </div>
                     </div>
-                </div>
-            `;
+                `;
+            }
         }
 
         const itemInfo = document.createElement('div');
         itemInfo.className = 'item-info';
-        // HTML do card atualizado para incluir os riscos
         itemInfo.innerHTML = `
             <strong>Grupo: ${escapeHtml(grupo.listaDeCargos.join(', '))}</strong>
             <small>${(grupo.riscos || []).length} risco(s)</small>
@@ -1074,25 +1235,26 @@ function updateFuncionarioList() {
         const li = document.createElement("li");
         const obsText = (func.observacoes || []).length > 0 ? (func.observacoes || []).slice(0, 2).join(', ') + '...' : 'Sem observações';
         
-        // ★ NOVO: Bloco que cria a lista de riscos
         let riscosHTML = '';
         if (func.riscos && func.riscos.length > 0) {
             const riscosList = func.riscos
+                .filter(risco => risco && risco.perigo) // Filtra riscos nulos
                 .map(risco => `<span class="badge" style="background-color: var(--gray-200); color: var(--gray-700); font-weight: 500;">${escapeHtml(risco.perigo)}</span>`)
                 .join('');
             
-            riscosHTML = `
-                <div style="margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid var(--gray-200);">
-                    <div style="display: flex; flex-wrap: wrap; gap: 0.5rem;">
-                        ${riscosList}
+            if (riscosList) {
+                riscosHTML = `
+                    <div style="margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid var(--gray-200);">
+                        <div style="display: flex; flex-wrap: wrap; gap: 0.5rem;">
+                            ${riscosList}
+                        </div>
                     </div>
-                </div>
-            `;
+                `;
+            }
         }
 
         const itemInfo = document.createElement('div');
         itemInfo.className = 'item-info';
-        // HTML do card atualizado para incluir os riscos
         itemInfo.innerHTML = `
             <strong>${escapeHtml(func.nome)}</strong>
             <small>${(func.riscos || []).length} risco(s) | ${escapeHtml(obsText)}</small>
