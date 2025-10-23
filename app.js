@@ -448,12 +448,27 @@ function updateDashboardStats() {
         inspections.forEach(insp => {
             totalDepartamentos += (insp.departamentos || []).length;
             (insp.departamentos || []).forEach(dept => {
+                // Adiciona uma verificação de segurança para o departamento também
+                if (!dept) return; 
+
                 totalCargos += (dept.cargos || []).length + (dept.funcionarios || []).length;
-                (dept.cargos || []).forEach(cargo => totalRiscos += (cargo.riscos || []).length);
-                (dept.funcionarios || []).forEach(func => totalRiscos += (func.riscos || []).length);
+                
+                // ★★★ CORREÇÃO APLICADA AQUI ★★★
+                (dept.cargos || []).forEach(cargo => {
+                    if (cargo) { // Garante que o objeto cargo existe
+                        totalRiscos += (cargo.riscos || []).length;
+                    }
+                });
+                (dept.funcionarios || []).forEach(func => {
+                    if (func) { // Garante que o objeto func existe
+                        totalRiscos += (func.riscos || []).length;
+                    }
+                });
                 (dept.grupos || []).forEach(grupo => {
-                    totalCargos += (grupo.listaDeCargos || []).length;
-                    totalRiscos += (grupo.riscos || []).length;
+                    if (grupo) { // Garante que o objeto grupo existe
+                        totalCargos += (grupo.listaDeCargos || []).length;
+                        totalRiscos += (grupo.riscos || []).length;
+                    }
                 });
             });
         });
