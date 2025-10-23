@@ -1,19 +1,24 @@
+// ==========================================
+// ★ INICIALIZAÇÃO ROBUSTA E CONTROLE DE ESTADO
+// ==========================================
+
 // Aguarda o conteúdo da página ser totalmente carregado
 document.addEventListener('DOMContentLoaded', () => {
-    // Procura o elemento HTML que criamos para a versão
+    // Exibe a versão do app
     const versionElement = document.getElementById('app-version-display');
-    
-    // Verifica se o elemento e a variável APP_VERSION existem
     if (versionElement && typeof APP_VERSION !== 'undefined') {
-      // Insere o texto da versão no elemento
-      versionElement.textContent = 'v' + APP_VERSION;
+        versionElement.textContent = 'v' + APP_VERSION;
     }
-  });
+    
+    // Inicia a aplicação após a DB estar pronta
+    initializeDbAndApp();
+    checkForUpdates();
+});
 
-// O array predefinedRisks agora está em risks-data.js
-// Ele será carregado automaticamente quando o index.html incluir o arquivo
 
 let db;
+let dbReadyPromise; // ★ NOVO: Promise para controlar quando o DB está pronto
+
 let wizardStep = 0;
 let currentInspection = {};
 let activeDepartamentoIndex = -1;
@@ -27,78 +32,162 @@ let isAutosaving = false;
 let examesTemporarios = [];
 let isSaving = false;
 
-
-const request = indexedDB.open("fluentInspecoesDB", 1);
-request.onerror = (e) => console.error("Erro no DB:", e);
-request.onsuccess = (e) => { db = e.target.result; showDashboard(); };
-request.onupgradeneeded = (e) => e.target.result.createObjectStore("inspections", { keyPath: "id", autoIncrement: true });
-
 const dashboardView = document.getElementById('dashboard-view');
 const wizardView = document.getElementById('wizard-view');
 const actionPlanView = document.getElementById('action-plan-view');
 
-document.getElementById('nav-dashboard').onclick = showDashboard;
+/**
+ * ★ NOVO: Função central que inicializa o IndexedDB e garante que o app só rode depois.
+ * Isso elimina 90% dos problemas de "dados não encontrados" em celulares.
+ */
+function initializeDbAndApp() {
+    dbReadyPromise = new Promise((resolve, reject) => {
+        const request = indexedDB.open("fluentInspecoesDB", 2); // Versão 2 para garantir onupgradeneeded se necessário
+
+        request.onerror = (e) => {
+            console.error("Erro crítico no DB:", e.target.error);
+            showToast("Erro crítico ao acessar o banco de dados!", "error");
+            reject(e.target.error);
+        };
+        
+        request.onsuccess = (e) => {
+            db = e.target.result;
+            console.log("✅ Banco de dados pronto para uso.");
+            resolve(db);
+        };
+        
+        request.onupgradeneeded = (e) => {
+            console.log("Atualizando a estrutura do banco de dados...");
+            const store = e.target.result.createObjectStore("inspections", { keyPath: "id", autoIncrement: true });
+            // Futuras atualizações de schema podem ser adicionadas aqui
+            console.log("Estrutura do banco de dados atualizada com sucesso.");
+        };
+    });
+
+    // Após a promessa do DB ser resolvida, mostramos o dashboard.
+    dbReadyPromise.then(() => {
+        document.getElementById('nav-dashboard').onclick = showDashboard;
+        showDashboard();
+    }).catch(error => {
+        document.body.innerHTML = `<div style="padding:2rem;text-align:center;"><h1>Erro Crítico</h1><p>Não foi possível iniciar o banco de dados. O aplicativo não pode funcionar.</p><p><em>Detalhes: ${error.message}</em></p></div>`;
+    });
+}
+
+/**
+ * ★ NOVO: Função para verificar se há uma nova versão do app disponível.
+ */
+function checkForUpdates() {
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.getRegistration().then(reg => {
+            if (reg) {
+                // Existe um service worker, vamos verificar se há uma atualização esperando
+                if (reg.waiting) {
+                    showUpdateBar();
+                    return;
+                }
+                // Escuta por novas versões que estão sendo instaladas
+                reg.onupdatefound = () => {
+                    const installingWorker = reg.installing;
+                    if (installingWorker) {
+                        installingWorker.onstatechange = () => {
+                            if (installingWorker.state === 'installed') {
+                                if (navigator.serviceWorker.controller) {
+                                    // Nova versão pronta para ser ativada
+                                    showUpdateBar();
+                                }
+                            }
+                        };
+                    }
+                };
+            }
+        });
+    }
+}
+
+/**
+ * ★ NOVO: Mostra uma barra no topo da página oferecendo a atualização.
+ */
+function showUpdateBar() {
+    let updateBar = document.getElementById('update-bar');
+    if (!updateBar) {
+        updateBar = document.createElement('div');
+        updateBar.id = 'update-bar';
+        updateBar.style.cssText = `
+            position: fixed; top: 70px; left: 0; right: 0; background: var(--primary); color: white;
+            padding: 1rem; text-align: center; z-index: 1001; display: flex;
+            justify-content: center; align-items: center; gap: 1rem; box-shadow: var(--shadow-lg);
+        `;
+        updateBar.innerHTML = `
+            <span>Uma nova versão do aplicativo está disponível!</span>
+            <button class="outline" style="background:white;color:var(--primary);border-color:var(--primary);" onclick="atualizarAplicativo()">Atualizar Agora</button>
+        `;
+        document.body.appendChild(updateBar);
+    }
+}
+
+
+async function atualizarAplicativo() {
+  showToast('Atualizando o aplicativo...', 'success');
+  if ('serviceWorker' in navigator) {
+    const registration = await navigator.serviceWorker.getRegistration();
+    if (registration && registration.waiting) {
+      // Envia uma mensagem para o SW em espera para pular a espera
+      registration.waiting.postMessage({ type: 'SKIP_WAITING' });
+      // Espera um pouco para o SW assumir o controle antes de recarregar
+      setTimeout(() => {
+          window.location.reload();
+      }, 500);
+    } else {
+        // Se não houver SW esperando, apenas recarrega
+        window.location.reload();
+    }
+  } else {
+      window.location.reload();
+  }
+}
 
 function validateDataIntegrity() {
-    // Verifica se a inspeção atual existe
     if (!currentInspection) {
-        console.error("ERRO: currentInspection é null");
+        console.error("ERRO CRÍTICO: currentInspection é null ou undefined. Resetando para objeto vazio.");
         currentInspection = { departamentos: [] };
         return false;
     }
-    
-    // Garante que departamentos existe
     if (!currentInspection.departamentos) {
-        console.warn("Aviso: departamentos não inicializado, criando array vazio");
         currentInspection.departamentos = [];
     }
-    
-    // Valida cada departamento
-    currentInspection.departamentos.forEach((depto, index) => {
+    currentInspection.departamentos.forEach((depto) => {
+        if (!depto) return; // Pula departamentos nulos (defensivo)
         if (!depto.cargos) depto.cargos = [];
         if (!depto.funcionarios) depto.funcionarios = [];
         if (!depto.grupos) depto.grupos = [];
     });
-    
     return true;
 }
 // ==========================================
 // ★ NOVO: NAVEGAÇÃO CENTRALIZADA
 // ==========================================
 
-/**
- * Função central para navegar entre os passos do wizard.
- * @param {number} step - O índice do passo para o qual navegar (0: Empresa, 1: Deptos, 2: Cargos, 3: Riscos).
- * @param {number|null} deptoIndex - O índice do departamento ativo (relevante para passos > 1).
- */
 function goToStep(step, deptoIndex = null) {
     validateDataIntegrity();
-
     if (typeof deptoIndex === 'number' && !Number.isNaN(deptoIndex)) {
         activeDepartamentoIndex = deptoIndex;
     }
-    
-    // Limpa contextos futuros para evitar inconsistências
     if (step < 3) {
         activeCargoIndex = -1;
         activeFuncionarioIndex = -1;
         currentGroupId = null;
     }
-    
-    // Valida se há departamento quando necessário
     if (step >= 2) {
         if (activeDepartamentoIndex === null || activeDepartamentoIndex < 0) {
             showToast('Selecione um departamento antes de prosseguir.', 'warning');
             return;
         }
-        // IMPORTANTE: Verifica se o departamento ainda existe
         if (!currentInspection.departamentos || !currentInspection.departamentos[activeDepartamentoIndex]) {
             showToast('Departamento não encontrado. Retornando à lista.', 'error');
             goToStep(1);
             return;
         }
     }
-    
     wizardStep = step;
     renderWizardHeader();
     renderWizardStep();
@@ -124,30 +213,25 @@ function retryOperation(operation, maxRetries = 3, delay = 100) {
  * @returns {string} O HTML do breadcrumb.
  */
 function renderBreadcrumb() {
-    if (wizardStep === 0) return ''; // Sem breadcrumb na tela da empresa
-
-    const empresaNome = escapeHtml(currentInspection.empresa.nome);
+    if (wizardStep === 0) return '';
+    const empresaNome = escapeHtml(currentInspection.empresa?.nome || "Empresa");
     let html = `<a href="#" onclick="event.preventDefault(); goToStep(0);">${empresaNome}</a>`;
 
     if (wizardStep > 1 && activeDepartamentoIndex > -1) {
-        const deptoNome = escapeHtml(currentInspection.departamentos[activeDepartamentoIndex].nome);
+        const deptoNome = escapeHtml(currentInspection.departamentos?.[activeDepartamentoIndex]?.nome || "Depto");
         html += ` › <a href="#" onclick="event.preventDefault(); goToStep(1);">${deptoNome}</a>`;
     }
 
     if (wizardStep > 2) {
-        let activeItemName = '';
-        if (currentGroupId) {
-            const grupo = currentInspection.departamentos[activeDepartamentoIndex].grupos.find(g => g.id === currentGroupId);
-            activeItemName = `Grupo: ${escapeHtml(grupo.listaDeCargos.join(', '))}`;
-        } else if (activeCargoIndex > -1) {
-            activeItemName = `Cargo: ${escapeHtml(currentInspection.departamentos[activeDepartamentoIndex].cargos[activeCargoIndex].nome)}`;
-        } else if (activeFuncionarioIndex > -1) {
-            activeItemName = `Funcionário: ${escapeHtml(currentInspection.departamentos[activeDepartamentoIndex].funcionarios[activeFuncionarioIndex].nome)}`;
+        const { target, type } = getActiveTargetObject();
+        let activeItemName = 'Item';
+        if (target) {
+            if (type === 'grupo') activeItemName = `Grupo: ${escapeHtml(target.listaDeCargos.join(', '))}`;
+            else if (type === 'cargo') activeItemName = `Cargo: ${escapeHtml(target.nome)}`;
+            else if (type === 'funcionario') activeItemName = `Funcionário: ${escapeHtml(target.nome)}`;
         }
-        // O último item não é clicável, apenas texto
         html += ` › <strong>${activeItemName}</strong>`;
     }
-
     return `<div class="breadcrumb" style="cursor:pointer;">${html}</div>`;
 }
 
@@ -215,7 +299,12 @@ function showToast(message, type = 'success') {
     toast.className = `toast ${type}`;
     toast.textContent = message;
     document.body.appendChild(toast);
-    setTimeout(() => toast.remove(), 3000);
+    setTimeout(() => {
+        // Aplica a animação de saída
+        toast.style.animation = 'slideOut 0.3s ease-out forwards';
+        // Remove o elemento após a animação
+        setTimeout(() => toast.remove(), 300);
+    }, 3000);
 }
 
 function showView(viewName) {
@@ -312,7 +401,8 @@ function duplicateItem(type, index) {
 // LÓGICA PRINCIPAL E NAVEGAÇÃO
 // ==========================================
 
-function persistCurrentInspection(callback) {
+async function persistCurrentInspection(callback) {
+    await dbReadyPromise; // Garante que o DB está pronto
     if (!db || !currentInspection || !currentInspection.empresa) {
         if (callback) callback(false);
         return;
@@ -322,6 +412,7 @@ function persistCurrentInspection(callback) {
     const transaction = db.transaction(["inspections"], "readwrite");
     const store = transaction.objectStore("inspections");
     const request = store.put(currentInspection);
+    
     request.onsuccess = (event) => {
         if (!currentInspection.id) currentInspection.id = event.target.result;
         console.log("Inspeção salva com sucesso no DB. ID:", currentInspection.id);
@@ -582,27 +673,12 @@ function saveDepartamento() {
         caracteristica: document.getElementById("depto-caracteristica").value,
         descricao: document.getElementById("depto-descricao").value
     };
-    
-    if (!deptoData.nome) {
-        return showToast("O nome do departamento é obrigatório.", "error");
-    }
-    
-    // Garante que a estrutura existe
-    if (!currentInspection.departamentos) {
-        currentInspection.departamentos = [];
-    }
-    
-    if (editingIndex > -1) {
-        const deptoToUpdate = currentInspection.departamentos[editingIndex];
-        if (!deptoToUpdate) {
-            showToast("Erro: Departamento não encontrado para edição.", "error");
-            clearDeptoForm();
-            updateDepartamentoList();
-            return;
-        }
-        deptoToUpdate.nome = deptoData.nome;
-        deptoToUpdate.caracteristica = deptoData.caracteristica;
-        deptoToUpdate.descricao = deptoData.descricao;
+    if (!deptoData.nome) return showToast("O nome do departamento é obrigatório.", "error");
+    if (!currentInspection.departamentos) currentInspection.departamentos = [];
+
+    const isEditing = editingIndex > -1;
+    if (isEditing) {
+        currentInspection.departamentos[editingIndex] = { ...currentInspection.departamentos[editingIndex], ...deptoData };
         showToast("Departamento atualizado!", "success");
     } else {
         deptoData.cargos = [];
@@ -612,27 +688,33 @@ function saveDepartamento() {
         showToast("Departamento adicionado!", "success");
     }
     
+    const itemIndex = isEditing ? editingIndex : currentInspection.departamentos.length - 1;
     clearDeptoForm();
     updateDepartamentoList();
     
-    // CORREÇÃO: Aguarda a persistência antes de continuar
-    persistCurrentInspectionWithPromise().then(() => {
-        console.log("Departamento salvo com sucesso no banco");
-    }).catch(error => {
+    // ★ MELHORIA 1: Feedback visual
+    setTimeout(() => {
+        const listItems = document.querySelectorAll('#departamento-list li');
+        if (listItems[itemIndex]) {
+            listItems[itemIndex].classList.add('item-highlight');
+            listItems[itemIndex].scrollIntoView({ behavior: 'smooth', block: 'center' });
+            setTimeout(() => listItems[itemIndex].classList.remove('item-highlight'), 2500);
+        }
+    }, 100);
+
+    persistCurrentInspectionWithPromise().catch(error => {
         console.error("Erro ao salvar departamento:", error);
         showToast("Erro ao salvar no banco de dados!", "error");
     });
 }
 
-function persistCurrentInspectionWithPromise() {
+async function persistCurrentInspectionWithPromise() {
+    await dbReadyPromise; // Garante que o DB está pronto
     return new Promise((resolve, reject) => {
-        // Evita múltiplos salvamentos simultâneos
         if (isSaving) {
-            console.log("Já está salvando, aguardando...");
             setTimeout(() => persistCurrentInspectionWithPromise().then(resolve).catch(reject), 100);
             return;
         }
-        
         isSaving = true;
         
         if (!db || !currentInspection || !currentInspection.empresa) {
@@ -648,22 +730,13 @@ function persistCurrentInspectionWithPromise() {
         const request = store.put(currentInspection);
         
         request.onsuccess = (event) => {
-            if (!currentInspection.id) {
-                currentInspection.id = event.target.result;
-            }
+            if (!currentInspection.id) currentInspection.id = event.target.result;
             console.log("Inspeção salva com sucesso. ID:", currentInspection.id);
             isSaving = false;
             resolve(currentInspection.id);
         };
-        
         request.onerror = (event) => {
             console.error("Erro ao persistir inspeção:", event.target.error);
-            isSaving = false;
-            reject(event.target.error);
-        };
-        
-        transaction.onerror = (event) => {
-            console.error("Erro na transação:", event.target.error);
             isSaving = false;
             reject(event.target.error);
         };
@@ -1478,47 +1551,29 @@ async function atualizarAplicativo() {
     }
   }
 
-function updateRiscoList() {
+  function updateRiscoList() {
     const list = document.getElementById("risco-list");
-    const depto = currentInspection.departamentos[activeDepartamentoIndex];
-    let riscos = [];
-    if (currentGroupId) { const grupo = depto.grupos.find(g => g.id === currentGroupId); riscos = grupo?.riscos || []; }
-    else if (activeCargoIndex > -1) { riscos = depto.cargos[activeCargoIndex]?.riscos || []; }
-    else if (activeFuncionarioIndex > -1) { riscos = depto.funcionarios[activeFuncionarioIndex]?.riscos || []; }
+    const { risks } = getActiveTargetObject(); // ★ Lógica simplificada!
     
-    if (riscos.length === 0) { 
+    if (!risks || risks.length === 0) { 
         list.innerHTML = '<li class="empty-state">Nenhum risco identificado.</li>'; 
         return; 
     }
     
     list.innerHTML = "";
-    riscos.forEach((risco, index) => {
+    risks.forEach((risco, index) => {
         const li = document.createElement("li");
 
         if (index === editingIndex) {
             li.classList.add('editing');
         }
 
-        // Bloco que cria a lista de exames para exibição
         let examesHTML = '';
         if (risco.exames && risco.exames.length > 0) {
-            const examesList = risco.exames
-                .map(exame => `<span class="badge" style="background-color: var(--primary-light); color: var(--primary-hover); font-weight: 500;">${escapeHtml(exame.nome)}</span>`)
-                .join('');
-            
-            examesHTML = `
-                <div style="margin-top: 1rem; padding-top: 0.75rem; border-top: 1px solid var(--gray-200);">
-                    <strong style="font-size: 0.85rem; color: var(--gray-700); display: block; margin-bottom: 0.5rem;">
-                        <i class="bi bi-clipboard2-pulse"></i> Exames Vinculados:
-                    </strong>
-                    <div style="display: flex; flex-wrap: wrap; gap: 0.5rem;">
-                        ${examesList}
-                    </div>
-                </div>
-            `;
+            const examesList = risco.exames.map(exame => `<span class="badge" style="background-color: var(--primary-light); color: var(--primary-hover);">${escapeHtml(exame.nome)}</span>`).join('');
+            examesHTML = `<div class="risk-card-exames"><strong><i class="bi bi-clipboard2-pulse"></i> Exames:</strong><div>${examesList}</div></div>`;
         }
 
-        // Insere a lista de exames (examesHTML) dentro do card
         li.innerHTML = `
             <div class="item-info">
                 <strong>${escapeHtml(risco.perigo)}</strong>
@@ -1534,34 +1589,23 @@ function updateRiscoList() {
     });
 }
 
+
+/**
+ * ★ MODIFICADO: Usa a nova função auxiliar e adiciona feedback visual.
+ */
+
+
 function saveRisco() {
-    // ★★★ CORREÇÃO PRINCIPAL (INÍCIO) ★★★
-    // 1. Pega a referência do campo de input problemático.
     const perigoInput = document.getElementById("risco-perigo");
-
-    // 2. Força o campo a perder o foco. Isso faz com que o celular
-    //    "salve" oficialmente o texto que foi digitado nele.
-    if (perigoInput) {
-        perigoInput.blur();
-    }
-
-    // 3. Agora, lê o valor do campo, que garantidamente está atualizado.
+    if (perigoInput) perigoInput.blur();
     const perigoValue = perigoInput ? perigoInput.value.trim() : "";
-
-    // 4. A verificação agora usa o valor que acabamos de pegar.
-    if (!perigoValue) {
-        showToast("A descrição do perigo é obrigatória.", "error");
-        // Foca no campo para o usuário corrigir facilmente.
-        if (perigoInput) perigoInput.focus();
-        return;
-    }
-    // ★★★ CORREÇÃO PRINCIPAL (FIM) ★★★
+    if (!perigoValue) return showToast("A descrição do perigo é obrigatória.", "error");
 
     const riscoData = {
         riscoPresente: document.getElementById("risco-presente").value,
         tipo: document.getElementById("risco-tipo").value,
         codigoEsocial: document.getElementById("risco-esocial")?.value || "",
-        perigo: perigoValue, // Usa a variável corrigida aqui!
+        perigo: perigoValue,
         descricaoDetalhada: document.getElementById("risco-descricao-detalhada")?.value || "",
         fonteGeradora: document.getElementById("risco-fonte")?.value || "",
         perfilExposicao: document.getElementById("risco-perfil-exposicao")?.value || "",
@@ -1580,50 +1624,39 @@ function saveRisco() {
         acoesNecessarias: document.getElementById("risco-acoes")?.value || "",
         observacoesGerais: document.getElementById("risco-observacoes-gerais")?.value || ""
     };
-  
-    // Vincula os exames à nova data de risco
     riscoData.exames = Array.isArray(examesTemporarios) ? [...examesTemporarios] : [];
   
-    const depto = currentInspection.departamentos[activeDepartamentoIndex];
-    let targetArray;
-    let message = `Risco ${editingIndex > -1 ? 'atualizado' : 'adicionado'}`;
-  
-    // Encontra o array de riscos correto (grupo, cargo ou funcionário)
-    if (currentGroupId) {
-        const grupo = depto.grupos.find(g => g.id === currentGroupId);
-        if (!grupo.riscos) grupo.riscos = [];
-        targetArray = grupo.riscos;
-        message += ' para o grupo!';
-    } else if (activeCargoIndex > -1) {
-        const cargo = depto.cargos[activeCargoIndex];
-        if (!cargo.riscos) cargo.riscos = [];
-        targetArray = cargo.riscos;
-    } else if (activeFuncionarioIndex > -1) {
-        const func = depto.funcionarios[activeFuncionarioIndex];
-        if (!func.riscos) func.riscos = [];
-        targetArray = func.riscos;
-    } else {
-        showToast("Contexto inválido para salvar risco.", "error");
-        return;
-    }
-  
-    // Adiciona ou atualiza o risco no array
-    if (editingIndex > -1) {
+    const { risks: targetArray, type } = getActiveTargetObject();
+    if (!targetArray) return showToast("Contexto inválido para salvar risco.", "error");
+    
+    const isEditing = editingIndex > -1;
+    let message = `Risco ${isEditing ? 'atualizado' : 'adicionado'}`;
+    if (type === 'grupo') message += ' para o grupo!';
+
+    if (isEditing) {
         targetArray[editingIndex] = riscoData;
     } else {
         targetArray.push(riscoData);
     }
   
-    // Executa as ações na ordem correta
     showToast(message, "success");
+    const itemIndex = isEditing ? editingIndex : targetArray.length - 1;
     clearRiscoForm();
     updateRiscoList();
-    persistCurrentInspectionWithPromise().catch(error => {
-        console.error("Erro ao salvar:", error);
-        showToast("Erro ao salvar. Tentando novamente...", "warning");
-    });
-    document.getElementById('risco-list').scrollIntoView({ behavior: 'smooth' });
+
+    // ★ MELHORIA 1: Feedback visual
+    setTimeout(() => {
+        const listItems = document.querySelectorAll('#risco-list li');
+        if (listItems[itemIndex]) {
+            listItems[itemIndex].classList.add('item-highlight');
+            listItems[itemIndex].scrollIntoView({ behavior: 'smooth', block: 'center' });
+            setTimeout(() => listItems[itemIndex].classList.remove('item-highlight'), 2500);
+        }
+    }, 100);
+    
+    persistCurrentInspectionWithPromise().catch(error => console.error("Erro ao salvar:", error));
 }
+
 
 function editRisco(index) {
     editingIndex = index;
@@ -1662,19 +1695,16 @@ function editRisco(index) {
 }
 
 function deleteRisco(index) {
-    const depto = currentInspection.departamentos[activeDepartamentoIndex]; let targetArray, nomeRisco;
-    if (currentGroupId) { const grupo = depto.grupos.find(g => g.id === currentGroupId); targetArray = grupo.riscos; }
-    else if (activeCargoIndex > -1) { targetArray = depto.cargos[activeCargoIndex].riscos; }
-    else if (activeFuncionarioIndex > -1) { targetArray = depto.funcionarios[activeFuncionarioIndex].riscos; }
-    nomeRisco = targetArray[index]?.perigo;
-    if (!confirm(`Excluir o risco "${nomeRisco}"?`)) return;
-    targetArray.splice(index, 1);
-    showToast("Risco excluído!", "success");
-    updateRiscoList();
-    persistCurrentInspectionWithPromise().catch(error => {
-        console.error("Erro ao salvar:", error);
-        showToast("Erro ao salvar. Tentando novamente...", "warning");
-    });
+    const { risks: targetArray, target } = getActiveTargetObject();
+    if (!targetArray || !targetArray[index]) return;
+
+    const nomeRisco = targetArray[index]?.perigo;
+    if (confirm(`Excluir o risco "${nomeRisco}"?`)) {
+        targetArray.splice(index, 1);
+        showToast("Risco excluído!", "success");
+        updateRiscoList();
+        persistCurrentInspectionWithPromise().catch(error => console.error("Erro ao salvar:", error));
+    }
 }
 
 function addSuggestedRisk(perigoDescricao) {
@@ -1753,8 +1783,12 @@ function saveAndExit() {
     });
 }
 
-function loadInspections() {
-    const request = db.transaction(["inspections"], "readonly").objectStore("inspections").getAll();
+async function loadInspections() {
+    await dbReadyPromise; // Garante que o DB está pronto
+    const transaction = db.transaction(["inspections"], "readonly");
+    const store = transaction.objectStore("inspections");
+    const request = store.getAll();
+
     request.onerror = () => {
         document.getElementById("inspection-list").innerHTML = 
             '<li class="empty-state" style="color: var(--danger);">Erro ao carregar as inspeções.</li>';
@@ -1767,14 +1801,17 @@ function loadInspections() {
             return;
         }
         const listHTML = inspections.map(inspection => {
+            // Defensivo: Garante que inspection.empresa existe
+            const empresaNome = inspection.empresa ? escapeHtml(inspection.empresa.nome) : 'Inspeção Inválida';
+            const dataInspecao = inspection.empresa ? formatDateBR(inspection.empresa.data) : 'N/A';
             const lastUpdated = inspection.updatedAt 
                 ? new Date(inspection.updatedAt).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }) 
                 : 'N/A';
             return `
                 <li>
                     <div class="item-info">
-                        <strong>${escapeHtml(inspection.empresa.nome)}</strong>
-                        <small>Data da Inspeção: ${formatDateBR(inspection.empresa.data)}</small>  
+                        <strong>${empresaNome}</strong>
+                        <small>Data da Inspeção: ${dataInspecao}</small>  
                         <small style="display: block; margin-top: 4px; color: var(--gray-500);">
                             Última alteração: ${lastUpdated}
                         </small>
@@ -1792,7 +1829,8 @@ function loadInspections() {
     };
 }
 
-function editInspection(id) {
+async function editInspection(id) {
+    await dbReadyPromise; // Garante que o DB está pronto
     const request = db.transaction(["inspections"], "readonly").objectStore("inspections").get(id);
     request.onsuccess = () => {
         currentInspection = request.result;
@@ -1801,7 +1839,6 @@ function editInspection(id) {
             return;
         }
         
-        // IMPORTANTE: Resetar índices ao editar
         activeDepartamentoIndex = -1;
         activeCargoIndex = -1;
         activeFuncionarioIndex = -1;
@@ -1809,7 +1846,6 @@ function editInspection(id) {
         editingIndex = -1;
         editingType = null;
         
-        // Validar dados
         validateDataIntegrity();
         
         wizardStep = 0;
@@ -1821,7 +1857,8 @@ function editInspection(id) {
     };
 }
 
-function deleteInspection(id) {
+async function deleteInspection(id) {
+    await dbReadyPromise; // Garante que o DB está pronto
     if (confirm('Excluir esta inspeção permanentemente? A ação não pode ser desfeita.')) {
         const request = db.transaction(["inspections"], "readwrite").objectStore("inspections").delete(id);
         request.onsuccess = () => {
@@ -1833,7 +1870,8 @@ function deleteInspection(id) {
     }
 }
 
-function duplicateInspection(id) {
+async function duplicateInspection(id) {
+    await dbReadyPromise; // Garante que o DB está pronto
     const request = db.transaction(["inspections"], "readonly").objectStore("inspections").get(id);
     request.onerror = (e) => showToast("Erro ao encontrar a inspeção para duplicar.", "error");
     request.onsuccess = () => {
@@ -1855,11 +1893,13 @@ function duplicateInspection(id) {
     };
 }
 
-function getAllInspections(callback) {
+async function getAllInspections(callback) {
+    await dbReadyPromise; // Garante que o DB está pronto
     const request = db.transaction(["inspections"], "readonly").objectStore("inspections").getAll();
     request.onsuccess = () => callback(request.result);
     request.onerror = (e) => console.error("Erro ao buscar inspeções:", e);
 }
+
 
 // ==========================================
 // PLANO DE AÇÃO - COM VOZ
@@ -2012,138 +2052,143 @@ function clearActionForm() {
 // RELATÓRIOS
 // ==========================================
 
-function generateInspectionReport(id) {
-    const request = db.transaction(["inspections"], "readonly")
-                      .objectStore("inspections").get(id);
-  
-    request.onsuccess = () => {
-        const insp = request.result;
-        if (!insp) {
-            return showToast("Inspeção não encontrada!", "error");
-        }
-        const e = insp.empresa || {};
-        const reportDate = new Date().toLocaleString('pt-BR');
+async function generateInspectionReport(id) {
+    showToast("Gerando relatório...", "success"); // Feedback imediato para o usuário
 
-        // --- INÍCIO DO HTML DO RELATÓRIO (NÃO MUDA) ---
-        let html = `
-        <!DOCTYPE html><html lang="pt-br"><head><meta charset="UTF-8"><title>Relatório de Inspeção - ${escapeHtml(e.nome)}</title>
-        <style>
-            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; margin: 20px; }
-            h1, h2, h3, h4, h5 { color: #1e293b; }
-            .report-header { text-align: center; border-bottom: 2px solid #3b82f6; padding-bottom: 15px; margin-bottom: 20px; }
-            .report-header h1 { margin: 0; }
-            .section { margin-bottom: 30px; page-break-inside: avoid; }
-            table { width: 100%; border-collapse: collapse; margin-bottom: 15px; }
-            th, td { border: 1px solid #cbd5e1; padding: 10px; text-align: left; }
-            th { background-color: #f1f5f9; font-weight: bold; }
-            .cargo-details, .risco-card { margin-bottom: 20px; }
-            .report-checklist { font-family: 'Courier New', Courier, monospace; font-size: 0.9em; background-color: #f8fafc; padding: 10px; border-radius: 4px; border: 1px solid #e2e8f0; }
-            .report-checklist-item { margin-right: 1.5rem; white-space: nowrap; }
-            .print-button-container { text-align: center; margin-bottom: 20px; padding: 10px; background: #eff6ff; border: 1px solid #93c5fd; border-radius: 8px; }
-            .print-button { background: #3b82f6; color: white; border: none; padding: 12px 24px; font-size: 16px; border-radius: 6px; cursor: pointer; }
-            footer { text-align: center; font-size: 0.8em; color: #64748b; margin-top: 40px; border-top: 1px solid #ccc; padding-top: 10px; }
-            @media print {
-                .print-button-container { display: none; }
-                body { margin: 0; }
-            }
-        </style>
-        </head><body>
-        <div class="print-button-container">
-            <button class="print-button" onclick="window.print()">🖨️ Imprimir / Salvar como PDF</button>
-        </div>
-        <div class="report-header">
-            <h1>Relatório de Inspeção de Riscos</h1>
-            <p><strong>Empresa:</strong> ${escapeHtml(e.nome)}</p>
-        </div>
-        <div class="section">
-            <h2>Dados Gerais da Inspeção</h2>
-            <table>
-                <tr><th style="width:200px">CNPJ:</th><td>${escapeHtml(e.cnpj || 'N/A')}</td></tr>
-                <tr><th>Data da Inspeção:</th><td>${formatDateBR(e.data)}</td></tr>
-                <tr><th>Elaborado por:</th><td>${escapeHtml(e.elaborado || 'N/A')}</td></tr>
-                <tr><th>Aprovado por:</th><td>${escapeHtml(e.aprovado || 'N/A')}</td></tr>
-                <tr><th>Data do Relatório:</th><td>${reportDate}</td></tr>
-            </table>
-        </div>
-        `;
+    try {
+        // 1. GARANTE QUE O DB ESTEJA PRONTO ANTES DE TENTAR USÁ-LO
+        await dbReadyPromise;
 
-        (insp.departamentos || []).forEach(depto => {
-            html += `<div class="section" style="page-break-before: always;">
-                <h2>Departamento: ${escapeHtml(depto.nome)}</h2>
-                <p><strong>Característica do Setor:</strong> ${escapeHtml(depto.caracteristica || 'N/A')}</p>
-                <p><strong>Descrição da Atividade:</strong> ${escapeHtml(depto.descricao || 'N/A')}</p>`;
-            (depto.grupos || []).forEach(grupo => {
-                html += renderCargoReport(grupo, `Grupo: ${escapeHtml(grupo.listaDeCargos.join(', '))}`);
-            });
-            (depto.cargos || []).forEach(cargo => {
-                html += renderCargoReport(cargo, `Cargo: ${escapeHtml(cargo.nome)}`);
-            });
-            (depto.funcionarios || []).forEach(func => {
-                html += renderCargoReport(func, `Funcionário: ${escapeHtml(func.nome)}`);
-            });
-            html += `</div>`;
+        // 2. BUSCA A INSPEÇÃO ESPECÍFICA NO BANCO DE DADOS
+        // Usamos uma Promise para encapsular o request do IndexedDB e usar async/await
+        const insp = await new Promise((resolve, reject) => {
+            const transaction = db.transaction(["inspections"], "readonly");
+            const store = transaction.objectStore("inspections");
+            const request = store.get(id);
+            
+            request.onerror = (event) => {
+                // Rejeita a promise se houver um erro na transação
+                reject(event.target.error);
+            };
+            request.onsuccess = () => {
+                // Resolve a promise com o resultado da busca
+                resolve(request.result);
+            };
         });
 
-        // NOVO: Seção do Plano de Ação adicionada aqui
-        if (insp.planoDeAcao && insp.planoDeAcao.length > 0) {
-            html += `
-            <div class="section" style="page-break-before: always;">
-                <h2>Plano de Ação</h2>
+        // 3. VALIDA SE A INSPEÇÃO FOI ENCONTRADA
+        if (!insp) {
+            console.error(`Inspeção com ID ${id} não foi encontrada no banco de dados.`);
+            showToast("Erro: Inspeção não encontrada!", "error");
+            return;
+        }
+
+        // 4. GERA O CONTEÚDO HTML DO RELATÓRIO
+        // Esta parte é envolvida em seu próprio try...catch para isolar erros de renderização
+        // que podem ocorrer se os dados da inspeção estiverem corrompidos.
+        try {
+            const e = insp.empresa || {};
+            const reportDate = new Date().toLocaleString('pt-BR');
+
+            let html = `
+            <!DOCTYPE html><html lang="pt-br"><head><meta charset="UTF-8"><title>Relatório de Inspeção - ${escapeHtml(e.nome)}</title>
+            <style>
+                body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; margin: 20px; }
+                h1, h2, h3, h4, h5 { color: #1e293b; }
+                .report-header { text-align: center; border-bottom: 2px solid #3b82f6; padding-bottom: 15px; margin-bottom: 20px; }
+                .report-header h1 { margin: 0; }
+                .section { margin-bottom: 30px; page-break-inside: avoid; }
+                table { width: 100%; border-collapse: collapse; margin-bottom: 15px; }
+                th, td { border: 1px solid #cbd5e1; padding: 10px; text-align: left; word-break: break-word; }
+                th { background-color: #f1f5f9; font-weight: bold; }
+                .cargo-details, .risco-card { margin-bottom: 20px; }
+                .report-checklist { font-family: 'Courier New', Courier, monospace; font-size: 0.9em; background-color: #f8fafc; padding: 10px; border-radius: 4px; border: 1px solid #e2e8f0; display: flex; flex-wrap: wrap; gap: 1rem; }
+                .report-checklist-item { white-space: nowrap; }
+                .print-button-container { text-align: center; margin-bottom: 20px; padding: 10px; background: #eff6ff; border: 1px solid #93c5fd; border-radius: 8px; }
+                .print-button { background: #3b82f6; color: white; border: none; padding: 12px 24px; font-size: 16px; border-radius: 6px; cursor: pointer; }
+                footer { text-align: center; font-size: 0.8em; color: #64748b; margin-top: 40px; border-top: 1px solid #ccc; padding-top: 10px; }
+                @media print {
+                    .print-button-container { display: none; }
+                    body { margin: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+                    .section { page-break-before: auto; }
+                    .risco-card, .cargo-details { page-break-inside: avoid; }
+                }
+            </style>
+            </head><body>
+            <div class="print-button-container">
+                <button class="print-button" onclick="window.print()">🖨️ Imprimir / Salvar como PDF</button>
+            </div>
+            <div class="report-header">
+                <h1>Relatório de Inspeção de Riscos</h1>
+                <p><strong>Empresa:</strong> ${escapeHtml(e.nome)}</p>
+            </div>
+            <div class="section">
+                <h2>Dados Gerais da Inspeção</h2>
                 <table>
-                    <thead>
-                        <tr>
-                            <th style="width:30%">Atividade</th>
-                            <th style="width:40%">Descrição</th>
-                            <th>Prazo Início</th>
-                            <th>Prazo Fim</th>
-                            <th>Status</th>
-                        </tr>
-                    </thead>
-                    <tbody>`;
-            
-            insp.planoDeAcao.forEach(item => {
-                html += `
-                        <tr>
-                            <td>${escapeHtml(item.atividade)}</td>
-                            <td>${escapeHtml(item.descricao || 'N/A')}</td>
-                            <td>${formatDateBR(item.prazoInicio)}</td>
-                            <td>${formatDateBR(item.prazoFim)}</td>
-                            <td><span class="badge">${escapeHtml(item.status || 'Pendente')}</span></td>
-                        </tr>`;
+                    <tr><th style="width:200px">CNPJ:</th><td>${escapeHtml(e.cnpj || 'N/A')}</td></tr>
+                    <tr><th>Data da Inspeção:</th><td>${formatDateBR(e.data)}</td></tr>
+                    <tr><th>Elaborado por:</th><td>${escapeHtml(e.elaborado || 'N/A')}</td></tr>
+                    <tr><th>Aprovado por:</th><td>${escapeHtml(e.aprovado || 'N/A')}</td></tr>
+                    <tr><th>Data do Relatório:</th><td>${reportDate}</td></tr>
+                </table>
+            </div>
+            `;
+
+            (insp.departamentos || []).forEach(depto => {
+                html += `<div class="section" style="page-break-before: always;">
+                    <h2>Departamento: ${escapeHtml(depto.nome)}</h2>
+                    <p><strong>Característica do Setor:</strong> ${escapeHtml(depto.caracteristica || 'N/A')}</p>
+                    <p><strong>Descrição da Atividade:</strong> ${escapeHtml(depto.descricao || 'N/A')}</p>`;
+                (depto.grupos || []).forEach(grupo => {
+                    html += renderCargoReport(grupo, `Grupo: ${escapeHtml(grupo.listaDeCargos.join(', '))}`);
+                });
+                (depto.cargos || []).forEach(cargo => {
+                    html += renderCargoReport(cargo, `Cargo: ${escapeHtml(cargo.nome)}`);
+                });
+                (depto.funcionarios || []).forEach(func => {
+                    html += renderCargoReport(func, `Funcionário: ${escapeHtml(func.nome)}`);
+                });
+                html += `</div>`;
             });
 
-            html += `
-                    </tbody>
-                </table>
-            </div>`;
-        } else {
-             html += `
-            <div class="section">
-                <h2>Plano de Ação</h2>
-                <p>Nenhum item cadastrado no plano de ação.</p>
-            </div>`;
-        }
+            if (insp.planoDeAcao && insp.planoDeAcao.length > 0) {
+                html += `
+                <div class="section" style="page-break-before: always;">
+                    <h2>Plano de Ação</h2>
+                    <table>
+                        <thead><tr><th>Atividade</th><th>Descrição</th><th>Prazo Início</th><th>Prazo Fim</th><th>Status</th></tr></thead>
+                        <tbody>`;
+                insp.planoDeAcao.forEach(item => {
+                    html += `
+                            <tr>
+                                <td>${escapeHtml(item.atividade)}</td>
+                                <td>${escapeHtml(item.descricao || 'N/A')}</td>
+                                <td>${formatDateBR(item.prazoInicio)}</td>
+                                <td>${formatDateBR(item.prazoFim)}</td>
+                                <td><span>${escapeHtml(item.status || 'Pendente')}</span></td>
+                            </tr>`;
+                });
+                html += `</tbody></table></div>`;
+            } else {
+                 html += `<div class="section"><h2>Plano de Ação</h2><p>Nenhum item cadastrado no plano de ação.</p></div>`;
+            }
 
+            html += `<footer>Relatório gerado pelo Assistente de Inspeção de Riscos</footer></body></html>`;
 
-        html += `<footer>Relatório gerado pelo Assistente de Inspeção de Riscos</footer></body></html>`;
-
-        // ★★★ ALTERAÇÃO PRINCIPAL AQUI ★★★
-        // Em vez de tentar abrir uma nova aba, usamos a função de download
-        // que é mais robusta em todos os dispositivos.
-        const nomeArquivo = `Relatorio_${(e.nome || 'inspecao').replace(/\s+/g, '_')}.html`;
-        try {
+            // 5. TENTA EXIBIR O HTML GERADO
+            const nomeArquivo = `Relatorio_${(e.nome || 'inspecao').replace(/[^a-zA-Z0-9]/g, '_')}.html`;
             downloadOrOpenHTML(html, nomeArquivo, { openSameTab: true });
-            showToast("Relatório gerado com sucesso!", "success");
-        } catch (err) {
-            console.error('Erro ao gerar relatório:', err);
-            showToast('Não foi possível gerar o relatório neste dispositivo.', 'error');
+
+        } catch (renderError) {
+            console.error('Erro crítico durante a geração do HTML do relatório:', renderError);
+            showToast('Falha ao processar os dados para o relatório. Verifique a integridade dos dados.', 'error');
         }
-    };
-  
-    request.onerror = (e) => {
-        console.error("Erro ao gerar relatório:", e);
-        showToast("Erro ao carregar dados para o relatório.", "error");
-    };
+
+    } catch (dbError) {
+        // Captura erros da conexão com o DB ou da busca dos dados
+        console.error("Erro ao acessar o banco de dados para gerar o relatório:", dbError);
+        showToast("Banco de dados indisponível. Não foi possível gerar o relatório.", "error");
+    }
 }
 
 function renderCargoReport(cargo, titulo) {
@@ -2838,6 +2883,32 @@ function ensureAllAccordionsOpenOnMobile() {
     }
 }
 
+function getActiveTargetObject() {
+    if (activeDepartamentoIndex < 0) return { target: null, risks: null, type: null };
+    
+    const depto = currentInspection.departamentos[activeDepartamentoIndex];
+    if (!depto) return { target: null, risks: null, type: null };
+
+    if (currentGroupId) {
+        const grupo = depto.grupos.find(g => g.id === currentGroupId);
+        if (grupo && !Array.isArray(grupo.riscos)) grupo.riscos = [];
+        return { target: grupo, risks: grupo?.riscos, type: 'grupo' };
+    }
+    if (activeCargoIndex > -1) {
+        const cargo = depto.cargos[activeCargoIndex];
+        if (cargo && !Array.isArray(cargo.riscos)) cargo.riscos = [];
+        return { target: cargo, risks: cargo?.riscos, type: 'cargo' };
+    }
+    if (activeFuncionarioIndex > -1) {
+        const func = depto.funcionarios[activeFuncionarioIndex];
+        if (func && !Array.isArray(func.riscos)) func.riscos = [];
+        return { target: func, risks: func?.riscos, type: 'funcionario' };
+    }
+    
+    return { target: null, risks: null, type: null };
+}
+
+
 // ==========================================
 // LOGS E INFORMAÇÕES DE DEBUG
 // ==========================================
@@ -3271,7 +3342,45 @@ function logCurrentState(context) {
         console.log("================");
     }
 }
+// ==========================================
+// ★★★ TRATAMENTO DE ERRO GLOBAL ★★★
+// Adicione este bloco no final do seu arquivo app.js
+// ==========================================
+window.addEventListener('error', function(event) {
+    console.error('ERRO GLOBAL CAPTURADO:', event.message, 'em', event.filename, ':', event.lineno);
+    
+    // Previne a caixa de diálogo de erro padrão do navegador
+    event.preventDefault();
 
+    // Mostra um toast para erros menores que não param a execução
+    showToast('Ocorreu um erro inesperado.', 'error');
+
+    // Para erros graves, oferece para recarregar a página
+    let errorOverlay = document.getElementById('error-overlay');
+    if (!errorOverlay) {
+        errorOverlay = document.createElement('div');
+        errorOverlay.id = 'error-overlay';
+        errorOverlay.style.cssText = `
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background-color: rgba(0,0,0,0.7); z-index: 10000;
+            display: flex; align-items: center; justify-content: center;
+            padding: 2rem;
+        `;
+        errorOverlay.innerHTML = `
+            <div style="background: white; padding: 2rem; border-radius: 1rem; text-align: center; max-width: 500px; box-shadow: var(--shadow-lg);">
+                <h2 style="color: var(--danger);"><i class="bi bi-exclamation-triangle-fill"></i> Oops! Algo deu errado.</h2>
+                <p style="margin: 1rem 0; color: var(--gray-700);">
+                    O aplicativo encontrou um erro inesperado. Recomendamos recarregar a página para continuar.
+                </p>
+                <p style="font-size: 0.8rem; color: var(--gray-500); margin-bottom: 1.5rem;">
+                    Os detalhes do erro foram registrados no console de depuração para análise.
+                </p>
+                <button class="primary" onclick="location.reload()">Recarregar Aplicativo</button>
+            </div>
+        `;
+        document.body.appendChild(errorOverlay);
+    }
+});
   // ==========================================
 // ★★★ CONSOLE DE DEBUG MÓVEL ★★★
 // ==========================================

@@ -235,7 +235,23 @@
             0%, 100% { transform: scale(1); }
             50% { transform: scale(1.1); }
         }
-        
+        @keyframes highlight-fade {
+            from { background-color: var(--primary-light); }
+            to { background-color: white; }
+        }
+        .item-list li.item-highlight {
+            animation: highlight-fade 2.5s ease-out;
+            border-left-color: var(--primary-hover);
+        }
+        /* Animação para o toast desaparecer */
+        @keyframes slideOut { 
+            from { transform: translateX(0); opacity: 1; } 
+            to { transform: translateX(100%); opacity: 0; } 
+        }
+        .toast {
+         /* ... seus estilos existentes ... */
+         transition: transform 0.3s ease-out, opacity 0.3s ease-out;
+        }
         @keyframes slideInUp {
             from { 
                 transform: translateY(20px);
